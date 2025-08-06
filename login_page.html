@@ -1,0 +1,715 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+ <head>
+  <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
+  <link href="/favicon.ico" rel="shortcut icon" type="image/ico"/>
+  <script src="jscripts/jquery-1.4.2.js" type="text/javascript">
+  </script>
+  <script src="jscripts/home.js" type="text/javascript">
+  </script>
+  <script src="jscripts/ddaccordion.js" type="text/javascript">
+  </script>
+  <script src="jscripts/jquery-1.2.2.pack.js" type="text/javascript">
+  </script>
+  <script src="jscripts/ssame.js" type="text/javascript">
+  </script>
+  <script src="jscripts/conf.js" type="text/javascript">
+  </script>
+  <script src="jscripts/login.js" type="text/javascript">
+  </script>
+  <script src="jscripts/jquery.ui.js" type="text/javascript">
+  </script>
+  <script src="jscripts/jquery.form.js" type="text/javascript">
+  </script>
+  <script src="jscripts/jquery.calendar.js" type="text/javascript">
+  </script>
+  <script src="jscripts/jquery.asmselect.js" type="text/javascript">
+  </script>
+ </head>
+ <body>
+  <!DOCTYPE html>
+  <html lang="en">
+   <head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type"/>
+    <meta charset="utf-8"/>
+    <meta content="IE=edge" http-equiv="X-UA-Compatible"/>
+    <meta content="width=device-width, initial-scale=1" name="viewport"/>
+    <meta content="Prefeitura Rio | SMS-ATI | Prontuario Carioca" name="description"/>
+    <meta content="LibreMed Opensource" name="author"/>
+    <meta content="#c5e0fc" name="theme-color">
+     <title>
+      Prontuário Eletronico
+     </title>
+     <link href="css/bootstrap.css" rel="stylesheet"/>
+     <link href="css/simple-sidebar.css" rel="stylesheet"/>
+     <link href="css/font-awesome.css" rel="stylesheet"/>
+     <link href="css/bootstrap-dialog.css" rel="stylesheet"/>
+     <link href="css/home-nav.css" rel="stylesheet"/>
+     <style>
+      #area_map {   
+		    height: 659px !important;
+		}
+		.disableArea { pointer-events: none; filter: alpha(opacity=100); -moz-opacity: 1; -khtml-opacity: 1; opacity: .2; z-index: 1010; }
+		#over_map { position: absolute; top: 105px; left: 5px; z-index: 99; }
+		#load_div { position: absolute; top: 100px; width: 100%; z-index: 99; }
+		.form-nobreak {
+			height: 34px;
+			padding: 6px 12px;
+			font-size: 14px;
+			line-height: 1.42857143;
+			color: #555;
+			background-color: #fff;
+			background-image: none;
+			border: 1px solid #ccc;
+			border-radius: 4px;
+			-webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, .075);
+			        box-shadow: inset 0 1px 1px rgba(0, 0, 0, .075);
+			-webkit-transition: border-color ease-in-out .15s, -webkit-box-shadow ease-in-out .15s;
+			       -o-transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
+			          transition: border-color ease-in-out .15s, box-shadow ease-in-out .15s;
+		}	
+		.form-nobreak[disabled],
+		.form-nobreak[readonly],
+		fieldset[disabled] .form-nobreak {
+	  		background-color: #eee;
+	  		opacity: 1;
+		}	
+	  	#banner {
+		    position: fixed;        
+		    left: 0px;
+		    height: 58px;
+		    width: 180px;
+		    padding: 10px 5px;
+		    text-align: left;
+		    background-color: #c5e0fc;
+		    border: 2px solid #003366;
+			top: 0px;
+		}
+     </style>
+     <!-- jQuery -->
+     <script src="js/jquery.js">
+     </script>
+     <script src="js/jquery.mask.js">
+     </script>
+     <script src="js/bootstrap.js">
+     </script>
+     <script src="js/bootstrap-dialog.js">
+     </script>
+     <script src="jscripts/ajaxfileupload.js" type="text/javascript">
+     </script>
+     <script src="js/actionMvsi.js">
+     </script>
+     <script src="jscripts/funcoes.js" type="text/javascript">
+     </script>
+     <script src="jscripts/sweetalert.js">
+     </script>
+     <link href="css/sweetalert.css" rel="stylesheet"/>
+     <script type="text/javascript">
+      var LOCAL_BASE = "https://hicd-hospub.sesau.ro.gov.br/prontuario/";
+	   	var LOCAL_WEB = "https://hicd-hospub.sesau.ro.gov.br/prontuario/frontend/";
+	   	var LOCAL_ADM = "https://hicd-hospub.sesau.ro.gov.br/sah/";
+	   	var LOCAL_GST = "https://hicd-hospub.sesau.ro.gov.br/sah/";
+	   	var LOCAL_GST_WEB = "https://hicd-hospub.sesau.ro.gov.br/sah/";
+	   	var LOCALWEB_HOME = LOCAL_WEB;
+	   	var OPEN_OR_CLOSE = "0";
+	   	var TITLE_APP = "Prontu&aacute;rio Eletronico";
+		var BOX_TITLE_COLOR = "BootstrapDialog.TYPE_PRIMARY"; 
+		var LEVEL = "{user_level}";;
+		var USER_MAIL = "{user_mail}";
+		var OPEN_OR_CLOSE = "0";					// 1=Open, 0=Close (Menu)
+		var DISP_TYPE = "{disp_type}";
+		var SHW_MNU = 0;
+	   	var SEEK_FROM_MAP = "";
+	   	var BACK_FROM_MAP = "";
+	   	var ITEM_FROM_MAP = "";	
+	
+		function mv_loadMenu() {					// Funcao para ser chamado pelo ANDROID - cabecalho INIBIDO
+			$("#menu-toggle").trigger('click');
+		}
+		function goMainMenu() {
+			window.location = LOCAL_ADM + "core/menu";
+		}	
+		function logoutSystem() {
+			window.location = LOCAL_ADM + "core/logout";
+		}	
+		function goTop() {
+			$('html,body').scrollTop(0);
+		}	
+		function goPage(Menu,ParamModule,page) {
+			var params  = "Param="+Menu;
+			params += "&ParamModule="+ParamModule;
+			params += "&page="+page;
+			$.ajax({
+				type: "POST",
+				url: OPV_WebPlugin+"controller/controller.php",
+				data: params,
+				success: function(data){
+					$("#cont-col").html(data);
+				}
+			});
+		}		
+		function dm_logout() {
+		    BootstrapDialog.show({
+		        title: 'Sair realmente do '+TITLE_APP,
+		        message: 'Escolha uma das op&ccedil;&otilde;es:',
+		        buttons: [{
+		            label: 'N&atilde;o',
+		            action: function(dialog) {
+		                //dialog.setMessage('Message 1');
+		                dialog.close();
+		            }
+		        }, {
+		            label: 'Sim',
+		            action: function(dialog) {
+		                //dialog.setMessage('Message 2');
+		                //sair();
+		            	logoutSystem();
+		            }
+		        }]
+		    });
+		}
+		function setDimensionApp() {
+			$("#appWidth").val($(document).width());
+			var getw = $(document).width();
+			var margem = parseInt(getw)-180;
+			$("#banner").css('margin-left',margem+'px');
+		}
+	    function ajustHeightMenu() {
+	    	if ($("#sidebar-wrapper").height() > $("#wrapper").height()) {
+	        	var newH = parseInt($("#sidebar-wrapper").height()) + 1;
+	    		$('#contentcolumn').css('min-height', newH+'px');
+	    		$('#sidebar-wrapper').css('min-height', newH+'0px'); // johny alterou os valores.scroll infinito esta com 360px
+	    	}
+	    }
+		function setActualItemMenu(item) {			// Atualiza classe de realce do MENU  ------------------------------------------------------------------
+	    	//$("#debug-topo").html("0: wrapper / window / sidebar-wrapper: " + $("#wrapper").height() + " / " + $(window).height() + " / " + $("#sidebar-wrapper").height())
+			//alert(item);
+	    	if ($("#wrapper").height() > $(window).height()) {
+	    		$("#sidebar-wrapper").height($("#wrapper").height());
+	    	}
+	   		var actual = $("#mnu_atual").val();
+	    	$("#liMnu"+actual).removeClass("active");
+	    	$("#liMnu"+item).addClass("active");
+	    	$("#mnu_atual").val(item);
+	    	goTop();
+		}	
+	    function dm_error(msg) {
+	        var dialogInstance2 = new BootstrapDialog();
+	        dialogInstance2.setTitle("Aten&ccedil;&atilde;o");
+	        dialogInstance2.setMessage(msg);
+	        dialogInstance2.setType(BootstrapDialog.TYPE_DANGER);
+	        dialogInstance2.open(); 
+	    }
+		function dm_message(title, msg) {
+			var color = BOX_TITLE_COLOR;
+			if (title=="Erro") {
+				color = BootstrapDialog.TYPE_DANGER
+			}
+		    BootstrapDialog.show({
+		        title: title,
+		        type: color,
+		        message: msg,
+		        buttons: [{
+		            label: 'Ok',
+		            action: function(dialog) {
+		        		dialog.close();
+		            }
+		        }]
+		    });
+	    }
+		function dm_question(tit, msg, action) {
+		    BootstrapDialog.show({
+		        title: tit,
+		        type: BOX_TITLE_COLOR,
+		        message: msg,
+		        buttons: [{
+		            label: 'N&atilde;o',
+		            action: function(dialog) {
+		                //dialog.setMessage('Message 1');
+		        		dialog.close();
+		            }
+		        }, {
+		            label: 'Sim',
+		            action: function(dialog) {
+		                //dialog.setMessage('Message 2');
+		        		eval(action);
+		        		dialog.close();
+		            }
+		        }]
+		    });
+		}
+		function dm_message_foco(tit, msg, foco) {
+			var color = BOX_TITLE_COLOR;
+			if (tit=="Erro") {
+				color = BootstrapDialog.TYPE_DANGER
+			}
+		    BootstrapDialog.show({
+		        title: tit,
+		        type: color,
+		        message: msg,
+		        buttons: [{
+		            label: 'Ok',
+		            action: function(dialog) {
+		                //dialog.setMessage('Message 1');
+		        		dialog.close();
+		                eval(foco);
+		            }
+		        }]
+		    });
+		}
+		function daj_runJS(funcao) {		// Testa sessao e se OK executa ACAO
+			$.ajax({
+				type: "POST",
+				url: LOCAL_WEB+"controller/checkSession.php",
+				data: "",
+				success: function(data){
+					var cod = data.split("|");
+					if (cod[1]=="nok") {
+						alert("Sessao encerrada por inatividade!")
+						logoutSystem();
+					} else {
+						eval(funcao);
+					}
+					//------------------------------------------------------------------------
+				},
+				error: function (data, status, e){
+					alert("Erro ao procesar requisicao");
+				}			
+			});
+		}	    
+		function azj_doCommand(Menu,ParamModule,file){
+	    	hideMe();
+	    	azj_doCommandKey(Menu,ParamModule,file,"","");
+	    }
+		function azj_doCommandColor(Menu,ParamModule,color){
+	    	hideMe();
+	    	azj_doCommandKey(Menu,ParamModule,"","",color);
+	    }
+		function azj_doCommandKey(Menu,ParamModule,file,key,color){
+			var uv_siteLoad = "";
+			var params = "Param="+Menu+"&ParamModule="+ParamModule;
+			params += key;
+			if (file!="") {
+				uv_siteLoad = file; 
+			} else {
+				uv_siteLoad = "controller/controller.php";
+			}
+			//$("#cont-col").html(uv_siteLoad + " - " + params);
+			//alert(uv_siteLoad + " - " + params);
+			$.ajax({
+				type: "POST",
+				url: LOCAL_WEB + uv_siteLoad,
+				data: params,
+				success: function(data){
+					if ($("#bkgcolor").val()!="#fff" && color=="") {
+						$("#bkgcolor").val("#fff");
+						$("#wrapper").css("background","#fff");
+					} else if (color!="") {
+						$("#bkgcolor").val(color);
+						$("#wrapper").css("background",color);
+					}
+					$("#wrapper").html(data);
+				},
+		        error: function (data, status, e){
+		            //alert("Erro: "+e);
+					alert("Sessao encerrada por inatividade!")
+					logoutSystem();
+				}
+			});
+		}
+		function loadUrl(url, type) {
+			if (type=="A") {
+				url = LOCAL_ADM + url;
+			} else if (type=="P") {
+				url = LOCAL_BASE + url;
+			}
+			document.forms["callUrl"].action = url;
+			document.forms["callUrl"].submit();
+		}
+     </script>
+    </meta>
+   </head>
+   <div id="bs_navToPage" style="display:none;">
+   </div>
+   <div id="over_map" style="display:none;">
+    <div style="margin-top:4px; margin-left:5px; margin-right:5px;">
+     <button class="btn-xs btn-success" onclick="backFromMap();" style="height:30px; width:90px; text-align:left;" type="reset">
+      <i class="fa fa-long-arrow-left fa-fw">
+      </i>
+      Listar
+     </button>
+     <div style="margin-top:5px;">
+      <button class="btn-xs btn-success" onclick="newSeek();" style="height:30px; width:90px; text-align:left;" type="reset">
+       <i class="fa fa-search fa-fw">
+       </i>
+       Pesquisar
+      </button>
+     </div>
+     <div style="margin-top:5px;">
+      <button class="btn-xs btn-success" onclick="alert('Em desenvolvimento');" style="height:30px; width:90px; text-align:left;" type="reset">
+       <i class="fa fa-map-marker fa-fw">
+       </i>
+       Rota
+      </button>
+     </div>
+    </div>
+   </div>
+   <body id="myBody">
+    <div id="fullArea">
+     <nav class="navbar navbar-default no-margin" style="background-color:#c5e0fc;display:">
+      <!-- Brand and toggle get grouped for better mobile display -->
+      <div class="navbar-header fixed-brand">
+       <button class="navbar-toggle" data-toggle="collapse" id="menu-toggle" type="button">
+        <span aria-hidden="true" class="glyphicon glyphicon-th-large">
+        </span>
+       </button>
+       <a class="navbar-brand" href="javascript:goTop();" onclick="dm_logout();" style="color:#000000; size:14px; display:none;" title="Sair do Prontuário Eletronico">
+        <i class="fa fa-power-off fa-fw">
+        </i>
+        LibreMed
+       </a>
+       <div style="height:55px;margin-top:2px;display:">
+        <a href="#" onclick="dm_logout();" title="Sair do Prontuário Eletronico">
+         <img src="https://hicd-hospub.sesau.ro.gov.br/prontuario/frontend/images/logo_hicd.png" style="margin-left:10px;"/>
+        </a>
+       </div>
+      </div>
+      <!-- navbar-header-->
+      <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+       <ul class="nav navbar-nav">
+        <li class="active">
+         <button class="navbar-toggle collapse in" data-toggle="collapse" id="menu-toggle-2">
+          <span aria-hidden="true" class="glyphicon glyphicon-th-large">
+          </span>
+         </button>
+        </li>
+       </ul>
+       <span id="debug-topo" style="display:none;">
+        AREA DE DEBUG
+       </span>
+      </div>
+      <!-- bs-example-navbar-collapse-1 -->
+     </nav>
+     <input id="mnu_atual" name="mnu_atual" type="hidden" value="SYSTEMPRINCIPAL"/>
+     <input id="bkgcolor" name="bkgcolor" type="hidden" value="#fff"/>
+     <input id="appWidth" name="appWidth" type="hidden" value=""/>
+     <input id="lm_userName" name="lm_userName" type="hidden" value="QW7DtG5pbW8="/>
+     <input id="lm_userInsc" name="lm_userInsc" type="hidden" value=""/>
+     <input id="lm_userConsel" name="lm_userConsel" type="hidden" value=""/>
+     <input id="lm_cpf" name="lm_cpf" type="hidden" value=""/>
+     <div style="display:none;">
+      <form action="" id="callUrl" method="post" name="callUrl" target="_blank">
+       <input id="Param" name="Param" type="text" value="">
+        <input id="ParamModule" name="ParamModule" type="text" value="">
+         <input id="oper" name="oper" type="text" value="">
+          <input id="type" name="type" type="text" value="">
+           <input id="selOrdem" name="selOrdem" type="text" value="">
+            <input id="repoFld1" name="repoFld1" type="text" value="">
+             <input id="repoFld2" name="repoFld2" type="text" value="">
+              <input id="repoFld3" name="repoFld3" type="text" value=""/>
+              <input id="repoFld4" name="repoFld4" type="text" value=""/>
+              <input id="repoFld5" name="repoFld5" type="text" value=""/>
+              <input id="repoFld6" name="repoFld6" type="text" value=""/>
+              <input type="submit" value="ok"/>
+             </input>
+            </input>
+           </input>
+          </input>
+         </input>
+        </input>
+       </input>
+      </form>
+     </div>
+     <div id="area_map" style="display:none;">
+     </div>
+     <div class="toggled-1" id="wrapper">
+      <!-- class="": MENU VISIVEL, class="toggled-2": MENU RECOLHIDO -->
+      <!-- Sidebar -->
+      <div id="sidebar-wrapper" style="background-color:#003366">
+       <ul class="sidebar-nav nav-pills nav-stacked" id="menu">
+        <li class="" id="liMnuSYSTEMPRINCIPAL">
+         <a href="#" onclick="getMenu('SYSTEM','PRINCIPAL')">
+          <span class="fa-stack fa-lg pull-left">
+           <i class="fa fa-home fa-stack-1x">
+           </i>
+          </span>
+          Home
+         </a>
+        </li>
+        <li class="" id="liMnuPRESC7777">
+         <a href="#PRESC#7777" onclick="getMenu('PRESC','7777')">
+          <span class="fa-stack fa-lg pull-left">
+           <i class="fa fa-stethoscope fa-stack-1x">
+           </i>
+          </span>
+          Criar Evento Adverso
+         </a>
+        </li>
+        <li class="" id="liMnuMANOP5661">
+         <a href="#MANOP#5661">
+          <span class="fa-stack fa-lg pull-left">
+           <i class="fa fa-file-o fa-stack-1x">
+           </i>
+          </span>
+          Manual Operacional
+         </a>
+         <ul class="nav-pills nav-stacked" id="Pai1" style="list-style-type: none;">
+          <li>
+           <a href="#MANOP#5662" onclick="getMenu('MANOP','5662')">
+            Cadastrar Biblioteca
+           </a>
+          </li>
+          <li>
+           <a href="#MANOP#5663" onclick="getMenu('MANOP','5663')">
+            Listar Biblioteca
+           </a>
+          </li>
+          <li>
+           <a href="#MANOP#5664" onclick="getMenu('MANOP','5664')">
+            N S P
+           </a>
+          </li>
+          <li>
+           <a href="#MANOP#5665" onclick="getMenu('MANOP','5665')">
+            Protocolo
+           </a>
+          </li>
+          <li>
+           <a href="#MANOP#5666" onclick="getMenu('MANOP','5666')">
+            Manual Operacional
+           </a>
+          </li>
+          <li>
+           <a href="#MANOP#5667" onclick="getMenu('MANOP','5667')">
+            C C I  H
+           </a>
+          </li>
+          <li>
+           <a href="#MANOP#5668" onclick="getMenu('MANOP','5668')">
+            MAPA CIRURGICO
+           </a>
+          </li>
+         </ul>
+        </li>
+        <li class="" id="liMnuESCALA5658">
+         <a href="#ESCALA#5658">
+          <span class="fa-stack fa-lg pull-left">
+           <i class="fa fa-stethoscope fa-stack-1x">
+           </i>
+          </span>
+          Escala Medica
+         </a>
+         <ul class="nav-pills nav-stacked" id="Pai2" style="list-style-type: none;">
+          <li>
+           <a href="#ESCALA#5660" onclick="getMenu('ESCALA','5660')">
+            Listar Escalas
+           </a>
+          </li>
+         </ul>
+        </li>
+        <li class="" id="liMnuFARMACIAHB5681">
+         <a href="#FARMACIAHB#5681">
+          <span class="fa-stack fa-lg pull-left">
+           <i class="fa fa-file-o fa-stack-1x">
+           </i>
+          </span>
+          FarmÃ¡rcia PublicaÃ§Ãµes
+         </a>
+         <ul class="nav-pills nav-stacked" id="Pai3" style="list-style-type: none;">
+          <li>
+           <a href="#FARMACIAHB#5682" onclick="getMenu('FARMACIAHB','5682')">
+            PublicaÃ§Ãµes
+           </a>
+          </li>
+          <li>
+           <a href="#FARMACIAHB#5683" onclick="getMenu('FARMACIAHB','5683')">
+            Listar PublicaÃ§Ãµes
+           </a>
+          </li>
+         </ul>
+        </li>
+        <li class="" id="liMnuSYSTEM2744">
+         <a href="#SYSTEM#2744" onclick="getMenu('SYSTEM','2744')">
+          <span class="fa-stack fa-lg pull-left">
+           <i class="fa fa-check fa-stack-1x">
+           </i>
+          </span>
+          AIH
+         </a>
+        </li>
+        <li class="" id="liMnuMODUSER5669">
+         <a href="#MODUSER#5669">
+          <span class="fa-stack fa-lg pull-left">
+           <i class="fa fa-user fa-stack-1x">
+           </i>
+          </span>
+          UsuÃ¡rio
+         </a>
+         <ul class="nav-pills nav-stacked" id="Pai4" style="list-style-type: none;">
+          <li>
+           <a href="#MODUSER#5673" onclick="getMenu('MODUSER','5673')">
+            Alterar Senha
+           </a>
+          </li>
+         </ul>
+        </li>
+        <li class="" id="liMnuPRESC6020">
+         <a href="#PRESC#6020" onclick="getMenu('PRESC','6020')">
+          <span class="fa-stack fa-lg pull-left">
+           <i class="fa fa-check fa-stack-1x">
+           </i>
+          </span>
+          Laboratorio (Ger. de Exames)
+         </a>
+        </li>
+        <li class="" id="liMnuREGE3737">
+         <a href="#REGE#3737" onclick="getMenu('REGE','3737')">
+          <span class="fa-stack fa-lg pull-left">
+           <i class="fa fa-check fa-stack-1x">
+           </i>
+          </span>
+          Aguardando Parecer
+         </a>
+        </li>
+        <li class="" id="liMnuPRESC6019">
+         <a href="#PRESC#6019">
+          <span class="fa-stack fa-lg pull-left">
+           <i class="fa fa-stethoscope fa-stack-1x">
+           </i>
+          </span>
+          Eventos Adversos
+         </a>
+         <ul class="nav-pills nav-stacked" id="Pai5" style="list-style-type: none;">
+          <li>
+           <a href="#PRESC#6022" onclick="getMenu('PRESC','6022')">
+            Eventos Adversos - Unidade
+           </a>
+          </li>
+         </ul>
+        </li>
+        <li class="" id="liMnu0">
+        </li>
+       </ul>
+      </div>
+      <!-- /#sidebar-wrapper -->
+      <input id="qtdItensMenu" type="hidden" value="5"/>
+      <input name="session" size="10" type="hidden" value="{sessionid}">
+       <div id="contentcolumn">
+        <!-- Page Content -->
+        <div id="page-content-wrapper">
+         <div class="row" style="display:">
+          <div class="col-lg-3">
+           <div style="margin-top:0px; margin-left:20px; margin-bottom:10px;">
+            <img src="https://hicd-hospub.sesau.ro.gov.br/prontuario/frontend/images/em_branco.png"/>
+           </div>
+          </div>
+          <div class="col-lg-6">
+           <div class="panel panel-default">
+            <div class="panel-body" style="height:320px;margin-left:15px;">
+             <h2 style="color:#074a74">
+              Hospital Infantil Cosme e damiÃ£o
+             </h2>
+             <b id="Erro">
+             </b>
+             <div class="form-group">
+              <label>
+               Usuário:
+              </label>
+              <input class="form-control" id="user" name="user" style="width:200px;" type="text" value=""/>
+             </div>
+             <div class="form-group">
+              <label>
+               Senha:
+              </label>
+              <div class="form-inline">
+               <input class="form-nobreak" id="pass" maxlength="8" name="pass" onkeydown="loginEvent(event)" style="width:200px;" type="password" value="">
+                <button class="btn btn-success" onclick="login();" type="button">
+                 Entrar
+                </button>
+               </input>
+              </div>
+             </div>
+             <script>
+              $("#user").focus();
+             </script>
+            </div>
+           </div>
+          </div>
+          <div id="areaDebugMain">
+          </div>
+         </div>
+         <!-- row -->
+        </div>
+        <!-- /#page-content-wrapper -->
+       </div>
+       <!-- contentcolumn -->
+      </input>
+     </div>
+     <!-- /#wrapper -->
+     <!-- NAO ALTERAR A LOCALIZACAO DO SCRIPT ABAIXO -->
+     <script src="js/sidebar_menu.js">
+     </script>
+     <div class="modal fade">
+      <div class="modal-dialog">
+       <div class="modal-content">
+        <div class="modal-header">
+         <button aria-hidden="true" class="close" data-dismiss="modal" type="button">
+          ï¿½
+         </button>
+         <h3 class="modal-title">
+          Modal title
+         </h3>
+        </div>
+        <div class="modal-body">
+         <p>
+          One fine bodyï¿½
+         </p>
+        </div>
+        <div class="modal-footer">
+         <button class="btn btn-default" data-dismiss="modal" type="button">
+          Close
+         </button>
+         <button class="btn btn-primary" type="button">
+          Save changes
+         </button>
+        </div>
+       </div>
+       <!-- /.modal-content -->
+      </div>
+      <!-- /.modal-dialog -->
+     </div>
+     <!-- /.modal -->
+    </div>
+    <div id="load_div" style="display:none;">
+     <div class="row" style="text-align:center;">
+      <div class="center-block" style="background-color:{color_top}; color:{color_top_title}; width:110px;">
+       <div class="panel-heading" style="text-align:middle; font-size:10pt;">
+        AGUARDE...
+       </div>
+      </div>
+     </div>
+    </div>
+    <div id="banner">
+     <div style="margin-left:2px; margin-top:-2px;">
+      <strong>
+       <i class="fa fa-building-o fa-fw">
+       </i>
+       HICD
+      </strong>
+     </div>
+     <div style="margin-left:2px; margin-top:2px;">
+      <i class="fa fa-user fa-fw">
+      </i>
+      ANONYMOUS
+     </div>
+    </div>
+    <script>
+     ajustHeightMenu();
+		setActualItemMenu("SYSTEMPRINCIPAL");
+		window.onresize = setDimensionApp;
+		setDimensionApp();
+    </script>
+   </body>
+  </html>
+ </body>
+</html>

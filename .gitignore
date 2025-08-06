@@ -1,0 +1,49 @@
+# Dependências
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Arquivos de ambiente (credenciais)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Dados extraídos e logs
+output/
+*.csv
+*.json
+*.log
+
+# Cache Python (mantido para compatibilidade)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporários
+*.tmp
+*.temp
+
+# Coverage reports
+coverage/
+.nyc_output
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock

@@ -1,0 +1,3501 @@
+<!-- EVOLUCAO INTERNACAO - 17/10/19 -->
+<script src='jscripts/jquery-3.5.1.js' type="text/javascript"></script>
+<script src='jscripts/jquery.maskedinput.js' type="text/javascript"></script>
+<script type="text/javascript" src="jscripts/ckeditor/ckeditor.js"></script>
+<script type="text/javascript" src="jscripts/ckeditor/adapters/jquery.js"></script>
+<script src="jscripts/ckeditor/_samples/sample.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+	
+					//<![CDATA[
+					$(function()
+					{			
+						var config = {
+								toolbar:
+								[
+									['Bold', 'Italic']
+								],
+								extraPlugins : 'uicolor',							
+								uiColor: '#A6C78C',
+								removePlugins : 'maximize,resize,contextmenu,pastefromword',
+								enterMode	: Number( 2 ),
+								forcePasteAsPlainText : true								
+							};		
+						// Initialize the editor.
+						$('.jquery_ckeditor').ckeditor(config);					
+					});
+					//]]>
+</script>
+<script src='jscripts/base64.js' type="text/javascript"></script>
+<script>
+	TABLE_TEMPLATE = "hp_rege_evolucao";
+	MODULE_TEMPLATE = "3";
+
+
+	function templateDesc(id) {
+		var tipo = $("#template option:selected").attr("id");
+		var texto = $("#template option:selected").text();
+
+		if (tipo == 1) {
+			var params = "Param=TEMP&ParamModule=formatandoModelo&modelTxt=" + $("#template").val();
+			$("#loadingProcess").css({ 'display': '' });
+			$.ajax({
+				type: "POST",
+				url: "controller/controller.php",
+				data: params,
+				success: function (data) {
+					$('#loadingProcess').html(data);
+				}
+			});
+			$("#txtDesc").css({ 'display': 'none' });
+		} else {
+			$('#loadingProcess').html('');
+			if ($("#txtDesc").val() == "") {
+				$("#txtDesc").val(Base64.decode($("#template").val()));
+			} else {
+				var r = confirm("Deseja substituir este texto?");
+				if (r == true) {
+					$("#txtDesc").val(Base64.decode($("#template").val()));
+				}
+			}
+		}
+	}
+	function showValues() {
+		var queryString = $("#dadosTotal :textarea,#dadosTotal :select,#dadosTotal :input").fieldSerialize();
+		queryString += "&Param=TEMP&ParamModule=processText";
+		queryString += "&modelTxt=" + $("#template").val();
+
+		var request = $.ajax({
+			type: "POST",
+			url: "controller/controller.php",
+			data: queryString,
+			success: function (data) {
+				$('#txtDesc').html(data);
+				$("#loadingProcess").css({ 'display': 'none' });
+				$("#txtDesc").css({ 'display': 'none' });
+			}
+		});
+	}
+	function salvarAdd(ex) {
+
+		if ($("#txtDesc").val() == "") {
+			alert('Faça a Evolução !');
+			$("#txtDesc").focus();
+			exit;
+		}
+
+		if ($("#selTipoMod").val() == "F" && ex == 1) {
+			mountParamsForm();
+		}
+		//var co_atividade = $('#Atividade').find('option[selected]').val();
+		//var ds_atividade = $('#Atividade').find('option[selected]').text();	
+		var co_atividade = $('#Atividade').val();	// johny mudou
+		var ds_atividade = $('#Atividade :selected').text();
+		//var co_sub_atividade = $('#subAtividade').find('option[selected]').val();
+		//var co_sub_atividade = $('#subAtividade').val();	
+		//var ds_sub_atividade = $('#subAtividade').find('option[selected]').text();
+		var co_sub_atividade = $('#subAtividade').val();	// johny mudou
+		var ds_sub_atividade = $('#subAtividade :selected').text();
+		//var co_sub_atividade = $('#subAtividade').val();	
+
+		var valtipo_parecer = "";
+		var tipo_parecer = "";
+		var resp_parecer = "";
+		if ($("#parecer_de").val() != undefined) {
+			if ($("#parecer_de").val() == "" || $("#parecer_para").val() == "") {
+				erro += "- Selecione as especialidades.\n";
+			}
+			else {
+				valtipo_parecer = $("#template option:selected").val();
+				tipo_parecer = $("#template option:selected").text();
+				if (valtipo_parecer == "") {
+					erro += "- Selecione uma ficha para continuar.\n";
+				} else if (tipo_parecer == "" && $("#id_evo_resp").val() == "") {
+					erro += "- Não há solicitação de parecer para estas especialidades.\n";
+				} else {
+					resp_parecer = $("#id_evo_resp").val();
+					txtDesc = "<center><strong>" + tipo_parecer + "</strong></center><br />"
+						+ "De: " + $("#parecer_de option:selected").text()
+						+ " | Para: " + $("#parecer_para option:selected").text() + "<br /><br />" + txtDesc
+				}
+			}
+		}
+
+		if (ex == 0) {
+			$("#AddField").css({ display: "none" });
+			$("#areaHistEvol").css({ display: "" });
+			$("#areaButtonEvol").css({ display: "" });
+			$("#selTipoMod").val("D");
+			changeTipoModel();
+			$("#hiddenEvol").each(function () { this.checked = true; });
+		} else {
+			if ($("#Atividade").val() == "") {
+				alert("Escolha sua atividade.");
+				$("#Atividade").focus();
+				$("#alert_atividade").css({ 'color': 'red' });
+				$("#alert_atividade").html('Escolha sua atividade. <img src="images/globais/seta.gif">');
+				return;
+			}
+			var tipo = "";
+
+			/*		
+			var tipo = $("#template option:selected").attr("id");
+			if (tipo==undefined) {
+				alert("Nenhum modelo foi selecionado, possivelmente categoria inexistente!");
+				return false;
+			} */
+
+			$("#areaButtonEvol").css({ display: "" });
+
+			$('#bt_salvar_evo').attr('disabled', true);
+
+			if (tipo == 1) {
+				var queryString = $("#dadosTotal :textarea,#dadosTotal :select,#dadosTotal :input").fieldSerialize();
+				queryString += "&modelTxt=" + $("#template").val();
+				queryString += "&Param=REGE&ParamModule=SAVE_EVO&IdPac=40577&txtDesc=" + $("#txtDesc").val() + "&Profissional=" + $("#Profissional").val();
+				queryString += "&ic0cpf=" + $("#ic0cpf").val();
+				queryString += "&tipo=" + tipo;
+				queryString += "&cod=" + $("#cod").val();
+				queryString += "&co_atividade=" + co_atividade;
+				queryString += "&ds_atividade=" + ds_atividade;
+				queryString += "&ds_sub_atividade=" + ds_sub_atividade;
+				queryString += "&co_sub_atividade=" + co_sub_atividade;
+				queryString += "&id_parecer_de=" + $("#parecer_de option:selected").val();
+				queryString += "&id_parecer_para=" + $("#parecer_para option:selected").val();
+				queryString += "&parecer_de=" + $("#parecer_de option:selected").text();
+				queryString += "&parecer_para=" + $("#parecer_para option:selected").text();
+				queryString += "&tipo_parecer=" + tipo_parecer;
+				queryString += "&resp_parecer=" + resp_parecer;
+				//queryString += "&covid=" + covid;
+                
+				$.ajax({
+					type: "POST",
+					url: "controller/controller.php",
+					data: queryString,
+					success: function (data) {
+						//$('#testRsult').html(data);
+						getRegeMenu('Evo', '40577', 3);
+					}
+				});
+
+			} else {
+                
+				$("#AddField").css({ display: "none" }); 		/* evitar que seja clicado 2 x - marr*/
+                
+				//alert(resp_parecer);
+				
+				$.post("controller/controller.php", {
+					Param: 'REGE',
+					ParamModule: 'SAVE_EVO',
+					// IdPac : 40577, /* johny alterou*/
+					IdPac: '40577',
+					cod: $("#cod").val(),
+					txtDesc: $("#txtDesc").val(),
+					Profissional: $("#Profissional").val(),
+					ic0cpf: $("#ic0cpf").val(),
+					co_atividade: co_atividade,
+					ds_atividade: ds_atividade,
+					ds_sub_atividade: ds_sub_atividade,
+					co_sub_atividade: co_sub_atividade,
+					clin: '002-C I P',
+					setor: '',
+					id_parecer_de: $("#parecer_de option:selected").val(),
+					id_parecer_para: $("#parecer_para option:selected").val(),
+					parecer_de: $("#parecer_de option:selected").text(),
+					parecer_para: $("#parecer_para option:selected").text(),
+					tipo_parecer: tipo_parecer,
+					resp_parecer: resp_parecer,
+					dt_inter: ''
+					//covid: covid
+				},
+					function (data) {
+						//$('#res').html(data);
+						//alert(data);
+						//PEGA ULTIMO ID REGISTRADO
+						//getRegeMenu('Evo','40577',4);
+						if ($("#selTipoMod").val() == "F") {
+							ahj_saveAnam();
+						}
+						getRegeMenu('Evo', '40577', 3, 0, 0, 'PRONT');
+						//alert('PRONT');
+					});
+			}
+
+		}
+	}
+	/*****TEMPLATE*****/
+	function exibeAdd(ex) {
+		$("#areaHistEvol").css({ display: "none" });
+		$("#AddField").css({ display: "" });
+		$("#areaButtonEvol").css({ display: "none" });
+	}
+	function exibeEdit(id) {
+		$("#" + id + "txtEdit").css({ display: "" });
+		$("#" + id + "txtView").css({ display: "none" });
+		$("#imgExibe" + id).css({ display: "none" });
+		var data = $("#data_evo" + id).html().split(" ");
+		var inp = "<input type='text' id='data_evo_txt" + id + "'  maxlength=\"10\" size=\"10\" OnKeyPress=\"formatar('##/##/####', this)\" value='" + data[0] + "'>";
+		inp += "<input type='text' id='data_evo_time_txt" + id + "'  maxlength=\"8\" size=\"8\" OnKeyPress=\"formatar('##:##:##', this)\" value='" + data[1] + "'>";
+		$("#data_evo" + id).html(inp);
+	}
+	function salvarEdit(ex, id) {
+
+		if (ex == 0) {
+			$("#" + id + "txtEdit").css({ display: "none" });
+			$("#" + id + "txtView").css({ display: "" });
+			$("#imgExibe" + id).css({ display: "" });
+			$("#data_evo" + id).html($("#data_evo_txt" + id).val() + " " + $("#data_evo_time_txt" + id).val());
+		} else {
+			var params = "Param=REGE&ParamModule=SAVE_EVO&IdPac=40577&idEvo=" + id + "&txtDesc=" + $("#txtDesc" + id).val() + "&Profissional=" + $("#Profissional").val();
+			params += "&Atividade=" + $("#Atividade").val() + "&ic0cpf=" + $("#ic0cpf").val();
+			params += "&data_evo=" + $("#data_evo_txt" + id).val() + " " + $("#data_evo_time_txt" + id).val();
+			if (!isDate($("#data_evo_txt" + id).val())) {
+				alert("Data Invalida");
+				return;
+			}
+			/*
+			if(!isTime($("#data_evo_time_txt"+id).val())) {
+				alert("Hora Inv&aacute;lida");
+				return;
+			}*/
+			$.ajax({
+				type: "POST",
+				url: "controller/controller.php",
+				data: params,
+				success: function (data) {
+					getRegeMenu('Evo', '40577', 3);
+				}
+			});
+		}
+	}
+
+	function getFilter() {
+		var filter = $("#filter").val();
+		//alert(filter);
+		if (filter == "") {
+			$("#ativ").css({ display: "none" });
+			$("#tipo").css({ display: "none" });
+			// $("#data").css({display: "none"});
+			$("#filtroTipo").val("");
+			$("#selFiltro").val("");
+			// $("#di").val("");
+			//$("#df").val("");
+		} else if (filter == 0) {//Atividade
+			$("#ativ").css({ display: "" });
+			$("#tipo").css({ display: "none" });
+			//  $("#data").css({display: "none"});
+			//  } else if (filter == 1) {//Tipo
+			//$("#ativ").css({display: "none"});
+			//$("#tipo").css({display: ""});
+			//$("#data").css({display: "none"});
+			//} else if (filter == 2) {//Data
+			// $("#ativ").css({display: "none"});
+			// $("#tipo").css({display: "none"});
+			// $("#data").css({display: ""});
+		}
+	}
+
+
+	var checkall = 0;
+
+	function imprimirEvo() {
+		var queryString = $("input[type=checkbox]").serialize();
+		var param = Base64.encode(queryString);
+		//alert(queryString);
+
+		var co_paciente64 = Base64.encode('40577');
+		var TIPOBUSCA = Base64.encode('PRONT');
+		var target = 'https://hicd-hospub.sesau.ro.gov.br/prontuario/generator/rege/app/imprime_evolucao.php?param=' + param + '&co_paciente=' + co_paciente64 + '&TIPOBUSCA=PRONT';
+		target += getSignUser();
+
+		var qntCheck = 0;
+		$(".chM").each(function () {
+			if (this.checked) {
+				qntCheck++;
+			}
+		});
+		if (qntCheck > 0) {
+			qntCheck = 0;
+			window.open(target, '_blank', 'toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=no,width=930,height=600,top=10,left=10');
+		} else {
+			qntCheck = 0;
+			alert("Nenhuma evolucao marcada!");
+		}
+	}
+	function AllCheckBox() {
+		$(".chM").each(function () {
+			if (checkall == 0) {
+				this.checked = true;
+			} else {
+				this.checked = false;
+			}
+		});
+		checkall = checkall ? 0 : 1;
+
+		if (checkall == 0) {
+			$("#mTodos").html("Marcar Todos");
+		} else {
+			$("#mTodos").html("Desmarcar Todos");
+		}
+	}
+	function openPrescricao(target, id, tipo) {
+		if (tipo == 1) {
+			//http://intranetht/intranet/prescricao_medica3/interface/edita.php?id_prescricao=159029&nome=LEONARDO%20NOWAK&registro=16&nasc=1927-10-18&int=19/02/2011&leito=1110002&clinica=NEUROCIRURGIA&tipo_documento=p
+			window.open(target, '_blank', 'toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=no,width=930,height=600,top=10,left=10');
+		} else if (tipo == 2) {
+			//http://intranetht/intranet/prescricao_medica3/interface/consulta.php
+		}
+	}
+
+	function limpar_proc() {
+		$("#procedimento").val("");
+		$("#qtd_proc").val("1");
+	}
+
+/*
+	function lista_procedimento() {
+		//alert('chegou');
+		$.post("controller/controller.php", {
+			Param: 'REGE',
+			ParamModule: 'lista_procedimento_inter',
+			IdPac: { IdPac }
+		},
+			function (data) {
+				alert(data);
+				$('#res_proc').html(data);
+			});
+	}
+
+*/
+
+	function lista_procedimento() {
+		var queryString = "Param=REGE&ParamModule=lista_procedimento_inter";
+		queryString += "&IdPac=" + '40577';
+		//alert(queryString);
+		//exit;	
+		var request = $.ajax({
+			type: "POST",
+			url: "controller/controller.php",
+			data: queryString,
+			success: function (data) {
+				//alert(data);   			
+				$('#res_proc').html(data);
+			}
+		});
+	}
+
+
+	function excluir_proc_inter(r_id) {
+
+		if (confirm("Deseja excluir este procedimento ???")) {		
+		var queryString = "Param=REGE&ParamModule=exclui_procedimento_inter";
+		queryString += "&r_id=" + r_id;
+		queryString += "&cpf_prof=" + '74413201272';		
+		//alert(queryString);
+		//exit;	
+		var request = $.ajax({
+			type: "POST",
+			url: "controller/controller.php",
+			data: queryString,
+			success: function (data) {
+				//alert(data.length);
+				//$('#res_proc').html(data);
+					//if (trim(data) == 'ok') { 
+					if (data.length == 4) {						
+						lista_procedimento();
+						//lista_procedimento2();						
+					//} else if (data == 'perm') {
+					}else{
+						alert('Sem permissao para excluir!');
+					}
+				
+			}
+		});
+		}
+	}
+
+
+/*
+	function excluir_proc_inter(r_id) {
+		// alert(cpf);	
+
+		if (confirm("Deseja excluir este procedimento ???")) {
+			$.post("controller/controller.php", {
+				Param: 'REGE',
+				ParamModule: 'exclui_procedimento_inter',
+				r_id: r_id,
+				cpf_prof: { cpf }
+			},
+				function (data) {
+					if (data == 'ok') {
+						lista_procedimento();
+						//lista_procedimento2();						
+					} else if (data == 'erro') {
+						alert('Sem permissao para excluir!');
+					}
+					//alert(data);
+					//$('#res_proc').html(data);	
+					//lista_procedimento();
+				});
+		}
+	}
+	*/
+
+
+	function imprimirProc(co_receituario) {
+
+		var queryString = $("input[type=checkbox]").serialize();
+		var param = Base64.encode(queryString);
+		var TIPOBUSCA = Base64.encode('PRONT');
+		// if("PRONT" == "BE"){
+		var idPac64 = Base64.encode('40577');
+		// var co_receituario64 = Base64.encode('co_receituario');					
+		//var co_receituario64 = '';					
+		// }
+		// if("PRONT" == "PRONT"){
+		// var idPac64 = Base64.encode('40577');
+		//}
+		//var qntCheck=0;
+		var target = 'https://hicd-hospub.sesau.ro.gov.br/prontuario/generator/rege/app/imprime_proc_inter.php?param=' + param + '&idPac=' + idPac64 + '&TIPOBUSCA=' + TIPOBUSCA + '&co_receituario=' + co_receituario;
+		open(target, '_blank', 'toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=no,width=930,height=600,top=10,left=10');
+		//alert(target);
+	}
+
+
+
+	$(document).ready(function () {
+		$('#id_clin').change(function () {
+			$('#lista_leitos').load('_view/app/rege/listaLeitos.php?id_clin=' + $('#id_clin').val());
+		});
+	});
+
+	function transf_leito_apc() {
+		//alert($("#id_leitos").val());
+		//exit;
+
+		if ($("#hora_transf").val().length < 5) {
+			alert('Escolha a hora para a transferencia.');
+			$("#hora_transf").focus();
+			exit;
+		}
+
+		if ($("#id_clin").val() == 0) {
+			alert('Escolha a Clinica para a transferencia.');
+			$("#id_clin").focus();
+			exit;
+		}
+
+
+		if ($("#id_leitos").val() == '0' || $("#id_leitos").val() == undefined) {
+			alert('Escolha um Leito de Destino .');
+			$("#id_leitos").focus();
+			exit;
+		}
+
+		var nome_clin = $("#id_clin option:selected").text();
+
+		var queryString = "Param=REGE&ParamModule=transf_leito_apc";
+		queryString += "&data_transf=" + $("#data_transf").val();
+		queryString += "&hora_transf=" + $("#hora_transf").val();
+		queryString += "&id_clin=" + $("#id_clin").val();
+		queryString += "&id_leitos=" + $("#id_leitos").val();
+		queryString += "&prontuario=" + '40577';
+		queryString += "&clin_ante=" + '002';
+		queryString += "&leito_ante=" + '0020002';
+		queryString += "&usu_baixa=" + 'CRISTIANO DE SOUSA GUTIERREZ';
+		queryString += "&nome_clin=" + nome_clin;
+		var id_cl = $("#id_clin").val();
+		var id_le = $("#id_leitos").val();
+		//alert(queryString);
+		//exit;	
+		var request = $.ajax({
+			type: "POST",
+			url: "controller/controller.php",
+			data: queryString,
+			success: function (data) {
+				//alert(data);   			
+				$('#txtret').html(data);
+				$('#refresh_clinica').html('<p><b> Clinica / Leito: ' + nome_clin + ': </b><b style="color:blue;">' + id_cl + ' ' + id_le + '</b></p>');
+				$('#refresh_clinica2').html('<b>' + nome_clin + ': </b>' + id_cl + ' ' + id_le + '</b>');
+				//$("#loadingProcess").css({'display':'none'});
+				$("#bt_transf").css({ 'display': 'none' });
+				//$('#bt_transf').attr('disabled',true);
+			}
+		});
+
+
+	}
+
+</script>
+<style>
+	.type1 {
+		margin-right: 20px;
+	}
+</style>
+
+<div class="row" style="margin-bottom:15px;margin-right:5px;" id="BarraRegeTodasEvo">
+	<div style="float: right; margin-top:3px; color:#000000">
+		<a href="javascript:void(0);" onclick="imprimirEvo()" style="cursor: pointer;"><i class="fa fa-print fa-sm"></i>
+			Imprimir</a>
+		| <a href="#fimReg" style="cursor: pointer;"> <i class="fa fa-arrow-down fa-sm"></i> Ir para o Fim</a>
+		| <b id="mTodos" style="cursor: pointer;" onclick="AllCheckBox()">Marcar Todos</b>
+		<input type="checkbox" class="chM" id="checkAll" onclick="AllCheckBox()" /> |
+		Minhas Evolu&ccedil;&otilde;es <input type="checkbox" value='1' id='mEvo' name='mEvo' 
+			onclick="getRegeMenu('Evolucao','40577','-1','1')">
+		<select id="filter" onchange="getFilter()">
+			<option value="" selected="selected">--Selecionar--</option>
+			
+			<option value="0" >Atividade</option>
+			
+			<option value="1" >Data</option>
+			
+		</select>
+
+		<a id="ativ" style="display: none">
+			Atividades:<select id="selFiltro" onchange="getRegeMenu('Evolucao', '40577', '-1', '1', 'PRONT')">
+				<option value="0" selected="selected">--Escolha--</option>
+				
+				<option value="ENFERMEIRO">ENFERMEIRO</option>
+				
+				<option value="FISIOTERAPEUTA">FISIOTERAPEUTA</option>
+				
+				<option value="MEDICO (QUALQUER ESPECIALIDADE)">MEDICO (QUALQUER ESPECIALIDADE)</option>
+				
+				<option value="NEUROCIRURGIAO">NEUROCIRURGIAO</option>
+				
+				<option value="PEDIATRA">PEDIATRA</option>
+				
+				<option value="PSICOLOGO">PSICOLOGO</option>
+				
+				<option value="RESIDENTE MEDICO">RESIDENTE MEDICO</option>
+				
+			</select>
+		</a>
+		<a id="data" style="display: none">
+			Data Inicio <input type="text" name="di" maxlength="10" value="" id="di" size="8"
+				OnKeyPress="formatar('##/##/####', this)" /> / Data Fim <input value="" type="text" name="df"
+				id="df" size="8" OnKeyPress="formatar('##/##/####', this)" maxlength="10" /> <button class="butDat"
+				onclick="javascript:getRegeMenuData('Evo', '40577', '3');">OK</button>
+		</a>
+	</div>
+
+</div>
+
+
+<span id="areaButtonEvol" style="display:">
+	<button type="button" class="btn btn-success" style="margin-left:22px;margin-bottom:20px;" id="bt_salvar"
+		onclick="exibeAdd();">Adicionar Evolu&ccedil;&atilde;o</button> &nbsp;&nbsp;<input type="button"
+		class="btn btn-warning" data-toggle="modal" data-target="#modal-default_proc" name="Add3"
+		value="Lan&ccedil;ar Procedimentos" style="margin-left: 22px;margin-bottom:20px;"><button type="button"
+		class="btn btn-primary" style="margin-left:22px;margin-bottom:20px;" data-toggle="modal"
+		data-target="#modal-transf_clin"> Transfer&ecirc;ncia entre Cl&iacute;nicas </button>
+
+
+</span>
+
+
+<a name="iniForm"></a>
+<div id='AddField' style="display:none">
+	<div class="panel panel-primary">
+		<div class="panel-heading" style="height:40px;">
+			<div style="float:left;">
+				<b>Profissional: <strong>CRISTIANO DE SOUSA GUTIERREZ</strong></b>
+			</div>
+		</div>
+		<!-- /.panel-heading -->
+		<div class="panel-body">
+			<div class="row">
+				<div class="col-lg-4">
+					<div class="form-group">
+						<label>Atividade:</label>
+						<select class="form-control" name="Atividade" id="Atividade" onchange="getSubAtividade()">
+							
+
+							
+							<option value="841">MEDICO (QUALQUER ESPECIALIDADE)</option>
+							
+						</select>
+
+						<!--<span id="resultSubAtividade"></span>	--> <!-- johny comentou -->
+						
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-lg-4">
+					<label>Tipo da Evolu&ccedil;&atilde;o:</label>
+					<select class="form-control" id="selTipoMod" name="selTipoMod" onchange="changeTipoModel()">
+						<option value="D">Descritivo</option>
+						<option value="F">Formul&aacute;rio</option>
+					</select>
+				</div>
+				<div class="col-lg-6">
+					<div class="form-group">
+						<label>Categoria:</label>
+						<span id="categDescr" style="display:">
+							
+							<select class="form-control" id="categoria" name="categoria"
+								onchange="consultaTemplate(this.value)" req="true" class="type1">
+								<option value="">--Categoria--</option>
+								
+								<option value="129" >CCIH</option>
+								
+								<option value="126" >Endocrinopediatria</option>
+								
+								<option value="132" >ENFERMAGEM</option>
+								
+								<option value="134" >Evolução Farmaceutica</option>
+								
+								<option value="131" >FISIOTERAPIA</option>
+								
+								<option value="81" >FONOAUDIOLOGIA</option>
+								
+								<option value="109" >MÉDICOS</option>
+								
+								<option value="130" >NUTRICAO</option>
+								
+								<option value="139" >PARECER MEDICO</option>
+								
+								<option value="98" >PSICOLOGIA</option>
+								
+								<option value="136" >TRANSPORTE</option>
+								
+								<option value="74" >U T I</option>
+								
+								<option value="119" >UTI - FISIOTERAPIA</option>
+								
+							</select>
+							
+						</span>
+						<span id="categForm" style="display:none;">
+							<select class="form-control" id="categoria2" name="categoria2"
+								onchange="consultaTemplate2('EVO_INTER')" req="true">
+								<option value="">--Categoria--</option>
+								
+							</select>
+						</span>
+					</div>
+				</div>
+			</div>
+			<div class="box">
+				<div>
+					<span id="parecer_medico"></span>
+				</div>
+			</div>
+			<div class="row" id="templEdit" style="display:">
+				<div class="col-lg-10">
+					<div class="form-group">
+						<input type="hidden" id="Profissional" value="CRISTIANO DE SOUSA GUTIERREZ">
+						<input type="hidden" id="ic0cpf" value="74413201272">
+						<input type="hidden" id="cod_internacao" value="">
+						<input type="hidden" id="IdPac" value="40577">
+						<input type="hidden" id="be" value="">
+						<input type="hidden" id="cod" value="40577202508042244">
+						<span class="resultTemplate" id="resultTemplate"></span>
+					</div>
+				</div>
+			</div>
+			<div id="formEdit" style="display:none;">
+				<div class="row">
+					<div class="col-lg-4">
+						<div class="form-group">
+							<span id="resultTemplate2"></span>
+						</div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-lg-12">
+						<div id="areaForm">
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="panel panel-default" id="areaDescrEvol" style="display:">
+				<div class="panel-heading">
+					<b id="titAreaDescr">Descri&ccedil;&atilde;o:</b>
+				</div>
+				<div class="panel-body">
+					<div class="row">
+						<div class="col-lg-12">
+							<textarea class="jquery_ckeditor" name="txtDesc" cols="85" id="txtDesc"
+								rows="15"></textarea>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="row" id="areaButtons" style="display:">
+				<div class="col-lg-6">
+					<div class="form-group">
+						<button type="button" class="btn btn-success" id="bt_salvar_evo"
+							onclick="salvarAdd(1);">Salvar</button>
+						<button type="button" class="btn btn-default" onclick="salvarAdd(0);">Cancelar</button>
+						&nbsp;<b>Inibir evolu&ccedil;&otilde;es</b> <input type="checkbox" value="1" id="hiddenEvol" name="hiddenEvol" checked onclick="setHiddenEvol();">
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- /.panel-body -->
+	</div>
+</div>
+<br>
+
+<div id="areaHistEvol" style="display:">
+	
+	
+	<div class="row">
+		<div class="col-lg-2">Profissional:</div>
+		<div class="col-lg-4"><b>WELLINGTON MAGALHÃES DE MORAIS</b></div>
+		<div class="col-lg-2">Data Evolu&ccedil;&atilde;o: </div>
+		<div class="col-lg-4"><strong id='data_evo1686135'>05/08/2025 18:13:51</strong></div>
+	</div>
+	<div class="row">
+		<div class="col-lg-2">Atividade: </div>
+		<div class="col-lg-4"><b><strong>RESIDENTE MEDICO</strong> </b></div>
+		<div class="col-lg-2">Data Atualiza&ccedil;&atilde;o:</div>
+		<div class="col-lg-4"><strong>05/08/2025 18:13:51</strong>
+			<!-- Data Cadastro: <strong>05/08/2025 18:13:51</strong> -->
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-lg-2">Clinica / Leito: </div>
+		<div class="col-lg-4"><strong>002-C I P</strong></div>
+		<div class="col-lg-2"></div>
+		<div class="col-lg-4">
+			<!-- Data Cadastro: <strong>05/08/2025 18:13:51</strong> -->
+		</div>
+	</div>
+
+
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="panel panel-info">
+				<div class="panel-heading" style="height:40px;">
+					<div style="float:left;">
+						<b>Descri&ccedil;&atilde;o:</b>
+					</div>
+					<div style="text-align:right;">
+						<input type="checkbox" value="1686135" name="idPrint" class="chM" id="idPrint">
+						
+					</div>
+				</div>
+				<!-- /.panel-heading -->
+				<div class="panel-body">
+					<div class="row">
+						<div class="col-lg-12">
+							
+							<fieldset style="width:100%">
+								<div id='1686135txtView' style="width:100%">
+									AVALIA&Ccedil;&Atilde;O VESPERTINA<br />
+<br />
+Paciente acompanhado da genitora, em leito da CIP, diagnosticado com TCE grave por queda &agrave; cavalo. No momento da visita dormindo no leito que sucederam per&iacute;odos de agita&ccedil;&atilde;o.<br />
+Foi deslocado para a realiza&ccedil;&atilde;o de exame de imagem (TC de cr&acirc;nio), levado pela equipe m&eacute;dica da CIP, bem como pela equipe de transporte. Retornou sem qualquer intercorr&ecirc;ncia, com imagem de posse da equipe e sem laudo. Foi comunicado e enviado foto das imagens pela Enfermeira da INAO, Tatiane, que informou para esta equipe, ser &ldquo;conduta expectante&rdquo; no momento (segundo o cirugi&atilde;o), sem conduta cir&uacute;rgica pela NCR. Aguardo parecer da especialidade em sistema hospub.<br />
+Est&aacute;vel hemodinamicamente, em AA com bom padr&atilde;o respirat&oacute;rio.&nbsp;&nbsp; Afebril, eupneico, acian&oacute;tico, hipocorado, apresentando escoria&ccedil;&otilde;es na face,&nbsp; t&oacute;rax e MMSS, com hematoma periorbit&aacute;rio e edema &agrave; esquerda, sinais de sangramento anterior em cavidade nasal e oral.<br />
+Mantido em dieta zero, coletado hemocultura, sem intercorr&ecirc;ncias no per&iacute;odo, com diurese preservadas (instalada SVD) e sem evacua&ccedil;&otilde;es desde quando deu entrada nesta CIP at&eacute; o momento<br />
+<br />
+CONTROLE DA ENFERMAGEM:<br />
+PAS: 110 &ndash; 121 mmHg | PAD: 53 &ndash; 83 mmHg | PAM: 75 &ndash; 83 mmHg | FC: 76 &ndash; 91 bpm | FR: 16 &ndash; 20 irpm | Tax: 35,5 &ndash; 36,3 &ordm;C | SatO2: 98 &ndash; 100% em AA;<br />
+DIURESE: 645 mL | 18,4 mL/kg | 1,5 mL/kg/h (12 horas);<br />
+<br />
+CD:<br />
+- Manter condutas;<br />
+- Aguardo Laudo de TC de Cr&acirc;nio;<br />
+- Aguardo avalia&ccedil;&atilde;o da NCR;<br />
+- Vigil&acirc;ncia neurol&oacute;gica rigorosa;<br />
+- Aos cuidados da CIP;
+								</div>
+							</fieldset>
+						</div>
+					</div>
+				</div>
+				<!-- /.panel-body -->
+			</div>
+		</div>
+	</div>
+	
+	<div class="row">
+		<div class="col-lg-2">Profissional:</div>
+		<div class="col-lg-4"><b>LARA HELOU MADY</b></div>
+		<div class="col-lg-2">Data Evolu&ccedil;&atilde;o: </div>
+		<div class="col-lg-4"><strong id='data_evo1686099'>05/08/2025 17:01:24</strong></div>
+	</div>
+	<div class="row">
+		<div class="col-lg-2">Atividade: </div>
+		<div class="col-lg-4"><b><strong>FISIOTERAPEUTA</strong> </b></div>
+		<div class="col-lg-2">Data Atualiza&ccedil;&atilde;o:</div>
+		<div class="col-lg-4"><strong>05/08/2025 17:01:24</strong>
+			<!-- Data Cadastro: <strong>05/08/2025 17:01:24</strong> -->
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-lg-2">Clinica / Leito: </div>
+		<div class="col-lg-4"><strong>002-C I P</strong></div>
+		<div class="col-lg-2"></div>
+		<div class="col-lg-4">
+			<!-- Data Cadastro: <strong>05/08/2025 17:01:24</strong> -->
+		</div>
+	</div>
+
+
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="panel panel-info">
+				<div class="panel-heading" style="height:40px;">
+					<div style="float:left;">
+						<b>Descri&ccedil;&atilde;o:</b>
+					</div>
+					<div style="text-align:right;">
+						<input type="checkbox" value="1686099" name="idPrint" class="chM" id="idPrint">
+						
+					</div>
+				</div>
+				<!-- /.panel-heading -->
+				<div class="panel-body">
+					<div class="row">
+						<div class="col-lg-12">
+							
+							<fieldset style="width:100%">
+								<div id='1686099txtView' style="width:100%">
+									<br />
+<table border="1" cellpadding="0" cellspacing="0">
+	<tbody>
+		<tr>
+			<td colspan="5" valign="top">
+				<strong>HDC:</strong></td>
+			<td valign="top" width="158">
+				<strong>DAD:</strong></td>
+			<td valign="top" width="147">
+				<strong>DHJ:</strong></td>
+		</tr>
+		<tr>
+			<td rowspan="3" valign="top" width="174">
+				<p>
+					Ventila&ccedil;&atilde;o Mec&acirc;nica</p>
+				<p>
+					( )N&atilde;o invasiva<br />
+					( )Invasiva<br />
+					( )TOT<br />
+					( )TQT</p>
+			</td>
+			<td colspan="2" rowspan="3" valign="top">
+				Par&acirc;metros Ventilat&oacute;rios &ndash; Gasometria &ndash; Ajustes Ventilat&oacute;rios<br />
+				<table border="1" cellpadding="0" cellspacing="0" width="370">
+					<tbody>
+						<tr>
+							<td valign="top" width="77">
+								Modo</td>
+							<td valign="top" width="50">
+								&nbsp;</td>
+							<td valign="top" width="55">
+								PO2</td>
+							<td valign="top" width="47">
+								&nbsp;</td>
+							<td valign="top" width="85">
+								Modo</td>
+							<td valign="top" width="57">
+								&nbsp;</td>
+						</tr>
+						<tr>
+							<td valign="top" width="77">
+								VC (ml/kg)</td>
+							<td valign="top" width="50">
+								&nbsp;</td>
+							<td valign="top" width="55">
+								PCO2</td>
+							<td valign="top" width="47">
+								&nbsp;</td>
+							<td valign="top" width="85">
+								VC (ml/kg)</td>
+							<td valign="top" width="57">
+								&nbsp;</td>
+						</tr>
+						<tr>
+							<td valign="top" width="77">
+								Fio2</td>
+							<td valign="top" width="50">
+								&nbsp;</td>
+							<td valign="top" width="55">
+								pH</td>
+							<td valign="top" width="47">
+								&nbsp;</td>
+							<td valign="top" width="85">
+								Fio2</td>
+							<td valign="top" width="57">
+								&nbsp;</td>
+						</tr>
+						<tr>
+							<td valign="top" width="77">
+								T.insp.</td>
+							<td valign="top" width="50">
+								&nbsp;</td>
+							<td valign="top" width="55">
+								cHCO3</td>
+							<td valign="top" width="47">
+								&nbsp;</td>
+							<td valign="top" width="85">
+								T.insp.</td>
+							<td valign="top" width="57">
+								&nbsp;</td>
+						</tr>
+						<tr>
+							<td valign="top" width="77">
+								FR</td>
+							<td valign="top" width="50">
+								&nbsp;</td>
+							<td valign="top" width="55">
+								P/F</td>
+							<td valign="top" width="47">
+								&nbsp;</td>
+							<td valign="top" width="85">
+								FR</td>
+							<td valign="top" width="57">
+								&nbsp;</td>
+						</tr>
+						<tr>
+							<td valign="top" width="77">
+								P.insp.</td>
+							<td valign="top" width="50">
+								&nbsp;</td>
+							<td valign="top" width="55">
+								BE</td>
+							<td valign="top" width="47">
+								&nbsp;</td>
+							<td valign="top" width="85">
+								P.insp.</td>
+							<td valign="top" width="57">
+								&nbsp;</td>
+						</tr>
+						<tr>
+							<td valign="top" width="77">
+								PEEP</td>
+							<td valign="top" width="50">
+								&nbsp;</td>
+							<td valign="top" width="55">
+								SO2 %</td>
+							<td valign="top" width="47">
+								&nbsp;</td>
+							<td valign="top" width="85">
+								PEEP</td>
+							<td valign="top" width="57">
+								&nbsp;</td>
+						</tr>
+						<tr>
+							<td valign="top" width="77">
+								PS</td>
+							<td valign="top" width="50">
+								&nbsp;</td>
+							<td valign="top" width="55">
+								&nbsp;</td>
+							<td valign="top" width="47">
+								&nbsp;</td>
+							<td valign="top" width="85">
+								PS</td>
+							<td valign="top" width="57">
+								&nbsp;</td>
+						</tr>
+						<tr>
+							<td valign="top" width="77">
+								R I:E</td>
+							<td valign="top" width="50">
+								&nbsp;</td>
+							<td valign="top" width="55">
+								&nbsp;</td>
+							<td valign="top" width="47">
+								&nbsp;</td>
+							<td valign="top" width="85">
+								R I:E</td>
+							<td valign="top" width="57">
+								&nbsp;</td>
+						</tr>
+					</tbody>
+				</table>
+			</td>
+			<td colspan="2" rowspan="2" valign="top">
+				Oxigenoterapia<br />
+				(x)REAA ()RE/TQT<br />
+				<br />
+				()Venturi____%<br />
+				()Hood______%<br />
+				()Tubo T_____%<br />
+				()O2 circulante<br />
+				()Outro_____</td>
+			<td rowspan="2" valign="top" width="158">
+				<p>
+					Quadro respirat&oacute;rio</p>
+				(x) Eupn&eacute;ico<br />
+				()Taquipn&eacute;ico<br />
+				()Bradipneico<br />
+				()Esfor&ccedil;o Respir.
+				<p>
+					&nbsp;</p>
+			</td>
+			<td valign="top" width="147">
+				&nbsp;N&iacute;vel de Consci&ecirc;ncia<br />
+				ECG 12.</td>
+		</tr>
+		<tr>
+			<td height="115" valign="top" width="147">
+				&nbsp;<br />
+				Coleta de LBA:<br />
+				<br />
+				()Sim&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ()N&atilde;o</td>
+		</tr>
+		<tr>
+			<td colspan="4" height="25" valign="top">
+				AP:mv+s/ra.</td>
+		</tr>
+		<tr>
+			<td colspan="7" valign="top">
+				Expansibilidade Tor&aacute;cica: (x)Normal sim&eacute;trica&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ()Diminu&iacute;da &agrave; esquerda&nbsp;&nbsp;&nbsp;&nbsp; ()Diminu&iacute;da nas bases bilaterais<br />
+				<br />
+				()Diminu&iacute;da sim&eacute;trica&nbsp;&nbsp; ()Diminu&iacute;da &agrave; direita&nbsp;&nbsp;&nbsp;()Outro____________</td>
+		</tr>
+		<tr>
+			<td colspan="7" valign="top">
+				Motricidade:</td>
+		</tr>
+		<tr>
+			<td colspan="7" valign="top">
+				Condutas: ()Manobras Higiene Br&ocirc;nquica ()Aspira&ccedil;&atilde;o Endo, Oro, Nasotraqueal ()Manobras de Reexpans&atilde;o Pulmonar ()Recrutamento Alveolar<br />
+				()Ajustes Ventilat&oacute;rios ()Padr&otilde;es Respirat&oacute;rios ()Incentivadores ()VNI/CPAP ()Est&iacute;mulo de tosse ()Exerc&iacute;cios Passivos ()Exerc&iacute;cios Ativos<br />
+				()Exerc&iacute;cios Ativo assistido ()Alongamentos ()Sedesta&ccedil;&atilde;o ()Ortostatismo ()Deambula&ccedil;&atilde;o (x)Posicionamento ( x )Mudan&ccedil;a de Dec&uacute;bito ()In&iacute;cio do desmame ()Extuba&ccedil;&atilde;o ()Desmame TQT ()Oxigenoterapia ()Desmame oxigenoterapia () Aux&iacute;lio na Intuba&ccedil;&atilde;o Orotraqueal ()Aux&iacute;lio na PCR</td>
+		</tr>
+		<tr>
+			<td colspan="7" valign="top">
+				Informa&ccedil;&otilde;es relevantes/Intercorr&ecirc;ncias:_________</td>
+		</tr>
+		<tr>
+			<td colspan="7" valign="top">
+				(1)Avalia&ccedil;&atilde;o&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (3)0302040021-TRSCS&nbsp; &nbsp; &nbsp; &nbsp;()0302050019-DMSCS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ()0302060014-DNSCS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ()0302060057-PPON<br />
+				(2)Reavalia&ccedil;&atilde;o&nbsp; &nbsp;()0302040013-TRCCS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; (3)0302050035-DMCCS&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;()0302060022-DNCCS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+		</tr>
+	</tbody>
+</table>
+								</div>
+							</fieldset>
+						</div>
+					</div>
+				</div>
+				<!-- /.panel-body -->
+			</div>
+		</div>
+	</div>
+	
+	<div class="row">
+		<div class="col-lg-2">Profissional:</div>
+		<div class="col-lg-4"><b>IVANE MENDONCA QUEIROZ</b></div>
+		<div class="col-lg-2">Data Evolu&ccedil;&atilde;o: </div>
+		<div class="col-lg-4"><strong id='data_evo1686097'>05/08/2025 16:49:16</strong></div>
+	</div>
+	<div class="row">
+		<div class="col-lg-2">Atividade: </div>
+		<div class="col-lg-4"><b><strong>ENFERMEIRO</strong> </b></div>
+		<div class="col-lg-2">Data Atualiza&ccedil;&atilde;o:</div>
+		<div class="col-lg-4"><strong>05/08/2025 16:49:16</strong>
+			<!-- Data Cadastro: <strong>05/08/2025 16:49:16</strong> -->
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-lg-2">Clinica / Leito: </div>
+		<div class="col-lg-4"><strong>002-C I P</strong></div>
+		<div class="col-lg-2"></div>
+		<div class="col-lg-4">
+			<!-- Data Cadastro: <strong>05/08/2025 16:49:16</strong> -->
+		</div>
+	</div>
+
+
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="panel panel-info">
+				<div class="panel-heading" style="height:40px;">
+					<div style="float:left;">
+						<b>Descri&ccedil;&atilde;o:</b>
+					</div>
+					<div style="text-align:right;">
+						<input type="checkbox" value="1686097" name="idPrint" class="chM" id="idPrint">
+						
+					</div>
+				</div>
+				<!-- /.panel-heading -->
+				<div class="panel-body">
+					<div class="row">
+						<div class="col-lg-12">
+							
+							<fieldset style="width:100%">
+								<div id='1686097txtView' style="width:100%">
+									Menor , 10 anos, segue em leito de CIP, acompanhada da genitora. HD: TCE grave por queda de cavalo. Sonolento com per&iacute;odos de agita&ccedil;&atilde;o.&nbsp; Afebril, eupneico, acian&oacute;tico, hipocorado.&nbsp; Apresentando escoria&ccedil;&otilde;es na face,&nbsp; t&oacute;rax e MMSS, com hematoma periorbit&aacute;rio &agrave; esquerda,&nbsp; edema importante em regi&atilde;o periorbit&aacute;ria &agrave; esquerda. Dificuldade de fala devido ao edema da face. Mantido em dieta zero. Coletado hemocultura. Encaminhado as 15h para realiza&ccedil;&atilde;o de TC. Instalo SVD, diurese presente .<br />
+<br />
+Controle dos SSVV pela Enfermagem:&nbsp;<br />
+<br />
+PAS:121; PAD: 83 ; PAM:&nbsp; 83 mmHg;&nbsp; &nbsp;FC:89 bpm:&nbsp; &nbsp;FR:39 inc/min;&nbsp; &nbsp;TEMP: 35,5&ordm;C;&nbsp;&nbsp; SAT: 100%<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+<br />
+								</div>
+							</fieldset>
+						</div>
+					</div>
+				</div>
+				<!-- /.panel-body -->
+			</div>
+		</div>
+	</div>
+	
+	<div class="row">
+		<div class="col-lg-2">Profissional:</div>
+		<div class="col-lg-4"><b>DULCE MARIA RODRIGUES LEITE</b></div>
+		<div class="col-lg-2">Data Evolu&ccedil;&atilde;o: </div>
+		<div class="col-lg-4"><strong id='data_evo1686018'>05/08/2025 12:43:03</strong></div>
+	</div>
+	<div class="row">
+		<div class="col-lg-2">Atividade: </div>
+		<div class="col-lg-4"><b><strong>PSICOLOGO</strong> </b></div>
+		<div class="col-lg-2">Data Atualiza&ccedil;&atilde;o:</div>
+		<div class="col-lg-4"><strong>05/08/2025 12:43:03</strong>
+			<!-- Data Cadastro: <strong>05/08/2025 12:43:03</strong> -->
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-lg-2">Clinica / Leito: </div>
+		<div class="col-lg-4"><strong>002-C I P</strong></div>
+		<div class="col-lg-2"></div>
+		<div class="col-lg-4">
+			<!-- Data Cadastro: <strong>05/08/2025 12:43:03</strong> -->
+		</div>
+	</div>
+
+
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="panel panel-info">
+				<div class="panel-heading" style="height:40px;">
+					<div style="float:left;">
+						<b>Descri&ccedil;&atilde;o:</b>
+					</div>
+					<div style="text-align:right;">
+						<input type="checkbox" value="1686018" name="idPrint" class="chM" id="idPrint">
+						
+					</div>
+				</div>
+				<!-- /.panel-heading -->
+				<div class="panel-body">
+					<div class="row">
+						<div class="col-lg-12">
+							
+							<fieldset style="width:100%">
+								<div id='1686018txtView' style="width:100%">
+									Foi feito contato com a m&atilde;e-acompanhante visando suporte emocional. Sem queixa psiquica.<br />
+Colocado servi&ccedil;o &agrave; disposi&ccedil;&atilde;o para qualquer intercorr&ecirc;ncia ps&iacute;quica ou atendimento individual.
+								</div>
+							</fieldset>
+						</div>
+					</div>
+				</div>
+				<!-- /.panel-body -->
+			</div>
+		</div>
+	</div>
+	
+	<div class="row">
+		<div class="col-lg-2">Profissional:</div>
+		<div class="col-lg-4"><b>LAISSA SILVERIO DE LIMA</b></div>
+		<div class="col-lg-2">Data Evolu&ccedil;&atilde;o: </div>
+		<div class="col-lg-4"><strong id='data_evo1685994'>05/08/2025 12:04:28</strong></div>
+	</div>
+	<div class="row">
+		<div class="col-lg-2">Atividade: </div>
+		<div class="col-lg-4"><b><strong>PEDIATRA</strong> </b></div>
+		<div class="col-lg-2">Data Atualiza&ccedil;&atilde;o:</div>
+		<div class="col-lg-4"><strong>05/08/2025 12:04:28</strong>
+			<!-- Data Cadastro: <strong>05/08/2025 12:04:28</strong> -->
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-lg-2">Clinica / Leito: </div>
+		<div class="col-lg-4"><strong>001-EMERGENCIA - INTERNADOS</strong></div>
+		<div class="col-lg-2"></div>
+		<div class="col-lg-4">
+			<!-- Data Cadastro: <strong>05/08/2025 12:04:28</strong> -->
+		</div>
+	</div>
+
+
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="panel panel-info">
+				<div class="panel-heading" style="height:40px;">
+					<div style="float:left;">
+						<b>Descri&ccedil;&atilde;o:</b>
+					</div>
+					<div style="text-align:right;">
+						<input type="checkbox" value="1685994" name="idPrint" class="chM" id="idPrint">
+						
+					</div>
+				</div>
+				<!-- /.panel-heading -->
+				<div class="panel-body">
+					<div class="row">
+						<div class="col-lg-12">
+							
+							<fieldset style="width:100%">
+								<div id='1685994txtView' style="width:100%">
+									EVOLU&Ccedil;&Atilde;O DIURNA - EMERG&Ecirc;NCIA 1<br />
+<br />
+IDENTIFICA&Ccedil;&Atilde;O:<br />
+ALERRANDRO PIETRO GON&Ccedil;ALVES RAMOS<br />
+10ANOS (DN: 13/09/2014)<br />
+35KG (PC 18)<br />
+ACOMP: VALDIRENE RAMOS NEVES (M&Atilde;E)<br />
+<br />
+DIH 04/08/2025<br />
+<br />
+# DIAGN&Oacute;STICOS ATUAIS:<br />
+TRAUMA P&Oacute;S QUEDA A CAVALO<br />
+TCE COM FRATURA DE BASE DE CR&Acirc;NIO<br />
+- FRATURA DE ESFEN&Oacute;IDE, TEMPORAL ESQUERDO COM DI&Aacute;STASE DO OSSO TEMPORAL, PNEUMOCR&Acirc;NIO E HEMOSSINUS<br />
+<br />
+# EM USO DE:<br />
+DIETA ZERO + HV (OH 80 TIG 1,5 K 1 NA 136)<br />
+CEFALOTINA 100MG/KG/DIA DI 04/08<br />
+DEXAMETASONA 0,4MG/KG/DIA DI 04/08 DEVIDO EDEMA CEREBRAL<br />
+DIPIRONA SOS<br />
+MORFINA ACM<br />
+ONDANSETRONA SOS<br />
+<br />
+<br />
+# QP: QUEDA DE CAVALO HOJE DE MANH&Atilde;<br />
+# HDA: MENOR COM RELATO DE QUEDA DE CAVALO HOJE POR VOLTA DAS 7H DA MANH&Atilde;, EM ZONA RURAL, ENCONTRADO PELA M&Atilde;E CA&Iacute;DO, ACORDADO POR&Eacute;M SONOLENTO, SEM HIST&Oacute;RIA DE DESMAIO OU CONVULS&Atilde;O, ORIENTADO A RESPEITO DE QUEM &Eacute; E RECONHECENDO A M&Atilde;E POR&Eacute;M REFERE N&Atilde;O LEMBRAR O QUE OCORREU COM RELA&Ccedil;&Atilde;O AO ACIDENTE.<br />
+LEVADO AO HOSPITAL JOAO PAULO II, RECEBIDO EM SALA VERMELHA, AVALIADO PELA EQUIPE DE CIRURGIA GERAL E NEUROCIRURGIA, QUE INDICOU CONDUTA CONSERVADORA E ENCAMINHOU &Agrave; ESTE NOSOC&Ocirc;MIO PARA CUIDADOS DE PEDIATRIA, BEM COMO COM ORIENTA&Ccedil;&Atilde;O DE REPETIR TC DE CR&Acirc;NIO AP&Oacute;S 12H DO TRAUMA E AVALIA&Ccedil;&Atilde;O DA NOVA TC DE CR&Acirc;NIO PELA EQUIPE LOCAL DE NEUROCIRURGIA.<br />
+#HPP: NEGA INTERNA&Ccedil;&Otilde;ES OU DOEN&Ccedil;AS PR&Eacute;VIAS. NEGA ALERGIAS ALIMENTARES OU MEDICAMENTOSAS.<br />
+<br />
+<br />
+# AVALIA&Ccedil;&Atilde;O ESPECIALIDADES:<br />
+<br />
+- AVALIA&Ccedil;&Atilde;O CIRURGIA GERAL 04/08: DR EDUARDO VAZQUEZ (HOSPITAL JO&Atilde;O PAULO II)<br />
+REMOVIDO DE GUAJAR&Aacute; MIRIM, ANTECEDENTE DE QUEDA DE CAVALO, DE MANHA CEDO E ENCONTRADO EM TORNO DAS 11H, SIC. RELATA A M&Atilde;E QUE TEVE CICLOS DE PERDA DE CONSCI&Ecirc;NCIA, NEGA ALERGIAS, VOMITO. VEIO SEM IMOBILIZA&Ccedil;&Otilde;ES.<br />
+TRAUMA: ABCD PRESERVADOS, G14.<br />
+E: ESCORIA&Ccedil;&Otilde;ES FACIAIS DERMICAS A PREDOMINIO ESQUERDO, EQUIMOSE PALPEBRAL BILATERAL &Agrave; ESQUERDA. ESCORIA&Ccedil;&Atilde;O DERMICA SUPRA CLAVICULAR ESQUERDA.<br />
+T&Oacute;RAX: SEM ENFISEMA NEM CREPTOS SUBCUTANEOS.<br />
+ABDOMEN: FL&Aacute;CIDO, INOCENTE AO EXAME F&Iacute;SICO.<br />
+DX TRAUMA CRANIO FACIAL<br />
+CD: TC CRANIOFACIAL + COL. C.; COLAR CERVICAL (IMPROVISADO, POIS NAO TEMOS O TAMANHO APROPRIADO PARA O PACIENTE). AVAL NCR + BMF.<br />
+SEM CONDUTA PELA CIR. GERAL.<br />
+<br />
+- AVALIA&Ccedil;&Atilde;O NEUROCIRURGIA 04/08: DR JOSUE GUIMARAES (HOSPITAL JO&Atilde;O PAULO II)<br />
+QUEDA DE CAVALO 7H HOJE EM GUAJAR&Aacute; MIRIM V80<br />
+TRAUMATISMO CRANIOENCEFALICO COM FRATURA DE BASE DE CR&Acirc;NIO S020- FRATURA DE ESFENOIDE, TEMPORAL ESQUERDO COM DIASTASE DO OSSO TEMPORAL. PNEUMOCRANIO. HEMOSSINUS. EDEMA CEREBRAL P&Oacute;S TRAUM&Aacute;TICO CORTICAL ALTO S061<br />
+PACIENTE PROVENIENTE DE GUAJAR&Aacute; MIRIM COM HIST&Oacute;RIA DE QUEDA DE CAVALO HOJE PELA MANH&Atilde;. ENCONTRADO CA&Iacute;DO E ENCAMINHADO AO HOSPITAL. NO MOMENTO, EM SALA VERMELHA, COLAR CERVICAL, AR AMBIENTE. EST&Aacute;VEL HEMODINAMICO E RESPIRAT&Oacute;RIO. ESCORIA&Ccedil;&Otilde;ES GENERALIZADAS, ESCORIA&Ccedil;&Otilde;ES EM HEMIFACE ESQUERDA, EQUIMOSE PERIPALPEBRAL ESQUERDA. SONOLENTO, NAO VERBALIZA, N&Atilde;O ABRE OLHOS ESPONTANEAMENTE. SEM POSTURAS PATOL&Oacute;GICAS. REAGE A DOR. GLASGOW INFANTIL 0-2 V 2 M5 =9<br />
+TC DE CR&Acirc;NIO EDEMA CEREBRAL ALTO CORTICAL, SINAIS DE TRA&Ccedil;O DE FRATURA TEMPORAL ESQUERDA COM DIASTASE DO TEMPORAL, FRATURA CAPILAR EFENOIDAL, PNEUMOCRANIO. LINHA M&Eacute;DIA CENTRADA, VENTRICULOS, CISTERNAS, ABERTOS VISIVEIS E CENTRADOS. SULCOS E GIROS ALTOS INDEFINIDOS. AUSENCIA DE LESOES NEUROCIRURGICAS NO MOMENTO.<br />
+HD: TCE MODERADO- GRAVE POR QUEDA DE CAVALO- FRATURA DE BASE DE CR&Acirc;NIO TEMPORAL ESFENOIDAL.<br />
+LIBERADO PELA NEUROCIRURGIA JP II, SEM NECESSIDADE DE PROCEDIMENTO NEUROCIRURGICO.<br />
+TRATAMENTO CONSERVADOR DE TRAUMATISMO CRANIOENCEFALICO EM PACIENTE PEDIATRICO.<br />
+ENCAMINHADO AO HOSPITAL JOAO PAULO SEGUNDO- REPETIR TC DE CR&Acirc;IO EM 12H, REAVALIA&Ccedil;&Atilde;O NEUROCIRURGIA LOCAL COM NOVA TC.<br />
+<br />
+# ADMISS&Atilde;O LEITO DE EMERG&Ecirc;NCIA:<br />
+MENOR CHEGA EM MACA R&Iacute;GIDA, ACOMPANHADO DE M&Eacute;DICO E EQUIPE DE TRANSPORTE, EST&Aacute;VEL HEMODINAMICAMENTE, COM ACESSO VENOSO PERIF&Eacute;RICO FUNCIONANTE EM MSE, EM AR AMBIENTE, SONOLENTO POR&Eacute;M REATIVO QUANDO CHAMADO. SABE ONDE EST&Aacute;, QUEM &Eacute; SUA M&Atilde;E E SEU NOME. SINAIS VITAIS EST&Aacute;VEIS NO MOMENTO DA ADMISS&Atilde;O. MENOR COM PRESEN&Ccedil;A DE ESCORIA&Ccedil;&Otilde;ES EM FACE, T&Oacute;RAX E MMSS, COM HEMATOMA PERIORBIT&Aacute;RIO &Agrave; ESQUERDA, BEM COMO EDEMA IMPORTANTE EM REGI&Atilde;O PERIORBIT&Aacute;RIA &Agrave; ESQUERDA. SOLICITO RX T&Oacute;RAX, ABDOME E MMSS- N&Atilde;O VISUALIZO SINAIS DE FRATURA, PNEUMOT&Oacute;RAX, HEMOT&Oacute;RAX, PNEUMOPERIT&Ocirc;NEO OU DEMAIS COMPLICA&Ccedil;&Otilde;ES<br />
+<br />
+#EXAMES LABORATORIAIS:<br />
+05/08 8H: HG 13 / HT 37,4 / LEUC 12370 / BAST 1 / SEGM 79 / LINF 14 / MONOC 6 / PLAQ 227.000 / LACTATO 10,7 / PROCALCITONINA 0,84 / TTPA 27,2 / TAP 77% / INR 1,21 / AGUARDA BIOQU&Iacute;MICA<br />
+<br />
+# CONTROLES 22H &Agrave;S 06H<br />
+PAM 63-79<br />
+FC 59 &ndash; 71<br />
+FR 22 &ndash; 29<br />
+TAX 36,4 &ndash; 36,8<br />
+SPO2 98-99<br />
+BH 8H: -45 ML&nbsp; - DIURESE 53,7 ML/H OU 1,5 ML/KG/H<br />
+<br />
+# EVOLU&Ccedil;&Atilde;O:<br />
+PACIENTE POTENCIALMENTE GRAVE, HEMODINAMICAMENTE EST&Aacute;VEL.<br />
+EM AA, EUPNEICO E COM BOM PADR&Atilde;O RESPIRAT&Oacute;RIO.<br />
+EM JEJUM PELA OSCILA&Ccedil;&Atilde;O DE N&Iacute;VEL DE CONSCI&Ecirc;NCIA E REALIZA&Ccedil;&Atilde;O DE TOMOGRAFIAS CR&Acirc;NIO, T&Oacute;RAX E ABDOME PARA REAVALIA&Ccedil;&Atilde;O COM ESPECIALIDADES.<br />
+<br />
+# AO EXAME F&Iacute;SICO:<br />
+- REG, HIDRATADO, NORMOCORADO, EQUIMOSE E EDEMA PERIORBIT&Aacute;RIO A ESQUERDA. PRESEN&Ccedil;A DE ESCORIA&Ccedil;&Atilde;O EM FACE, TRONCO E MMSS, SEM SANGRAMENTO ATIVO POR&Eacute;M COM PRESEN&Ccedil;A DE SANGUE J&Aacute; SECO<br />
+- SONOLENTO POR&Eacute;M REATIVO &Agrave; EST&Iacute;MULO VERBAL, COMPREENDE QUANDO QUESTIONADO ALGO, PUPILAS ISOC&Oacute;RICAS E FOTORREATIVAS. FOR&Ccedil;A E TONUS PRESERVADOS NOS 4 MEMBROS. SEM D&Eacute;FICITS FOCAIS. GCS 13.<br />
+- OROSCOPIA: DIF&Iacute;CIL VISUALIZA&Ccedil;&Atilde;O DEVIDO MENOR N&Atilde;O PERMITIR POR&Eacute;M N&Atilde;O VISUALIZO SANGRAMENTO ATIVO<br />
+- OTOSCOPIA: PRESEN&Ccedil;A DE SANGUE SECO EM REGI&Atilde;O DE CONDUTO EXTERNO &Agrave; ESQUERDA, SEM VISUALIZA&Ccedil;&Atilde;O DE OTORRAGIA NO MOMENTO OU SINAIS DE SANGRAMENTO ATIVO, N&Atilde;O CONSIGO VISUALIZAR MT<br />
+- RINOSCOPIA: SEM SINAIS DE SANGRAMENTO ATIVO<br />
+- AR: MV+, SEM RA, SEM SINAIS DE DESCONFORTO RESPIRAT&Oacute;RIO, EXPANSIBILIDADE PRESERVADA, EUPNEICO<br />
+- ACV: RCR 2T, BNF SEM SOPROS<br />
+- ABD: RHA+, FL&Aacute;CIDO, TIMPANICO &Agrave; PERCUSS&Atilde;O, INDOLOR &Agrave; PALPA&Ccedil;&Atilde;O SUPERFICIAL E PROFUNDA, SEM SINAIS DE PERITONITE, N&Atilde;O PALPO MASSAS OU VISCEROMEGALIAS<br />
+- EXTREM: TEC&lt; 3S, SEM EDEMAS, PULSOS CENTRAIS E PERIF&Eacute;RICOS CHEIOS E PRESENTES<br />
+<br />
+<br />
+CD:<br />
+- DIETA ZERO + HV HIPERT&Ocirc;NICA (OH 63 / GLIC 1,5 / K 2 / MG 0,3 / NA 150)<br />
+- SUSPENDO CEFALOTINA E AMPLIO PARA CEFTRIAXONA 100 MG/KG/DIA PARA COBERTURA DE SNC PELO RISCO DE COMUNICA&Ccedil;&Atilde;O ENTRE BARREIRA HEMATOENCEF&Aacute;LICA E VIA A&Eacute;REA SUPERIOR.<br />
+- FENITO&Iacute;NA 5,7 MG/KG/DIA 12/12H (PROFIL&Aacute;TICO)<br />
+- OTIMIZO DOSE DE DEXAMETASONA 0,3MG/KG/DOSE 6/6H DEVIDO EDEMA CEREBRAL<br />
+- MORFINA 0,1 MG/KG/DOSE 6/6H POR DOR INTENSA EM FACE LIMITANDO ABERTURA DE CAVIDADE ORAL.<br />
+- CETOPROFENO 1MG/KG/DOSE 12/12H<br />
+- ONDANSETRONA 0,2 MG/KG/DOSE 8/8H<br />
+- OMEPRAZOL 1MG/KG/DIA<br />
+- MANITOL 1G/KG S/N &ndash; POR ORA SEM SINAIS CL&Iacute;NICOS DE HIPERTENS&Atilde;O INTRACRANIANA<br />
+- DIPIRONA S/N&nbsp;<br />
+<br />
+AGUARDA RESULTADOS DE BIOQU&Iacute;MICA + SOLICITO HMC - SERIAR HEMAT&Oacute;CRITO.<br />
+AGUARDA TC DE CR&Acirc;NIO PARA REPETIR EM 12H ( PELA MANH&Atilde; DE 05/08) CONFORME ORIENTADO PELA NCR DO HOSPITAL DE ORIGEM.<br />
+SOLICITO TC T&Oacute;RAX E ABDOME COM CONTRASTE PARA DESCARTE DE LES&Otilde;ES DE &Oacute;RG&Atilde;OS.<br />
+AGUARDA&nbsp; REAVALIA&Ccedil;&Atilde;O NCR E BUCOMAXILO<br />
+CUIDADOS DE CIP &ndash; AGUARDA LEITO<br />
+VIGIAR CRITERIOSAMENTE SINAIS DE REBAIXAMENTO DE N&Iacute;VEL DE CONSCI&Ecirc;NCIA E HIPERTENS&Atilde;O INTRACRANIANA
+								</div>
+							</fieldset>
+						</div>
+					</div>
+				</div>
+				<!-- /.panel-body -->
+			</div>
+		</div>
+	</div>
+	
+	<div class="row">
+		<div class="col-lg-2">Profissional:</div>
+		<div class="col-lg-4"><b>LAISSA SILVERIO DE LIMA</b></div>
+		<div class="col-lg-2">Data Evolu&ccedil;&atilde;o: </div>
+		<div class="col-lg-4"><strong id='data_evo1685901'>05/08/2025 10:36:20</strong></div>
+	</div>
+	<div class="row">
+		<div class="col-lg-2">Atividade: </div>
+		<div class="col-lg-4"><b><strong>PEDIATRA</strong> </b></div>
+		<div class="col-lg-2">Data Atualiza&ccedil;&atilde;o:</div>
+		<div class="col-lg-4"><strong>05/08/2025 10:36:20</strong>
+			<!-- Data Cadastro: <strong>05/08/2025 10:36:20</strong> -->
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-lg-2">Clinica / Leito: </div>
+		<div class="col-lg-4"><strong>001-EMERGENCIA - INTERNADOS</strong></div>
+		<div class="col-lg-2"></div>
+		<div class="col-lg-4">
+			<!-- Data Cadastro: <strong>05/08/2025 10:36:20</strong> -->
+		</div>
+	</div>
+
+
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="panel panel-info">
+				<div class="panel-heading" style="height:40px;">
+					<div style="float:left;">
+						<b>Descri&ccedil;&atilde;o:</b>
+					</div>
+					<div style="text-align:right;">
+						<input type="checkbox" value="1685901" name="idPrint" class="chM" id="idPrint">
+						
+					</div>
+				</div>
+				<!-- /.panel-heading -->
+				<div class="panel-body">
+					<div class="row">
+						<div class="col-lg-12">
+							
+							<fieldset style="width:100%">
+								<div id='1685901txtView' style="width:100%">
+									.
+								</div>
+							</fieldset>
+						</div>
+					</div>
+				</div>
+				<!-- /.panel-body -->
+			</div>
+		</div>
+	</div>
+	
+	<div class="row">
+		<div class="col-lg-2">Profissional:</div>
+		<div class="col-lg-4"><b>ADALBERTO R LOBO</b></div>
+		<div class="col-lg-2">Data Evolu&ccedil;&atilde;o: </div>
+		<div class="col-lg-4"><strong id='data_evo1685884'>05/08/2025 10:19:05</strong></div>
+	</div>
+	<div class="row">
+		<div class="col-lg-2">Atividade: </div>
+		<div class="col-lg-4"><b><strong>NEUROCIRURGIAO</strong> </b></div>
+		<div class="col-lg-2">Data Atualiza&ccedil;&atilde;o:</div>
+		<div class="col-lg-4"><strong>05/08/2025 10:19:05</strong>
+			<!-- Data Cadastro: <strong>05/08/2025 10:19:05</strong> -->
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-lg-2">Clinica / Leito: </div>
+		<div class="col-lg-4"><strong>001-EMERGENCIA - INTERNADOS</strong></div>
+		<div class="col-lg-2"></div>
+		<div class="col-lg-4">
+			<!-- Data Cadastro: <strong>05/08/2025 10:19:05</strong> -->
+		</div>
+	</div>
+
+
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="panel panel-info">
+				<div class="panel-heading" style="height:40px;">
+					<div style="float:left;">
+						<b>Descri&ccedil;&atilde;o:</b>
+					</div>
+					<div style="text-align:right;">
+						<input type="checkbox" value="1685884" name="idPrint" class="chM" id="idPrint">
+						
+					</div>
+				</div>
+				<!-- /.panel-heading -->
+				<div class="panel-body">
+					<div class="row">
+						<div class="col-lg-12">
+							
+							<fieldset style="width:100%">
+								<div id='1685884txtView' style="width:100%">
+									NCR&nbsp;<br />
+TCE POR QUEDA DE CAVALO&nbsp;<br />
+SONOLENTO EQUIMOSE E EDEMA PERIORBITARIO A E<br />
+SEM DEFICITS NEUROLOGICOS FOCAIS<br />
+ECG 12<br />
+SOLICITADO TC DE CRANEO E RX DE FACE<br />
+TRATAMENTO CONSERVADOR
+								</div>
+							</fieldset>
+						</div>
+					</div>
+				</div>
+				<!-- /.panel-body -->
+			</div>
+		</div>
+	</div>
+	
+	<div class="row">
+		<div class="col-lg-2">Profissional:</div>
+		<div class="col-lg-4"><b>VITORIA DA SILVA BRESSAN BARBIERI</b></div>
+		<div class="col-lg-2">Data Evolu&ccedil;&atilde;o: </div>
+		<div class="col-lg-4"><strong id='data_evo1685802'>04/08/2025 23:59:58</strong></div>
+	</div>
+	<div class="row">
+		<div class="col-lg-2">Atividade: </div>
+		<div class="col-lg-4"><b><strong>MEDICO (QUALQUER ESPECIALIDADE)</strong> </b></div>
+		<div class="col-lg-2">Data Atualiza&ccedil;&atilde;o:</div>
+		<div class="col-lg-4"><strong>04/08/2025 23:59:58</strong>
+			<!-- Data Cadastro: <strong>04/08/2025 23:59:58</strong> -->
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-lg-2">Clinica / Leito: </div>
+		<div class="col-lg-4"><strong>019-HOSPITAL DIA</strong></div>
+		<div class="col-lg-2"></div>
+		<div class="col-lg-4">
+			<!-- Data Cadastro: <strong>04/08/2025 23:59:58</strong> -->
+		</div>
+	</div>
+
+
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="panel panel-info">
+				<div class="panel-heading" style="height:40px;">
+					<div style="float:left;">
+						<b>Descri&ccedil;&atilde;o:</b>
+					</div>
+					<div style="text-align:right;">
+						<input type="checkbox" value="1685802" name="idPrint" class="chM" id="idPrint">
+						
+					</div>
+				</div>
+				<!-- /.panel-heading -->
+				<div class="panel-body">
+					<div class="row">
+						<div class="col-lg-12">
+							
+							<fieldset style="width:100%">
+								<div id='1685802txtView' style="width:100%">
+									Admiss&atilde;o Emerg&ecirc;ncia 01<br />
+<br />
+<br />
+Identifica&ccedil;&atilde;o:<br />
+Alerrandro Pietro Gon&ccedil;alves Ramos<br />
+10anos (DN: 13/09/2014)<br />
+35kg (PC 18)<br />
+Acomp: Valdirene Ramos Neves (m&atilde;e)<br />
+<br />
+DIH 04/08/2025<br />
+<br />
+QP: queda de cavalo hoje de manh&atilde;<br />
+<br />
+HDA: menor com relato de queda de cavalo hoje por volta das 7h da manh&atilde;, em zona rural, encontrado pela m&atilde;e ca&iacute;do, acordado por&eacute;m sonolento, sem hist&oacute;ria de desmaio ou convuls&atilde;o, orientado a respeito de quem &eacute; e reconhecendo a m&atilde;e por&eacute;m refere n&atilde;o lembrar o que ocorreu com rela&ccedil;&atilde;o ao acidente.<br />
+Levado ao Hospital Joao Paulo II, recebido em sala vermelha, avaliado pela equipe de cirurgia geral e neurocirurgia, que indicou conduta conservadora e encaminhou &agrave; este nosoc&ocirc;mio para cuidados de pediatria, bem como com orienta&ccedil;&atilde;o de repetir TC de cr&acirc;nio ap&oacute;s 12h do trauma e avalia&ccedil;&atilde;o da nova TC de cr&acirc;nio pela equipe local de neurocirurgia.<br />
+<br />
+Avalia&ccedil;&atilde;o cirurgia geral 04/08: Dr Eduardo Vazquez<br />
+Removido de Guajar&aacute; Mirim, antecedente de queda de cavalo, de manha cedo e encontrado em torno das 11h, SIC. Relata a m&atilde;e que teve ciclos de perda de consci&ecirc;ncia, nega alergias, vomito. Veio sem imobiliza&ccedil;&otilde;es.<br />
+Trauma: ABCD preservados, G14.<br />
+E: escoria&ccedil;&otilde;es faciais dermicas a predominio esquerdo, equimose palpebral bilateral &agrave; esquerda. Escoria&ccedil;&atilde;o dermica supra clavicular esquerda.<br />
+T&oacute;rax: sem enfisema nem creptos subcutaneos.<br />
+Abdomen: fl&aacute;cido, inocente ao exame f&iacute;sico.<br />
+Dx trauma cranio facial<br />
+CD: tc craniofacial + col. C.; colar cervical (improvisado, pois nao temos o tamanho apropriado para o paciente). Aval NCR + BMF.&nbsp;<br />
+Sem conduta pela cir. geral.<br />
+<br />
+Avalia&ccedil;&atilde;o Neurocirurgia 04/08 (Dr Josue Guimaraes)<br />
+Queda de cavalo 7h hoje em guajar&aacute; mirim V80<br />
+Traumatismo cranioencefalico com fratura de base de cr&acirc;nio S020- fratura de esfenoide, temporal esquerdo com diastase do osso temporal. Pneumocranio. Hemossinus. Edema cerebral p&oacute;s traum&aacute;tico cortical alto S061<br />
+Paciente proveniente de Guajar&aacute; Mirim com hist&oacute;ria de queda de cavalo hoje pela manh&atilde;. Encontrado ca&iacute;do e encaminhado ao hospital. No momento, em sala vermelha, colar cervical, ar ambiente. Est&aacute;vel hemodinamico e respirat&oacute;rio. Escoria&ccedil;&otilde;es generalizadas, escoria&ccedil;&otilde;es em hemiface esquerda, equimose peripalpebral esquerda. Sonolento, nao verbaliza, n&atilde;o abre olhos espontaneamente. Sem posturas patol&oacute;gicas. Reage a dor. Glasgow infantil 0-2 V 2 M5 =9<br />
+TC de cr&acirc;nio edema cerebral alto cortical, sinais de tra&ccedil;o de fratura temporal esquerda com diastase do temporal, fratura capilar efenoidal, pneumocranio. Linha m&eacute;dia centrada, ventriculos, cisternas, abertos visiveis e centrados. Sulcos e giros altos indefinidos. Ausencia de lesoes neurocirurgicas no momento.<br />
+HD: TCE moderado- grave por queda de cavalo- fratura de base de cr&acirc;nio temporal esfenoidal.<br />
+Liberado pela neurocirurgia JP II, sem necessidade de procedimento neurocirurgico.<br />
+Tratamento conservador de traumatismo cranioencefalico em paciente pediatrico.<br />
+Encaminhado ao hospital Joao Paulo Segundo- repetir TC de cr&acirc;io em 12h, reavalia&ccedil;&atilde;o neurocirurgia local com nova TC.<br />
+<br />
+HPP: nega interna&ccedil;&otilde;es ou doen&ccedil;as pr&eacute;vias. Nega alergias alimentares ou medicamentosas.<br />
+<br />
+Admiss&atilde;o leito de emerg&ecirc;ncia: menor chega em maca r&iacute;gida, acompanhado de m&eacute;dico e equipe de transporte, est&aacute;vel hemodinamicamente, com acesso venoso perif&eacute;rico funcionante em MSE, em ar ambiente, sonolento por&eacute;m reativo quando chamado. Sabe onde est&aacute;, quem &eacute; sua m&atilde;e e seu nome. Sinais vitais est&aacute;veis no momento da admiss&atilde;o. Menor com presen&ccedil;a de escoria&ccedil;&otilde;es em face, t&oacute;rax e MMSS, com hematoma periorbit&aacute;rio &agrave; esquerda, bem como edema importante em regi&atilde;o periorbit&aacute;ria &agrave; esquerda.&nbsp;<br />
+<br />
+Ao exame f&iacute;sico:<br />
+REG, est&aacute;vel hemodinamicamente, sonolento por&eacute;m reativo &agrave; est&iacute;mulo verbal, compreende quando questionado algo e responde, hidratado, corado, eupneico, afebril no momento, pupila &agrave; direita isofotorreagente, pupila a esquerda n&atilde;o foi poss&iacute;vel visualizar devido edema periorbit&aacute;rio.<br />
+Presen&ccedil;a de escoria&ccedil;&atilde;o em face, tronco e MMSS, sem sangramento ativo por&eacute;m com presen&ccedil;a de sangue j&aacute; seco<br />
+Oroscopia: dif&iacute;cil visualiza&ccedil;&atilde;o devido menor n&atilde;o permitir por&eacute;m n&atilde;o visualizo sangramento ativo<br />
+Otoscopia: presen&ccedil;a de sangue seco em regi&atilde;o de conduto externo &agrave; esquerda, sem visualiza&ccedil;&atilde;o de otorragia no momento ou sinais de sangramento ativo, n&atilde;o consigo visualizar MT<br />
+Rinoscopia: sem sinais de sangramento ativo<br />
+AR: MV+, sem RA, sem sinais de desconforto respirat&oacute;rio, expansibilidade preservada, eupneico<br />
+ACV: RCR 2T, BNF sem sopros<br />
+ABD: RHA+, fl&aacute;cido, timpanico &agrave; percuss&atilde;o, indolor &agrave; palpa&ccedil;&atilde;o superficial e profunda, sem sinais de peritonite, n&atilde;o palpo massas ou visceromegalias<br />
+Extrem: TEC&lt; 3s, sem edemas, pulsos centrais e perif&eacute;ricos cheios e presentes<br />
+<br />
+HD:<br />
+Trauma por queda de cavalo<br />
+TCE moderado/ grave<br />
+Fratura de base de cr&acirc;nio temporal esfenoidal<br />
+<br />
+CD:<br />
+Dieta zero + HV (OH 80 TIG 1,5 K 1 Na 136)<br />
+Cefalotina 100mg/kg/dia Di 04/08<br />
+Dexametasona 0,4mg/kg/dia Di 04/08 devido edema cerebral<br />
+Dipirona SOS<br />
+Morfina ACM<br />
+Ondansetrona SOS<br />
+Solicito exames laboratoriais da admiss&atilde;o<br />
+Solicito Rx t&oacute;rax, abdome e MMSS- n&atilde;o visualizo sinais de fratura, pneumot&oacute;rax, hemot&oacute;rax, pneumoperit&ocirc;neo ou demais complica&ccedil;&otilde;es<br />
+Solicito TC de cr&acirc;nio para repetir em 12h ( pela manh&atilde;) conforme orientado pela NCR do hospital de origem<br />
+Solicito avalia&ccedil;&atilde;o NCR e bucomaxilo<br />
+Cuidados de CIP<br />
+Vigiar criteriosamente sinais de rebaixamento de n&iacute;vel de consci&ecirc;ncia<br />
+								</div>
+							</fieldset>
+						</div>
+					</div>
+				</div>
+				<!-- /.panel-body -->
+			</div>
+		</div>
+	</div>
+	
+	
+	<div style="display:">
+		<a name="fimReg"></a>
+		<b>FIM DAS EVOLU&Ccedil;&Otilde;ES</b> | <a style="text-decoration:underline;" href="#inicioReg"><i
+				class="fa fa-arrow-up fa-sm"></i> Ir para o topo</a>
+	</div>
+
+	
+</div>
+
+
+
+<div class="modal fade" id="modal-default_proc" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span></button>
+				<legend>Nome: <b>ALERRANDO PIETRO GONCALVES RAMOS</b> - Prontu&aacute;rio: <b>40577</b></legend>
+				<h4 class="modal-title">Lançamento de Procedimentos</h4>
+			</div>
+			<div class="modal-body">
+
+				<table>
+					<tr>
+						<td>Procedimento:&nbsp;</td>
+						<td colspan="2" align="left"><input type="text" name="procedimento" id="procedimento"
+								class="form-nobreak" size="50"></td>
+						<td>&nbsp;Qtd.:</td>
+						<td>&nbsp;<input type="number" style="width: 80px; font-size: 13px" name="qtd_proc"
+								id="qtd_proc" class="form-nobreak" size="3" value="1" maxlength="2"
+								onkeypress="return event.charCode >= 48" min="1">&nbsp; &nbsp;</td>
+						<td align="left"><button type="button" class="btn btn-primary"
+								onClick="busca_procedim()">Buscar</button></td>
+					</tr>
+					<tr>
+						<td>Profissional:</td>
+						<td>
+							<select name="profissional_alta" id="profissional_alta" class="form-nobreak">
+								<option value="0" selected="selected">--SELECIONAR--</option>
+								
+								<option value="7564287268" >ADALBERTO  PENATI - CRM 987654321</option>
+								
+								<option value="55682324820" >ADALBERTO R LOBO - CRM 2079</option>
+								
+								<option value="276516222" >ADALIA LOPES DA COSTA - CRM </option>
+								
+								<option value="94718504287" >ADRIANE PACHECO BADRA MELOCRA - CRM </option>
+								
+								<option value="91106087291" >ADRIEL DENNER OLIVEIRA DA SILVA - CRM </option>
+								
+								<option value="35087919200" >AILTON DA SILVA ALVES - CRM </option>
+								
+								<option value="62878824415" >ALBA CRISTINA BEZERRA HERMANO - CRM </option>
+								
+								<option value="50997475234" >ALBER PESSOA DE FIGUEIREDO - CRM </option>
+								
+								<option value="66935539234" >ALCIONE MELO DA COSTA - CRM </option>
+								
+								<option value="72561777200" >ALDEISE FREITAS CARVALHO - CRM </option>
+								
+								<option value="597785201" >ALDISLANIA ARAUJO MARTINS - CRM </option>
+								
+								<option value="62219669220" >ALESSANDRA APARECIDA BARBOSA DE OLIVEIRA - CRM </option>
+								
+								<option value="84623543668" >ALESSANDRA AREDES MORAES DE MENDONCA - CRM </option>
+								
+								<option value="48592897220" >ALESSANDRA VALICHEK MOREIRA DE ANDRADE - CRM </option>
+								
+								<option value="2287814426" >ALESSANDRO CORREA PRUDENTE DOS SANTOS - CRM </option>
+								
+								<option value="56639236249" >ALEX ALBUQUERQUE DE ATHAYDE - CRM </option>
+								
+								<option value="98582690215" >ALEXANDRA JANKAUSKAS - CRM </option>
+								
+								<option value="94662525268" >ALEXANDRE ANDRADE CANOSA - CRM </option>
+								
+								<option value="76289249215" >ALEXANDRE BATISTA FALQUETI - CRM </option>
+								
+								<option value="60331372215" >ALEXANDRE UBIRAJARA MARQUES - CRM </option>
+								
+								<option value="3334626962" >ALEXSANDER MARQUES GADINI - CRM </option>
+								
+								<option value="78032911200" >ALEXSARA CARDOSO COELHO PRADO - CRM </option>
+								
+								<option value="91640270230" >ALEX SIQUEIRA DE OLIVEIRA - CRM </option>
+								
+								<option value="99296918200" >ALIETE PRADO FARIA - CRM 5161</option>
+								
+								<option value="1378366000" >ALINE BETTKER - CRM </option>
+								
+								<option value="96734930220" >ALINE DO NASCIMENTO - CRM </option>
+								
+								<option value="63437112287" >ALINE DOS ANJOS VILELA - CRM </option>
+								
+								<option value="01298945240" >ALINE GUIMARãES  - CRM 7401</option>
+								
+								<option value="02484225296" >ALINE NEVES TOLEDO SUBTIL - CRM 8720</option>
+								
+								<option value="328063290" >ALINY CRISTINA SAMPAIO - CRM </option>
+								
+								<option value="58052534291" >ALLAN PAIVA LOPES - CRM </option>
+								
+								<option value="80047637234" >ALONCELIA SOARES BARBOSA - CRM </option>
+								
+								<option value="56980310291" >ALRISANGELA SILVA PRADO - CRM </option>
+								
+								<option value="3140178956" >ALVARO LAZARETTI - CRM </option>
+								
+								<option value="85713244253" >AMANDA CAVALCANTE DE ALBUQUERQUE - CRM </option>
+								
+								<option value="1384444203" >AMANDA SIQUEIRA LEMOS - CRM 5280</option>
+								
+								<option value="95086846234" >AMANDA SOARES DE MEDEIROS - CRM </option>
+								
+								<option value="27279715168" >AMELIA GARCIA MACHADO - CRM </option>
+								
+								<option value="2156900280" >AMOM MENDES FERNANDES ROCHA - CRM </option>
+								
+								<option value="36870055858" >ANA BEATRIZ GOMES CABRAL - CRM </option>
+								
+								<option value="3122270196" >ANA CARLA SANTOS OLIVEIRA - CRM </option>
+								
+								<option value="34085149253" >ANA CLAUDIA ALVES OLIVEIRA - CRM </option>
+								
+								<option value="16392216898" >ANA CLAUDIA DINARDI DE ALMEIDA - CRM </option>
+								
+								<option value="59812427287" >ANA CLEIDE SILVA SOUZA - CRM </option>
+								
+								<option value="95302573253" >ANA ELISA KADRI CASTILHO - CRM </option>
+								
+								<option value="4059962333" >ANA IRIS PEREIRA SOUZA D AGOSTIN - CRM </option>
+								
+								<option value="618093907" >ANA LUCIA CAYE OLIVEIRA - CRM </option>
+								
+								<option value="88446808234" >ANA PAULA AZEVEDO TUPAN - CRM </option>
+								
+								<option value="82356866272" >ANA PAULA FARIAS DUARTE - CRM 2926</option>
+								
+								<option value="887138306" >ANA PAULA MOREIRA DE OLIVEIRA FERNANDES - CRM </option>
+								
+								<option value="34089098220" >ANA PAULA SANTOS CRUZ - CRM </option>
+								
+								<option value="76789306234" >ANA VALERIA DE ASSIS MIRANDA - CRM </option>
+								
+								<option value="80672825104" >ANDREA BARBIERI DE BARROS - CRM </option>
+								
+								<option value="6182279621" >ANDREA BORGES ALVES GURGEL DO AMARAL - CRM </option>
+								
+								<option value="408066776" >ANDREA CASTRO DE AQUINO MALAQUIAS - CRM </option>
+								
+								<option value="76372227134" >ANDREA CAVALCANTE LIMA - CRM </option>
+								
+								<option value="59136251291" >ANDREIA FREITAS BEZERRA DE LIMA - CRM </option>
+								
+								<option value="59532157204" >ANDREIA LARGURA GOMES - CRM </option>
+								
+								<option value="81157525172" >ANDREIA   ZULKE - CRM </option>
+								
+								<option value="7320972743" >ANDRE MOTTA DE OLIVEIRA - CRM </option>
+								
+								<option value="81194919049" >ANDRESA TUMELERO - CRM 1882</option>
+								
+								<option value="87324040268" >ANDRESSA L. DE OLIVEIRA - CRM 4157</option>
+								
+								<option value="92440762253" >ANDRESSA TELES RODRIGUES - CRM </option>
+								
+								<option value="88116760530" >ANDREZZA MARIA DE OLIVEIRA - CRM </option>
+								
+								<option value="93808127287" >ANDRIELI CRISTINA ARAUJO MELO - CRM </option>
+								
+								<option value="2686669705" >ANE CLAUDINE MARQUES MORAES - CRM </option>
+								
+								<option value="70954615204" >ANGELA MARCIA MARTINS - COREN 201898</option>
+								
+								<option value="28624491215" >ANGELA MARIA OLIVEIRA DO AMARAL - CRM </option>
+								
+								<option value="82218684420" >ANGELICA DE OLIVEIRA GOMINHO WANDERLEY - CRM </option>
+								
+								<option value="68737653253" >ANIELI NUCIANA ARAUJO DE CARVALHO - CRM </option>
+								
+								<option value="50970232268" >ANITA SPERANDIO PORTO - 2606 RO - CRM </option>
+								
+								<option value="98191462249" >ANNA CAROLINA BECKER TSCHURTSCHENTHALER - CRM 8693</option>
+								
+								<option value="91551684268" >ANNA CAROLINE LEAO DE SOUZA - CRM </option>
+								
+								<option value="1290035490" >ANNE RAFAELLA CARNEIRO ROZA - CRM </option>
+								
+								<option value="22064788204" >ANTONIA JOSE DA SILVA - CRM </option>
+								
+								<option value="77186044204" >ANTONIETA FERREIRA MACHADO DE OLIVEIRA - CRM 2830</option>
+								
+								<option value="23969660220" >ANTONIO CIPRIANO GURGEL DO AMARAL JUNIOR - CRM </option>
+								
+								<option value="13795066115" >ANTONIO DE OLIVEIRA GONCALVES PREZA - CRM 811</option>
+								
+								<option value="26701480268" >ANTONIO LEITE DE HOLANDA - CRM </option>
+								
+								<option value="30822556200" >ANTONIO SAVIO DANTAS BARROSO - CRM </option>
+								
+								<option value="01310280657" >ARACELI DOS SANTOS BRITO - CRM 2574</option>
+								
+								<option value="52092666215" >ARETHA GEDEON BARROS - CRM 7251</option>
+								
+								<option value="92602010200" >ARIANA FONSECA DA COSTA - CRM 7063</option>
+								
+								<option value="51148463291" >ARIANE GARCIA GUIMARAES FREIRE - CRM </option>
+								
+								<option value="11556757204" >ARLETE GOMES DE FRANCA - CRM </option>
+								
+								<option value="35511729949" >ARLETO ZACARIAS SILVA JUNIOR - CRM </option>
+								
+								<option value="4494400440" >ARMANDO DE FREITAS NOGUERA - CRM 44944004</option>
+								
+								<option value="55352359204" >ARSENIO ALCALDE BROCHE - CRM </option>
+								
+								<option value="80493459472" >ARTHELUCIA MARIA AMARAL DA SILVA - CRM </option>
+								
+								<option value="93613083272" >ARTHUR HENRIQUE DEMARCHI - CRM </option>
+								
+								<option value="6964926445" >ARTHUR RESENDE BARROSO - CRM </option>
+								
+								<option value="87835657287" >ARTUR PEREIRA MALDONADO - CRM </option>
+								
+								<option value="42173205234" >AUDELINO CUSTODIO FERREIRA - CRM </option>
+								
+								<option value="40898466253" >AUDILENE DE SOUZA QUEIROZ DOS SANTOS - CRM </option>
+								
+								<option value="79262872291" >AUGUSTO JOSE DA SILVA ALBUQUERQUE CAVAL - CRM 5692</option>
+								
+								<option value="259699276" >AUGUSTO VICENTE SOARES E SILVA - CRM </option>
+								
+								<option value="285222228" >BARBARA DANIELA SILVA BLAFERT - CRM </option>
+								
+								<option value="111979277" >BARBARA DE FIGUEREDO TENORIO - CRM </option>
+								
+								<option value="09658317600" >BARBARA DONNARIA DA SILVA - CRM </option>
+								
+								<option value="89148363200" >BARBARA MOURA LIMA - CRM </option>
+								
+								<option value="1507300638" >BEATRIZ JACINTO XAVIER - CRM </option>
+								
+								<option value="2529739250" >BEATRIZ NASCIMENTO AMORAS - CRM </option>
+								
+								<option value="1320591264" >BEATRIZ REGINA SANTANA NOBRE - CRM </option>
+								
+								<option value="12028083794" >BRENNES FIUZA CABRAL - CRM </option>
+								
+								<option value="1543543251" >BRUCE RAWLINSON LIMA OTSUKA - CRM 8165</option>
+								
+								<option value="291090273" >BRUNA LEMOS MARQUES - CRM </option>
+								
+								<option value="99008386291" >BRUNA MEIRA FADEL - CRM 4942</option>
+								
+								<option value="93458371249" >BRUNA MOREIRA DOS SANTOS - CRM 3513</option>
+								
+								<option value="87833484920" >BRUNO CARMELO ROCHA LOBO - CRM 1973</option>
+								
+								<option value="1718283130" >BRUNO DA SILVA VITALI - CRM </option>
+								
+								<option value="78544866204" >BRUNO HENRIQUE SILVA MONTEIRO - CRM </option>
+								
+								<option value="5541558778" >BRUNO ZANOTELLI MONNERAT - CRM </option>
+								
+								<option value="31168703816" >CAIO AFFONSO NETO - CRM 2501</option>
+								
+								<option value="238676200" >CAMILA DE ALCANTARA GASPARELO - CRM </option>
+								
+								<option value="92476953253" >CAMILA DE SA CONCEICAO - CRM 5139</option>
+								
+								<option value="91502268272" >CAMILA LOBATO DE SOUZA - CRM 4684</option>
+								
+								<option value="84299576268" >CARINA TIBURTINO SOUZA - CRM </option>
+								
+								<option value="94829667249" >CARLA BIZERRA DE MEDEIROS CECCATTO - CRM 7843</option>
+								
+								<option value="74138863249" >CARLA CRISTINA DO NASCIMENTO RODRIGUES - TEF 9512</option>
+								
+								<option value="88511731253" >CARLA FABIOLA LOPES GAMA - CRM </option>
+								
+								<option value="76505367268" >CARLA REGINA COELHO - CRM </option>
+								
+								<option value="50690523149" >CARLA RIBEIRO ALEXANDRE KAYANO - CRM </option>
+								
+								<option value="78535735291" >CARLOS ALBERTO BARBOSA DIAS JUNIOR - CRM </option>
+								
+								<option value="90227972791" >CARLOS ALEXANDRE GARCCAO RAMAGEM - CRM </option>
+								
+								<option value="17176429855" >CARLOS ANDRE TRENCH DE SOUZA - CRM </option>
+								
+								<option value="81302010468" >CARLOS GLEY BEZERRA DA COSTA - CRM </option>
+								
+								<option value="67041035034" >CARLOS LUCIO FLORES URQUIDI - CRM </option>
+								
+								<option value="53845447249" >CAROLA CABRERA LAMPERT - CRM </option>
+								
+								<option value="86819160178" >CAROLINA MADALENA SOUZA PINTO ALVARES - CRM </option>
+								
+								<option value="53617827268" >CAROLINE BARROSO ARAUJO - CRM </option>
+								
+								<option value="93054866220" >CAROLINE SALES DE SOUZA - CRM </option>
+								
+								<option value="50855506253" >CATIA MARIA CAMELO DA FONSECA - CRM </option>
+								
+								<option value="02200690266" >CECILIA  NOBRE DOS SANTOS CARDOSO - CRM 7729</option>
+								
+								<option value="3700682204" >CELIA CORDEIRO DE OLIVEIRA - CRM </option>
+								
+								<option value="1041107161" >CESAR AUGUSTO ANDROLAGE DE ALMEIDA - CRM </option>
+								
+								<option value="78102472200" >CESAR AUGUSTUS WANDERLEY DE OLIVEIRA - CRM </option>
+								
+								<option value="94683964287" >CEZAR AUGUSTO DE MELLO - CRM </option>
+								
+								<option value="65908015253" >CEZAR LUIZ MAGALHAES PINHEIRO - CRM </option>
+								
+								<option value="40849058287" >CHALES DOS SANTOS SILVA - CRM </option>
+								
+								<option value="45744742204" >CHRISTIANNE GARCIA GIMENES CHIARELLI - COREN 112400</option>
+								
+								<option value="05223426983" >CHRISTINE BRASIL GUERRA - CRM </option>
+								
+								<option value="1269589393" >CICERA NATALIA BERNARDINO SANTOS - CRM </option>
+								
+								<option value="55294090678" >CID OLAVO SCARPA VASCONCELOS - CRM </option>
+								
+								<option value="29483701830" >CINDY DE OLIVEIRA BARIANI - CRM 2520 - CRM </option>
+								
+								<option value="61157180230" >CINTIA ALVES GOMES - CRM 2776</option>
+								
+								<option value="80027300200" >CINTIA CAMPOS COSTA - CREFITO 164461</option>
+								
+								<option value="13226584472" >CLAUDETE MARTINS DE LIMA - CRM </option>
+								
+								<option value="49911171272" >CLAUDIA BUENO CORREA - CRM </option>
+								
+								<option value="658060260" >CLAUDIA FERNANDA MACEDO DA SILVA - CRM </option>
+								
+								<option value="51683580206" >CLAUDIA MARIA PINHEIRODE AZEVEDO - CRM </option>
+								
+								<option value="97135089715" >CLAUDIA MOREIRA - CRM 52456887</option>
+								
+								<option value="99999999999" >CLEMILSON GALVAO - CRM 99999999</option>
+								
+								<option value="24252093287" >CLEONICE CAETANO DO NASCIMENTO - CRM </option>
+								
+								<option value="68099878272" >CLEUDELICE DIAS SA DE ANDRADE - COREN 371095</option>
+								
+								<option value="5954759650" >CLEVER CUSTODIO DE ALMEIDA FILHO - CRM </option>
+								
+								<option value="61712060244" >CLEYLIANE LOPES DE MOURA - CRM </option>
+								
+								<option value="32730063315" >CLIDIO MACEDO DE OLIVEIRA - CRM </option>
+								
+								<option value="01367521289" >CLOVISON CARVALHO JARDIM - CRM 7417</option>
+								
+								<option value="74240145287" >CRISTELA  CERETTA - CRM </option>
+								
+								<option value="94995796215" >CRISTHIANE TAIMARA HAITO - CRM </option>
+								
+								<option value="4771763720" >CRISTIANE FIGUEIREDO REIS MAIORQUIN - CRM </option>
+								
+								<option value="1403941688" >CRISTIANE KELLEN AMARAL - CRM </option>
+								
+								<option value="59571799220" >CRISTIANE LENES DE BRITO - CRM </option>
+								
+								<option value="77648145200" >CRISTIANE SAMIRA WEHBE - CRM </option>
+								
+								<option value="78194997291" >CRISTIANE SOUZA DE ARAUJO - CRM </option>
+								
+								<option value="82796319253" >CRISTIANE SUELEN SILVA NEVES - CRM </option>
+								
+								<option value="74413201272" selected>CRISTIANO DE SOUSA GUTIERREZ - CRM 7452</option>
+								
+								<option value="86965387220" >CRISTILENA YASMIM CAMPOS BARBERY - TEF 492894</option>
+								
+								<option value="80046436200" >CRYSTIDELY BRITO DA SILVA - CRM </option>
+								
+								<option value="86016261220" >DAIANA MARIA VERISSIMO BARBOSA DA SILVA - CRM 6227</option>
+								
+								<option value="79917801200" >DAIANA SCHAFER DE OLIVEIRA - TEF 446889</option>
+								
+								<option value="85931721215" >DAIANE KUHNE  - CRM </option>
+								
+								<option value="94755663253" >DAIANE LIMA DE LARA ZILES - CRM </option>
+								
+								<option value="38633884291" >DAICY ANASTACIO MACEDO - CRM </option>
+								
+								<option value="86997416268" >DALVINA COLARES DOS SANTOS - CRM </option>
+								
+								<option value="244657203" >DAMILE CRISTINA NEVES DA SILVA - COREN 503667</option>
+								
+								<option value="61645915115" >DANIELA AUGUSTA CABRAL - CRM </option>
+								
+								<option value="51680190210" >DANIEL AMARAL LIMA - CRM </option>
+								
+								<option value="254895263" >DANIELA RAINERIO SUBRINHO DE OLIVEIRA - CRM </option>
+								
+								<option value="6043721910" >DANIEL CORREA DOERNER - CRM 7556</option>
+								
+								<option value="51432463268" >DANIEL DE ALMEIDA CAMPOS - CRM </option>
+								
+								<option value="81797745204" >DANIELE BENVENUTTI BERGAMASCHI DE ARAUJO - CRM 4368</option>
+								
+								<option value="52763935249" >DANIEL MARQUES FRANCO - CRM </option>
+								
+								<option value="87658542768" >DANIEL PIRES DE CARVALHO - CRM 1344</option>
+								
+								<option value="81902204115" >DANIEL ROMAN ROMERO MATELJAN - CRM </option>
+								
+								<option value="77785444234" >DANIEL VIANA CARLOS CARDOSO - CRM </option>
+								
+								<option value="5216509682" >DANILO BASTOS DE BARROS - CRM </option>
+								
+								<option value="176261290" >DANILO COSTA SHOCKNESS - CRM </option>
+								
+								<option value="196170206" >DANYELLE MARIACA DE MELO - CRM </option>
+								
+								<option value="1179484380" >DARIO DAYVILL SILVA ARAUJO - CRM </option>
+								
+								<option value="86132121234" >DARLLEN QUELLEN RODRIGUES DA SILVA MELO - CRM </option>
+								
+								<option value="97687332253" >DAYANE ZANCAN GARCIA - CRM </option>
+								
+								<option value="83132775215" >DEBORAH MARIA PINTO DA SILVA - CRM </option>
+								
+								<option value="85106550220" >DEBORAH PEREIRA DANELUSSI - CRM 6176</option>
+								
+								<option value="1627352279" >DEBORA OGLIARI - CRM </option>
+								
+								<option value="92492924220" >DEISE RAFAELE DE AGUIAR CIDADE - CRM </option>
+								
+								<option value="27208478287" >DENILDE CESPEDE PEREIRA - CRM </option>
+								
+								<option value="92568190906" >DENILTON CEBULSKI LINHARES - CRM </option>
+								
+								<option value="52723895220" >DENISE CRISTINA DE VARGAS - CRM </option>
+								
+								<option value="94753636615" >DENISE DOS SANTOS CAVALCANTE - CRM </option>
+								
+								<option value="12098383894" >DENISE MARIA RINO LEVATTI ROCHA - CRM </option>
+								
+								<option value="93715234334" >DENISE NOCRATO ESMERALDO - CRM </option>
+								
+								<option value="78537150215" >DEUSINEIA DE SOUZA FREITAS - CRM </option>
+								
+								<option value="1165635240" >DHIEGO LANG CAMPI - CRM </option>
+								
+								<option value="1825338248" >DIANA LUCIA BARRETO RUIZ DA S VASCONCELO - COREN 513023</option>
+								
+								<option value="78375380210" >DIEGO ANTÔNIO DE ALMEIDA NUNES - CRM 3033</option>
+								
+								<option value="52823474234" >DIEGO CESAR FORTE TURCI - CRM </option>
+								
+								<option value="44271220" >DIEGO ESCOBAR - CRM </option>
+								
+								<option value="70000365246" >DIEGO EUSEBIO QUISPE ZAMBRANA - CRM </option>
+								
+								<option value="93462441272" >DIEGO FERREIRA DE OLIVEIRA - CRM </option>
+								
+								<option value="190427280" >DI MARCO GUIMARAES OLIVEIRA - CRM </option>
+								
+								<option value="80706207220" >DIOGO DE  BARBA - CRM </option>
+								
+								<option value="9627162" >DIONATAN TATIERI BRAUM - CRM </option>
+								
+								<option value="78973694200" >DIOVANDRES HENRIQUE MUNIZ DE OLIVEIRA - CRM </option>
+								
+								<option value="52623882215" >DOUGLAS DIAS PEREIRA DE MELO - CRM </option>
+								
+								<option value="1774615789" >DOUGLAS   VIELLAS - CRM </option>
+								
+								<option value="81802102272" >EDILCE CRISTIANE BRAUN FREITAS - CRM </option>
+								
+								<option value="5849939865" >EDIMAR MAURICIO PEREIRA DOS SANTOS - CRO 484</option>
+								
+								<option value="2217251481" >EDINALVA DA SILVA TOMAZ AURELIANO - CRM </option>
+								
+								<option value="42048273149" >EDSON  JAWORSKI - CRM </option>
+								
+								<option value="77738640200" >EDUARDO DE ALENCAR VIANA E SILVA - CRM </option>
+								
+								<option value="8413148707" >EDUARDO LAGRECA TEIXEIRA - CRM </option>
+								
+								<option value="7722785808" >EDUARDO LUIZ FARINA - CRM </option>
+								
+								<option value="63938995220" >EDUARDO OLIVEIRA DE SOUZA - CRM </option>
+								
+								<option value="83635009253" >EDUARDO RIBEIRO DE SOUZA - CRM </option>
+								
+								<option value="90172043204" >EDUARDO  SANTOS - CRM </option>
+								
+								<option value="81345445253" >ELAINE CRISTINA GURGEL R DOS SANTOS - CRM </option>
+								
+								<option value="71845089200" >ELAINE LARGURA BIAZATI - CRM </option>
+								
+								<option value="72510374249" >ELANE SOUZA DO NASCIMENTO MORAIS - CRM </option>
+								
+								<option value="24315591300" >ELBA MIRANDA - CRM 1742</option>
+								
+								<option value="59154535204" >ELCIMAR NEVES DE ARAUJO - CRM </option>
+								
+								<option value="77006658268" >ELESONLUZ LEAL RAMOS DE ALBUQUERQUE - CRM </option>
+								
+								<option value="20446993204" >ELGISLANE DEMETRIO DE ARAUJO - CRM </option>
+								
+								<option value="5246929981" >ELIANE DE QUEVEDO - CRM </option>
+								
+								<option value="52399516249" >ELIANE GABRIEL DE LIMA - CRM </option>
+								
+								<option value="74613766249" >ELIANE MORAIS DA SILVA - CRM </option>
+								
+								<option value="5226686234" >ELIAS SOUZA DA COSTA - CRM </option>
+								
+								<option value="345489209" >ELIDA MOURA CARVALHO - CRM </option>
+								
+								<option value="17544437884" >ELISA IGLESIAS ROSA - CRM </option>
+								
+								<option value="57087725220" >ELISANDELA CASTRO FURTADO - CRM </option>
+								
+								<option value="63521458253" >ELISANGELA NUNES SILVA - CRM </option>
+								
+								<option value="63912007268" >ELISANGELA PAZ DO NASCIMENTO - CRM </option>
+								
+								<option value="28208969877" >ELISIANE TONOLI  - CRM </option>
+								
+								<option value="52268276287" >ELISIO EDUARDO CARDOSO DUARTE - CRM 3230</option>
+								
+								<option value="36924520200" >ELIS REGINA NASCIMENTO FRANCA - CRM </option>
+								
+								<option value="01325572233" >ELISSANDRA OLIVEIRA DE SOUZA - CREFITO 270968</option>
+								
+								<option value="2823623477" >ELIZABETH AGUIAR PEREIRA - CRM </option>
+								
+								<option value="89158733191" >ELIZANDRA ARAUJO DOS SANTOS - CRM </option>
+								
+								<option value="73213411272" >ELIZANGELA RODRIGUES DE OLIVEIRA - CRM 2959</option>
+								
+								<option value="2605772608" >ELIZETE DE JESUS BARBOSA LEVEL - CRM </option>
+								
+								<option value="76031284200" >ELOISA CRISTIANE NORONHA CHAVES - CRM </option>
+								
+								<option value="114844119" >ELSON TAVEIRA ADORNO FILHO - CRM </option>
+								
+								<option value="14129440829" >EMILIA KAZUE MORI HARADA - CRM </option>
+								
+								<option value="88888888888" >ENFERMAGEM H HB - CRM </option>
+								
+								<option value="67937092084" >ENFERMEIRO TESTE HICD - COREN 1213141516</option>
+								
+								<option value="95042407200" >ENILIS DE LIMA ABREU - CRM </option>
+								
+								<option value="517774283" >ENNELY MENDONCA GUTZEIT - CRM </option>
+								
+								<option value="56891601720" >ERLI DE FATIMA SOUZA VIEIRA - CRM </option>
+								
+								<option value="60250216272" >ERNESTO DURAN NETO - CRM </option>
+								
+								<option value="12831972353" >ESMELITA RAMOS VIDAL - CRM </option>
+								
+								<option value="21932247220" >ESTELA MARY CASARA - CRM </option>
+								
+								<option value="62701690200" >ESTELA MIRIAM DE OLIVEIRA E SILVA - CRM </option>
+								
+								<option value="5384676906" >ESTER LUCIANO GOMES - CRM </option>
+								
+								<option value="12116785049" >EUGENIO   LEMKE - CRM </option>
+								
+								<option value="34114270272" >EVAIR KROPOCHINSKI - CRM </option>
+								
+								<option value="98191853272" >EVELI FERNANDA DE ARAUJO DANTAS - COREN 516113</option>
+								
+								<option value="2461380171" >EVELLYN FATIMA RASIA - CRM </option>
+								
+								<option value="306081121" >EVELYN LAURA A DE SOUZA GLAJCHMAN - CRM </option>
+								
+								<option value="52997960215" >EVELYN TAVARES DA SILVA LARANJEIRA - CRM </option>
+								
+								<option value="90126386234" >EVERSON CAMPOS DE QUEIROZ - CRM </option>
+								
+								<option value="37012029072" >EVERTON GENTIL BELTRAME - CRM </option>
+								
+								<option value="67809790234" >FABIANA DOS SANTOS SARAIVA - CRM </option>
+								
+								<option value="96802766272" >FABIANO PEREIRA GALHARDI - CRM </option>
+								
+								<option value="54116589004" >FABIA REGINA DOS SANTOS - TEF 6589004</option>
+								
+								<option value="3162217326" >FABIO CASTELO BRANCO GIRAO - CRM </option>
+								
+								<option value="93022646291" >FABIOLA SANTOS PINHO - CRM 8190</option>
+								
+								<option value="48517844653" >FABIO MESTRINER  - CRM </option>
+								
+								<option value="14202575873" >FABIO ROGERIO IGLESIAS ROSA - CRM </option>
+								
+								<option value="68283679287" >FABIO SOARES DA SILVA - CRM </option>
+								
+								<option value="70971528268" >FABRICIO GUIMARAES DE SOUZA - CRM </option>
+								
+								<option value="04139880236" >FABRINY DE OLIVEIRA RONHISKI - CRM 7097</option>
+								
+								<option value="41631626825" >FELIPE ARTHUR ALMEIDA JORGE - CRM 8245</option>
+								
+								<option value="184619211" >FELIPE GOUVEA STRAPARAVA - CRM </option>
+								
+								<option value="06836469904" >FELIPE WESTPHAL GOETTEN - CRM 7918</option>
+								
+								<option value="94025533200" >FERNANDA ALMEIDA BRESSAN - CRM 3533</option>
+								
+								<option value="79179878253" >FERNANDA COSTA TEIXEIRA - CRM </option>
+								
+								<option value="92426247134" >FERNANDA KINCHESKI - CRM </option>
+								
+								<option value="2085478271" >FERNANDA MORAES DE BRITO - CRM </option>
+								
+								<option value="1747374164" >FERNANDA PAULA DE FREITAS ROSA DE MELLO - CRM </option>
+								
+								<option value="94671966204" >FERNANDO PEIXOTO GRABNER - CRM </option>
+								
+								<option value="66630355091" >FERNANDO TOZZO PALHANO - CRM </option>
+								
+								<option value="1114834254" >FILIPE SOUZA DE AZEVEDO - CRM 4430</option>
+								
+								<option value="31241760225" >FLAVIA BELMONT XAVIER MACEDO FREIRE - CRM </option>
+								
+								<option value="46081674053" >FLAVIA  LENZI - CRM </option>
+								
+								<option value="91843707268" >FLAVIA MARCELLE PIRES MAIA - CRM </option>
+								
+								<option value="63153220263" >FLAVIA RODRIGUES DE ARAUJO DURAES - CRM </option>
+								
+								<option value="16558712857" >FLAVIO MARTINS DA SILVA - CRO 2035</option>
+								
+								<option value="60592079287" >FRANC FERNANDES ARRUDA - CRM </option>
+								
+								<option value="90074769200" >FRANCIS CARVALHO ARAUJO - CRM 5188</option>
+								
+								<option value="58126120215" >FRANCISLEY PINHEIRO DE SOUZA - CRM </option>
+								
+								<option value="87193922220" >FRANSCIANE DE SOUZA SANTANA - CREFITO 173135</option>
+								
+								<option value="80996710230" >FREDERICO BASTOS DE ARUJO - CRM </option>
+								
+								<option value="07722063926" >FREDERICO KLANN VICTORINO - CRM 8171</option>
+								
+								<option value="86353020287" >GABRIELA CRISTINA CARMONA HINOJOSA - CRM </option>
+								
+								<option value="396689248" >GABRIELA MACIEL TORRES - CRM </option>
+								
+								<option value="01652224254" >GABRIELA TERCEIRO PARAGUASSU CHAVES - CRM 6027</option>
+								
+								<option value="81567545220" >GEDEON FERREIRA RODRIGUES - CRM 4649</option>
+								
+								<option value="91559154268" >GEICE CRISTIANE UCHOA DE ALMEIDA - CRM </option>
+								
+								<option value="77910133200" >GEISE FERNANDES DE BRITO PRESTES - CRM </option>
+								
+								<option value="66316324200" >GERLANDIA OLIVEIRA DOS SANTOS - CRM </option>
+								
+								<option value="41216032220" >GERSILENE PEREIRA MONTEIRO - CRM </option>
+								
+								<option value="82811466053" >GERSON VICTOR PEREIRA LIMA - CRM 5249</option>
+								
+								<option value="96264756253" >GESSICA CORREIA DA COSTA - CRM </option>
+								
+								<option value="5981297743" >GILDA ROGELIA CLAROS SALINAS - CRM </option>
+								
+								<option value="85137359220" >GILMARA MARINHO DO NASCIMENTO - CRM </option>
+								
+								<option value="46495576315" >GILSON LIMA DE CARVALHO - CRM </option>
+								
+								<option value="34604682895" >GISELA VERGILIO RANOLFI - CRM </option>
+								
+								<option value="82350531600" >GISELE MEGALE BRANDAO GURGEL DO AMARAL - CRM </option>
+								
+								<option value="92492860230" >GISELLE AGUIAR PELLUCIO - CRM 7079</option>
+								
+								<option value="93895550272" >GISELLE MACEDO DE SOUZA - CRM 7481</option>
+								
+								<option value="30966620291" >GISELLE   PINI - CRM </option>
+								
+								<option value="54810795187" >GISELLI CRISTINA CLEMENTE DE ARAUJO - CRM </option>
+								
+								<option value="3247761101" >GIULIANA BORGES RODRIGUES - CRM </option>
+								
+								<option value="75426382204" >GIULIANO SOUSA QUEIROZ - CRM </option>
+								
+								<option value="94176981172" >GLAUBER CAMPOS SOUZA - CRM </option>
+								
+								<option value="01798682257" >GLEYCIELE ROCHA SCHISSEL - CRM 6699</option>
+								
+								<option value="40544338049" >GLORIA REGINA DE ABREU - CRM </option>
+								
+								<option value="88398730234" >GRACE KELLY PELICIONI DE C. RODRIGUES - CRM </option>
+								
+								<option value="82879338204" >GRASIELE GIL FERNANDES FARIA - CRM </option>
+								
+								<option value="94131805200" >GRAZIELLY TELES NASCIEMNTO - CRM </option>
+								
+								<option value="00074769650" >GUILHERME ARANTES ROSA MACIEL - CRM 7831</option>
+								
+								<option value="48569542372" >GUSTAVO CESAR GONCALVES BRITO - CRM </option>
+								
+								<option value="5103409623" >GUSTAVO GRIPP MARTINS - CRM </option>
+								
+								<option value="02466211254" >GWENAELLE LIARA ANDREATO FONSECA - CRM 6793</option>
+								
+								<option value="3508573699" >HALLAN RODRIGUES MENDONCA - CRM </option>
+								
+								<option value="2245237242" >HANNAH DA COSTA ARAUJO - CRO 5314</option>
+								
+								<option value="95802266104" >HARALD FEY NETO - CRM </option>
+								
+								<option value="52092704249" >HARIANNE GEDEON BARROS - CRM 4921</option>
+								
+								<option value="2431500918" >HAROLDO LINHARES JUNIOR - CRM </option>
+								
+								<option value="36038961810" >HEITOR MUNHOZ PEREIRA - CRM 178228</option>
+								
+								<option value="69239223215" >HELENA CRISTINA DOS SANTOS - CRM 4532</option>
+								
+								<option value="4567886623" >HELENA CRISTINA SILVEIRA E SILVEIRA - CRM </option>
+								
+								<option value="1793803200" >HELINE DUARTE QUEIROZ MENDES - CRM </option>
+								
+								<option value="94771464200" >HELLEN PEREIRA DANILUCCI - CRM </option>
+								
+								<option value="5537132486" >HELLEN VALESSA GOMES CATARINA SOBRAL - CRM 3068</option>
+								
+								<option value="61273848268" >HEMANOEL FERNANDO DOS ANJOS FERRO - CRM </option>
+								
+								<option value="73902179287" >HENNIG SHEYLA MIRANDA SILVA - COREN 565973</option>
+								
+								<option value="93487436272" >HERBERTE ARAUJO DA SILVA - CRM </option>
+								
+								<option value="46798200397" >HERIKA LIMA FONTENELE MARTINS - CRM </option>
+								
+								<option value="21256172855" >HERLINDO ROGER CLAROS CLAROS - CRM </option>
+								
+								<option value="52944751204" >HEVELIN DE SOUZA HOLANDA - CRM </option>
+								
+								<option value="840046499" >HEVILA TOMAZ ROLIM LIMA - CRM </option>
+								
+								<option value="92301550206" >HIALLI CRISTINE OLIVEIRA CHAVES - CRM </option>
+								
+								<option value="76789209204" >HIRAN ESPINDOLA DE MACEDO E SILVA GALLO - CRM </option>
+								
+								<option value="1572084863" >HORACIO TAMADA - CRM 2157</option>
+								
+								<option value="11111111111" >HOSPITAL CEMETRON - CRM </option>
+								
+								<option value="18712269883" >HUGO LOBO MEJIA - CRM </option>
+								
+								<option value="138191352" >HUGO ROGERIO NUNES FILHO - CRM </option>
+								
+								<option value="94586330287" >HYOLLANDA DE OLIVEIRA MOREIRA - CRM </option>
+								
+								<option value="00794834299" >IACI CAJO ARAUJO MATOS DA ROSA - CRM </option>
+								
+								<option value="93614098249" >IAISA HELENA FARIA RIBEIRO - CRM </option>
+								
+								<option value="1005164240" >IARA DAMASCENA SILVA - CRM </option>
+								
+								<option value="2248810270" >IARA FERNANDA SANTANA DE SOUZA - CRM </option>
+								
+								<option value="98745123268" >IBRAHIM MASSUQUETO ANDRADE G DE SOUZA - CRM </option>
+								
+								<option value="226303098" >IBSEN DIARLEI DA SILVA - CRM </option>
+								
+								<option value="97349593287" >IC NOGUEIRA CABRAL - CRM </option>
+								
+								<option value="6001211" >IDEVALDO GALVAO COSTA FILHO - CRM </option>
+								
+								<option value="1837241198" >IGOR HITIRO ITO VIEIRA - CRM </option>
+								
+								<option value="60695072234" >ILAN LOUIS RIBEIRO DE QUEIROZ - CRM </option>
+								
+								<option value="4624579151" >INES ARAGOSO FERNANDES - CRM 5520</option>
+								
+								<option value="2093423235" >INGRIS MARIANA CARVALHO DA MATTA - CRM 5770</option>
+								
+								<option value="97301523220" >ISABELA ANDRINA RIBEIRO DA SILVA - CRM </option>
+								
+								<option value="872934470" >ISABELA DE ALUSTAU GUIMARAES - CRM </option>
+								
+								<option value="29986532191" >ISABEL KAMINSKI JASSET - CRM </option>
+								
+								<option value="480805270" >ISABELLA VINHOLI JUNQUEIRA - CRM </option>
+								
+								<option value="46016694649" >ISA MARIA ASSUNCAO VELHO - CRM 929</option>
+								
+								<option value="94305285053" >IURI DOS SANTOS BARROS VIANA - CRM </option>
+								
+								<option value="64300480206" >IVANA ANNELY CORTEZ DA FONSECA - CRM </option>
+								
+								<option value="59284080053" >IVANICE FERNANDES BARCELLOS GEM - CRM </option>
+								
+								<option value="55433480020" >IVO LAURO DICKOW - CRM </option>
+								
+								<option value="38972433268" >IVONE GALDINO MELGAR - CRM </option>
+								
+								<option value="8021135751" >IZAQUE BENEDITO MIRANDA BATISTA - CRM </option>
+								
+								<option value="91554055172" >IZAURA RODRIGUES CEZAR DE CAMPOS - CRM </option>
+								
+								<option value="90168305291" >JACKELINE SIQUEIRA SPRICIGO - CRM </option>
+								
+								<option value="8103685607" >JACKSONE PENA FELICIANO - CRM </option>
+								
+								<option value="38915421272" >JACONEIDE POUBEL VIEIRA - CRM </option>
+								
+								<option value="34850449204" >JADER FRANCOIS EGUEZ - CRM </option>
+								
+								<option value="46519807753" >JAIME TAMES REINAGA - CRM </option>
+								
+								<option value="576635219" >JAKELINE GAVIOLI DE SOUSA E SILVA - CRM </option>
+								
+								<option value="83626255204" >JAKELINE SERRA LIMA - CRM </option>
+								
+								<option value="80540384291" >JAMES RABELO GARCIA - CRM </option>
+								
+								<option value="52358801291" >JAMILE NASCIMENTO SOUZA FERNANDES - CRM </option>
+								
+								<option value="63258951268" >JANAINA ALENCAR DE MENEZES - CRM </option>
+								
+								<option value="1928471200" >JANAINA ALVES DE SOUZA - CRM </option>
+								
+								<option value="78641810234" >JANAINA COSTA HAUT - CRM 3194</option>
+								
+								<option value="81878575287" >JANAINA DA SILVA ROCHA - CRM </option>
+								
+								<option value="60506830268" >JANAINA LETICIA SOUZA DE ALBUQUERQUE - CRM </option>
+								
+								<option value="65232003615" >JANIO GUIMARAES DE FREITAS FRANCO - CRM </option>
+								
+								<option value="71339264315" >JAQUELINE ALVES SOARES VARJAO - CRM </option>
+								
+								<option value="2087580200" >JAQUELINE DOS SANTOS OLIVEIRA - CRM 6915</option>
+								
+								<option value="183153219" >JAQUELINE MONTEIRO DA SILVA - CRM </option>
+								
+								<option value="68184808291" >JAQUELINE SALES DE LIMA RAPOSO - TEF 703611</option>
+								
+								<option value="49758225200" >JARBAS GALDINO BANDEIRA - CRM </option>
+								
+								<option value="7825820282" >JASON  SILVA - CRM </option>
+								
+								<option value="77994752268" >JASON SILVA JUNIOR - CRM </option>
+								
+								<option value="80488749204" >JENIFER DANTAS DE SOUSA - CRM </option>
+								
+								<option value="62918788287" >JEOVA SANTOS DA SILVA - CRM 7287</option>
+								
+								<option value="243578202" >JESSICA CAROLINE VAZ DOS SANTOS - CRM </option>
+								
+								<option value="88909611200" >JESSICA DE ANDRADE GODOY - CRM </option>
+								
+								<option value="98887157200" >JESSICA LUNA JUNQUEIRA VASCONCELOS - CRM </option>
+								
+								<option value="2458859356" >JESSICA NOBRE ANDRADE - CRM </option>
+								
+								<option value="2238681248" >JHONATA RAIMUNDO MARTINS RODRIGUES - CRM </option>
+								
+								<option value="87948176268" >JOANA MAIA DE MELO ROSA - CRM 3167</option>
+								
+								<option value="10325867372" >JOAO BATISTA NAVA FILHO - CRM </option>
+								
+								<option value="7934252714" >JOAO CARLOS VICENTE DE BARROS JUNIOR - CRM </option>
+								
+								<option value="6454630439" >JOAO DURVAL R T M JUNIOR - CRM </option>
+								
+								<option value="859819230" >JOAO FRANCISCO SELHORST SOARES - CRM </option>
+								
+								<option value="3595452461" >JOAO FRANKLIN DA SILVA - CRM </option>
+								
+								<option value="76940772200" >JOAO GUSTAVO RODRIGUES - CRM </option>
+								
+								<option value="30639330827" >JOAO HENRIQUE CLOSS - CRM 2686</option>
+								
+								<option value="12698419717" >JOAO OLIVEIRA THIEBAUT - CRM 8184</option>
+								
+								<option value="81584520272" >JOAO RICARDO DE LIMA E SILVA - CRM 5903</option>
+								
+								<option value="31640397949" >JOAO ROBERTO SIQUEIRA DE CARVALHO - CRM </option>
+								
+								<option value="72760427153" >JOHNATHAN DE S PARREIRA - CRM </option>
+								
+								<option value="34919538200" >JORGE AURELIO DE ARRUDA DOS SANTOS - CRM </option>
+								
+								<option value="13557742415" >JOSE ALVES DE LIMA FILHO - CRM </option>
+								
+								<option value="33890846904" >JOSE CARLOS MULASKI - CRM </option>
+								
+								<option value="10637737415" >JOSE DA FONSECA TINOCO FILHO - CRM </option>
+								
+								<option value="78099200225" >JOSE IRACY MACARIO BARROS JR - CRM </option>
+								
+								<option value="37976460382" >JOSE ITACIMAR PIRES PRUDENCIO - COREN 79167</option>
+								
+								<option value="58900659200" >JOSELI ALVES BEZERRA - CRM </option>
+								
+								<option value="42249520259" >JOSELI  RODRIGUES - CRM </option>
+								
+								<option value="16092724472" >JOSELMA DUTRA DE FREITAS - CRM </option>
+								
+								<option value="66452040782" >JOSE LUIZ ARCIERI - CRM </option>
+								
+								<option value="40848612353" >JOSE MARCELO VARGAS PINTO - CRO 649</option>
+								
+								<option value="80056717253" >JOSIANE DAS CHAGAS REGIS - CRM </option>
+								
+								<option value="63527472215" >JOSIMEIRE SOUZA DE OLIVEIRA ANDRADE - CRM </option>
+								
+								<option value="74501321253" >JOSMAILDA BRANDAO DA SILVA - CRM </option>
+								
+								<option value="21377768805" >JOSUE DE LA CRUZ RIVERO - CRM 2502</option>
+								
+								<option value="30924057149" >JOVANIO SILVA DOS SANTOS - CRM </option>
+								
+								<option value="77509307287" >JOZIAS TEIXEIRA JUNIOR - CRM </option>
+								
+								<option value="90046587268" >JULIANA BRITO CAMPOS DE OLIVEIRA - CRM </option>
+								
+								<option value="73721611268" >JULIANA FERREIRA BITTENCOURT - CRM </option>
+								
+								<option value="80852939272" >JULIANA MATTE VACARO - CRM </option>
+								
+								<option value="3135105989" >JULIANO COLOMBO MENDES - CRM </option>
+								
+								<option value="5905829764" >JULLI ANNE CARDOSO - CRM </option>
+								
+								<option value="58985751204" >JUSSARA  DOS SANTOS - CRM </option>
+								
+								<option value="94800901200" >KALINE CAVALCANTE SILVA - CRM 3714</option>
+								
+								<option value="1124607200" >KALYTHA LETICIA SANTOS SILVA - CRM 8031</option>
+								
+								<option value="52255654253" >KAMILA REGIA AQUINO MACIEL - CRM </option>
+								
+								<option value="70386323100" >KARINA PERES COSTA - CRM </option>
+								
+								<option value="21798425890" >KARLA NOCRATO LOIOLA VAICIUNAS - CRM </option>
+								
+								<option value="52702227287" >KATHIESLEN FERNANDES F. DE OLIV.COSTA - CRM </option>
+								
+								<option value="3997436932" >KATHIUCIA DANIELLE YAMASHITA - CRM </option>
+								
+								<option value="79452140372" >KATIANE MEIRY SAMPAIO MONTEIRO - CRM </option>
+								
+								<option value="30009894412" >KEILA CORREIA SANTOS - TEF 501181</option>
+								
+								<option value="85324558672" >KELLEN RIBEIRO SILVA - CRM </option>
+								
+								<option value="50156012391" >KELLY CRISTINE ANDRADE CARNEIRO - CRM </option>
+								
+								<option value="82566321272" >KELVIN LUCAS PAGANINI - CRM </option>
+								
+								<option value="83271023204" >KELY CONCEICAO DA COSTA - CRM </option>
+								
+								<option value="86932055287" >KESIA PATRICIA MARQUIOLE - CRM </option>
+								
+								<option value="95013695287" >KEZIA D DOS S MOREIRA - CRM </option>
+								
+								<option value="49519212" >KILYANA DOURADO PEREIRA CRUZ - CRM 3856</option>
+								
+								<option value="2761267699" >KLEBER GONCALVES BARBOSA - CRM </option>
+								
+								<option value="1774601303" >KRYZIA RODRIGUES CARVALHO - CRM </option>
+								
+								<option value="46410147287" >LAECIO CRUZ BELEZA - CRM </option>
+								
+								<option value="856454273" >LAIANE REIS TEIXEIRA - CRM </option>
+								
+								<option value="1634359526" >LAISA SANTOS CONCEICAO - CRM </option>
+								
+								<option value="1262141230" >LAIS DA SILVA ARAUJO - CRM </option>
+								
+								<option value="94762511234" >LAISSA SILVERIO DE LIMA - CRM 5835</option>
+								
+								<option value="289360196" >LARA HELOU MADY - CRM </option>
+								
+								<option value="122400100" >LARISSA ADJANE MORAIS CARDOSO CAVALCANTE - CRM </option>
+								
+								<option value="1738751228" >LARISSA CRISTINA DE SOUZA SILVA - CRM </option>
+								
+								<option value="12128786800" >LARISSA DAVID REIS - CRM </option>
+								
+								<option value="94764751291" >LARISSA DOS REIS VENTUROSO - CRM </option>
+								
+								<option value="264719220" >LARISSA FURTADO RODRIGUES - CRM </option>
+								
+								<option value="77379594249" >LARISSA LEITE PEREIRA DA CRUZ - CRM </option>
+								
+								<option value="72443758249" >LARISSA MENDES DA SILVA MACEDO - CRM </option>
+								
+								<option value="617796289" >LARISSA TAMES RAINHO - CRM </option>
+								
+								<option value="19211850827" >LAWRENCY GORAYEB - CRM </option>
+								
+								<option value="59288990259" >LAZARO KARDEC DE SOUZA NUNES - CRM </option>
+								
+								<option value="86624318600" >LEANDRO DEBS PROCOPIO - CRM </option>
+								
+								<option value="89474457204" >LEANDRO DOS SANTOS SILVA - CRM </option>
+								
+								<option value="9774579747" >LEANDRO FIRMINO DA SILVA - CRM </option>
+								
+								<option value="311351107" >LEANDRO PEREIRA DE MENDONCA - CRM </option>
+								
+								<option value="76879305253" >LEANDRO RODRIGUES LIMA - CRM </option>
+								
+								<option value="50326856153" >LECI LOPES DE ASSIS - CRM </option>
+								
+								<option value="4986287605" >LETFALLAH PEREZ BADRA - CRM </option>
+								
+								<option value="02614824240" >LETHICIA ARAUJO CORDEIRO - CRM 7741</option>
+								
+								<option value="02089358270" >LETICIA LOPES CORDEIRO SOARES - CRM </option>
+								
+								<option value="69351082091" >LETICIA MOTA RAMOS - CRM </option>
+								
+								<option value="51211076253" >LEUDA LEAL DE MEDEIROS NETA - CRM 5126</option>
+								
+								<option value="64087913287" >LIDIANE CAVALCANTE DA COSTA - CRM </option>
+								
+								<option value="4915492613" >LIDIANE CRISTINA BARRAVIERA RODRIGUES - CRM </option>
+								
+								<option value="08327156624" >LIGIA BRASILEIRO GUEDES FERRAZ - CRM </option>
+								
+								<option value="79970010263" >LILIAM DA SILVA SANTOS - CRM </option>
+								
+								<option value="83331573191" >LILIANE BARBOSA RODRIGUES - CRM </option>
+								
+								<option value="95944443120" >LILIANE DE BARROS BAMBIRRA CASSEB - CRM </option>
+								
+								<option value="10295979879" >LILIAN MARTINS DA SILVA TABOSA - CRM </option>
+								
+								<option value="85673196253" >LILIAN RODRIGUES DE OLIVEIRA - CRM </option>
+								
+								<option value="58524630272" >LISSEIA CRISTIANE SOUZA DO VALE - CRM </option>
+								
+								<option value="45294151472" >LIVIA MONTENEGRO DE MORAIS LEITE - CRM </option>
+								
+								<option value="87670534249" >LORENA CAIRES DE MEDEIROS - CRM </option>
+								
+								<option value="2523578255" >LORIANE CAMILA DORNELES DE AMORIM - CRM 8030</option>
+								
+								<option value="49748955249" >LOURDES DOMINGUES SOARES SANTOS - COREN 343753</option>
+								
+								<option value="9750683773" >LUANA COELHO BARATELLA - CRM </option>
+								
+								<option value="67822711253" >LUANA DA SILVA ARRUDA - CRM </option>
+								
+								<option value="76865959272" >LUANA FERREIRA PRADO - CRM 2856</option>
+								
+								<option value="775579211" >LUCAS DE ANGELIS RUBIRA - CRM </option>
+								
+								<option value="8674202942" >LUCAS KOJI MATSUZAKI - CRM 40994</option>
+								
+								<option value="94131821249" >LUCAS MURER - CRM 6843</option>
+								
+								<option value="18802311234" >LUCIA DE ARAUJO ALBUQUERQUE - CRM </option>
+								
+								<option value="44122004268" >LUCIA DE FATIMA VIANA REGO MAIORQUIM - CRM </option>
+								
+								<option value="70149569220" >LUCIANA BORGES DE OLIVEIRA - CRM </option>
+								
+								<option value="76984281253" >LUCIANA PEREIRA AFONSO GOMES - CRM </option>
+								
+								<option value="64640817215" >LUCIANA  SERAFIM - CRM </option>
+								
+								<option value="52691381234" >LUCIANA SILVEIRA NINA DE AZEVEDO - CRM </option>
+								
+								<option value="31666833215" >LUCIANA VIEIRA DOS SANTOS - CRM </option>
+								
+								<option value="27242889200" >LUCILEIA RODRIGUES LEITE CORTEZ - CRM </option>
+								
+								<option value="92619380278" >LUCIVONE LOBATO DA SILVA - CRM </option>
+								
+								<option value="22544331801" >LUIS EDUARDO R COSTA - CRM 4263</option>
+								
+								<option value="83621830200" >LUIZA GABRIELLA SPULDARO SELHORST - CRM </option>
+								
+								<option value="47270101434" >LUIZ ANTONIO AZEVEDO ACCIOLY - CRM </option>
+								
+								<option value="47270101434" >LUIZ AZEVEDO ACIOLY - CRM </option>
+								
+								<option value="57511896715" >LUIZ CARLOS UFEI HASSEGAWA - CRM </option>
+								
+								<option value="82029440230" >LUIZ DA GAMA PESSOA IV - CRM 6834</option>
+								
+								<option value="77550188220" >LU NOGUEIRA CABRAL - CRM </option>
+								
+								<option value="69729980268" >LYA DEMETRIO ALMEIDA - CRM </option>
+								
+								<option value="72543426191" >LYGIA MARIA ZILIO SPOHR - CRM </option>
+								
+								<option value="8867347462" >MAIARA ALVES DE CARVALHO - CRM </option>
+								
+								<option value="68600879272" >MAIKE NOYA DUNDA - CREFITO 273484</option>
+								
+								<option value="17217008204" >MAILLENE RODRIGUES LISBOA - CRM </option>
+								
+								<option value="84609524287" >MAIRA TOLENTINO DA COSTA ALBUQUERQUE - CRM </option>
+								
+								<option value="01454548606" >MAISA CRISTINA DA SILVA - CRM 4548606</option>
+								
+								<option value="65187342215" >MARA LUCIENNE DA COSTA LIMA FERNANDES - CRM </option>
+								
+								<option value="76556980234" >MARCELA FLAVIA TERRA CRUZ MENDES - CRM </option>
+								
+								<option value="80751296287" >MARCELA NOGUEIRA DE OLIVEIRA MOTA - CRM </option>
+								
+								<option value="65019490253" >MARCEL   BASSO - CRM </option>
+								
+								<option value="5139568675" >MARCELO   AZEVEDO - CRM </option>
+								
+								<option value="16364880487" >MARCELO LUIZ FEITOSA FERRARI - CRM 1366</option>
+								
+								<option value="9554202881" >MARCIA COELHO DE MELLO - CRM </option>
+								
+								<option value="89475747249" >MARCIA LUIZ GOMES PENA - CRM </option>
+								
+								<option value="71441387234" >MARCIA VIANA CARLOS CARDOSO - CRM </option>
+								
+								<option value="42031052268" >MARCIO BRAZ DE PAULA - CRM </option>
+								
+								<option value="84970707987" >MARCIO FRANCISCO LEHMANN - CRM 5385</option>
+								
+								<option value="62929178272" >MARCIO GIL MOISES MONTEIRO - COREN 24541</option>
+								
+								<option value="53644735204" >MARCIO LUIS FERRARI FILHO - CRM 7599</option>
+								
+								<option value="97807206268" >MARCO ANTONIO CARVALHO GUEDES - CRM 4140</option>
+								
+								<option value="28631994391" >MARCO AURELIO DA SILVA VERAS - CRM </option>
+								
+								<option value="659856727" >MARCOS ALBERTO DE MENDONCA VEIGA - CRM </option>
+								
+								<option value="82888108968" >MARCOS ALEXANDRE MOTA - CRM </option>
+								
+								<option value="2036033113" >MARCOS ANTONIO PITALUGA CUNHA - CRM </option>
+								
+								<option value="53464729591" >MARCOS NEVES VARJAO - CRM </option>
+								
+								<option value="4393197305" >MARCOS PETRUCIO LEITE CRUZ - CRM </option>
+								
+								<option value="88726860678" >MARCOS WENDELL BELARMINDO DA SILVA - CRM </option>
+								
+								<option value="49788698034" >MARGARETE FATIMA PERINI - CRM </option>
+								
+								<option value="35403829687" >MARGARETH DAS GRACAS OLIVEIRA - CRM </option>
+								
+								<option value="3717445200" >MARIA AUXILIADORA BRITO DA SILVA - CRM </option>
+								
+								<option value="39862534400" >MARIA BETANIA DO NASCIMENTO TORRES - CRM </option>
+								
+								<option value="59339012453" >MARIA DE FATIMA RAMALHO - CRM </option>
+								
+								<option value="71587446200" >MARIA DEL ROCIO ZENTENO TARAMONA - CRM 2611</option>
+								
+								<option value="47537698104" >MARIA DE LURDES DA SILVA OLIVEIRA - CRM </option>
+								
+								<option value="7020095801" >MARIA DO SOCORRO ECHALAR MARTINS - CRM </option>
+								
+								<option value="04023779237" >MARIA EDUARDA LEVATTI GEDRO - CRM 6449</option>
+								
+								<option value="61727067215" >MARIA EUNICE CAMPOS MENEZES - CRM </option>
+								
+								<option value="46294767920" >MARIA GORETT FERNANDES - CRM </option>
+								
+								<option value="55968694220" >MARIA HELENILDA DAMASCENO DE ANDRADE - TEF 8694220</option>
+								
+								<option value="71293329215" >MARIA IVONETE GOMES DA SILVA - CRM </option>
+								
+								<option value="38610299287" >MARIA JOANA PASSOS DO NASCIMENTO - CRM </option>
+								
+								<option value="3372671201" >MARIA JULIANA VASCONCELLOS BRAGADO - CRM </option>
+								
+								<option value="61144002249" >MARIA LUCIA BELEM DOS SANTOS SILVA - CRM </option>
+								
+								<option value="08975509605" >MARIA LUISE ALVES MARTINS - CRM 7825</option>
+								
+								<option value="06793979655" >MARIA LUIZA GANDRA DE MEIRA - CRM 60454</option>
+								
+								<option value="24267511268" >MARIA MARILAQUE SILVA DE SOUZA ARRUDA - CRM </option>
+								
+								<option value="14430169420" >MARIA MONCERRATE DUNGA DE OLIVEIRA - CRM </option>
+								
+								<option value="89730984204" >MARIANA FURTADO RODRIGUES - CRM 2800</option>
+								
+								<option value="669381209" >MARIANE DE SANTANA LIMA - CRM 6241</option>
+								
+								<option value="62609661215" >MARIA RENILDE RAMOS DE ALMEIDA - CRM </option>
+								
+								<option value="82909946215" >MARILIA SILVEIRA DE GALVAO - COREN 344053</option>
+								
+								<option value="70216355320" >MARILUCIA NASCIMENTO E SILVA - CRM </option>
+								
+								<option value="22051317291" >MARIMAR REGIS DOS SANTOS DA SILVA - CRM </option>
+								
+								<option value="47910410204" >MARINICE CAMPELO DE OLIVEIRA SILVA - CRM </option>
+								
+								<option value="16684206" >MARISTEFANY CURY ARRUDA - CRM </option>
+								
+								<option value="57777721291" >MARIZA MARQUES DE OLIVEIRA - CRM </option>
+								
+								<option value="28303857215" >MARLENE DA SILVA ALBUQUERQUE - CRM </option>
+								
+								<option value="83411437200" >MARY BLANCA MILAN LANZA - CRM </option>
+								
+								<option value="06350676840" >MAURICIO DA COSTA SOARES - CRO 1653</option>
+								
+								<option value="42173248200" >MAURICIO MARINHO DOS SANTOS - CRM </option>
+								
+								<option value="81624417272" >MAURO RICARDO IZIDORO ANGELO - CRM </option>
+								
+								<option value="31455759880" >MAXWENDELL GOMES BATISTA - CRM </option>
+								
+								<option value="89701275268" >MAYSA MARIA DA SILVA PINTO - CRM </option>
+								
+								<option value="31682049272" >MEDICO TESTE HOSPUB - CRM 123456789</option>
+								
+								<option value="71003800220" >MICHELE FREIRE SEIXAS - CRM </option>
+								
+								<option value="52541436220" >MIGUEL ANGEL JARANDILLA PERALTA - CRM </option>
+								
+								<option value="3649980240" >MIGUEL CAZURA FERREIRA SOARES - CRM </option>
+								
+								<option value="61210870215" >MIGUEL CIRILO LEDO SILVA - CRM </option>
+								
+								<option value="66320933291" >MILITINO FEDER JUNIOR - CRM </option>
+								
+								<option value="4051615146" >MILLA REZENDE PARREIRA - CRM 7532</option>
+								
+								<option value="65386019104" >MIRELA MARTINS BARRETO CUNHA - CRM 1667</option>
+								
+								<option value="22035652847" >MOACYR TADEU VICENTE RODRIGUES - CRM </option>
+								
+								<option value="59372877204" >MONICA APARECIDA NEVES - CRM </option>
+								
+								<option value="58955747268" >MONICA CRISTIANE ANASTASSIOY ALVES - CRM </option>
+								
+								<option value="82679339215" >MONICA MARINA CUSTODIO DE LIMA - CRM </option>
+								
+								<option value="85324698253" >MONIKE DIAS DE SOUZA RAMOS - CRM 5556</option>
+								
+								<option value="99048361249" >MORGANA LORENA DARTIBALLE - CRM </option>
+								
+								<option value="15065498881" >MURILO BRUZADIN - CRM </option>
+								
+								<option value="7575198903" >MURILO SBRUSSI . - CRM 8923</option>
+								
+								<option value="75429179434" >MYSSULA BRANDAO HAYASHIDA - CRM </option>
+								
+								<option value="83693220263" >NAHIDA HIJAZI ZAGLOUT - CRM </option>
+								
+								<option value="00042386217" >NAIARA TRIVERIO CAMACHO - CRM </option>
+								
+								<option value="76776883220" >NAJUA ABDUL RAZZAK DE CASTRO - CRM 4703</option>
+								
+								<option value="26484986215" >NAKUXE ZARU MENDES DA ROCHA - CRM 1206</option>
+								
+								<option value="39664660400" >NALDIRA ALVES DE JESUS - CRM </option>
+								
+								<option value="92162967200" >NARA LUZINEZ AMIM DOS SANTOS - CRM </option>
+								
+								<option value="60514400200" >NARA SOUZA BRITO - CRM </option>
+								
+								<option value="13096707812" >NARCIA CAMELO CORREA - CRM </option>
+								
+								<option value="2095176200" >NATALIA GOMES CORREA BONILHA - CRM </option>
+								
+								<option value="42156186812" >NATALIA SASAKI DELLA MOTTA - CRM 208925</option>
+								
+								<option value="87349795220" >NATALIA YURASSECK PARMEJIANI - CRM 3452</option>
+								
+								<option value="68078846215" >NATALICIA FREITAS CARVALHO PEREIRA - CRM </option>
+								
+								<option value="94740640244" >NAYARA ALMEIDA LIMA - CRM </option>
+								
+								<option value="3069342132" >NAYARA DA SILVA RODRIGUES - CRM 4574</option>
+								
+								<option value="305021281" >NAYARA RICHAELY MONTEIRO LEAO - CRM </option>
+								
+								<option value="85489026200" >NEILA GRACIELI ZAFFARI DE LIMA - CRM </option>
+								
+								<option value="51876442204" >NELLYKIN SOARES AMARAL - CRM </option>
+								
+								<option value="40833801287" >NEUZA IMIDIO DE ALMEIDA MASCARENHAS - CRM </option>
+								
+								<option value="40812472268" >NEUZALINA DOS SANTOS EGIDIO - CRM </option>
+								
+								<option value="71894039220" >NILEIA FERREIRA SANTOS MAIA - CRM </option>
+								
+								<option value="84948086215" >NUBIA ANDREA DAVE DE ASSIS - CRM </option>
+								
+								<option value="74549472200" >OADMIL MONTEIRO DA SILVA FILHO - CRM </option>
+								
+								<option value="28587464272" >ODALY PANIAGUA FERNANDES - CRM </option>
+								
+								<option value="70000364274" >OMAYRA MIRIAM ORTEGA MORALES - CRM 5042</option>
+								
+								<option value="06272088353" >OSVALDO CEZAR PINTO MENDES - CRM 1127</option>
+								
+								<option value="59209089200" >OZELENE CAMPOS DE LIMA - CRM </option>
+								
+								<option value="97463213234" >PAMELA CRISTINA HEIDRICH LANZARIN - CRM </option>
+								
+								<option value="94863350287" >PAMELA DE VASCONCELOS PIMENTEL BARBOSA - CRM </option>
+								
+								<option value="90270711287" >PAMELA PERES DE OLIVEIRA - CRM 5186</option>
+								
+								<option value="76033180259" >PATRICIA GRACIELA BARBINO - CRM 5048</option>
+								
+								<option value="56270100291" >PATRICIA LIRA PANTA - COREN 91020</option>
+								
+								<option value="51277220204" >PATRICIA MEIRA BAENA - CRM </option>
+								
+								<option value="72557877204" >PATRICIA OLIVEIRA DA SILVA - CRM </option>
+								
+								<option value="59022094200" >PATRICIA SABINA SILVA MORHEB - CRM </option>
+								
+								<option value="80743986253" >PATRICIA SCHARNOSKI - CRM </option>
+								
+								<option value="1014941229" >PATRICIA SUELEN BARBOSA BARROS - CRM 4486</option>
+								
+								<option value="28283292838" >PATRICIA VICENTE - CRM </option>
+								
+								<option value="8732403674" >PAULA CAMILO EISENBERG MEYER - CRM </option>
+								
+								<option value="84360097204" >PAULA JANIEIRE ARAUJO DA COSTA - CRM </option>
+								
+								<option value="09460186696" >PAULA LAMEGO PASCHOALINO LOPES - CRM 8763</option>
+								
+								<option value="11342325605" >PAULA SANNAZZARO OLIVEIRA DE ASSIS - CRM 74858</option>
+								
+								<option value="762302011" >PAULA URACH NICOLA - CRM </option>
+								
+								<option value="9922226723" >PAULINA PETILLO CARDOSO MORAES - CRM </option>
+								
+								<option value="94662363268" >PAULO ARTUR MOTTA DE MORAIS - CRM </option>
+								
+								<option value="80522653715" >PAULO CEZAR ALVES PEREIRA DE SOUZA - CRM </option>
+								
+								<option value="70545456215" >PAULO CEZAR CORREIA DE VASCONCELOS - CRM </option>
+								
+								<option value="30127572449" >PAULO DE MOURA GOMES BARBOSA - CRM </option>
+								
+								<option value="77785231249" >PAULO FERNANDO BRASIL JUNIOR - CRM </option>
+								
+								<option value="5410018761" >PAULO LEVI ANDRANDE WAN-BURK - CRM </option>
+								
+								<option value="95140050234" >PAULO ROBERTO FERNANDES KERN - CRM </option>
+								
+								<option value="12031300822" >PAULO ROBERTO MARTINS - CRO 595</option>
+								
+								<option value="27194906015" >PEDRO AUGUSTO RAMOS DA SILVA - CRM </option>
+								
+								<option value="92935265220" >PEDRO FELIPE PINTO - CRM </option>
+								
+								<option value="19527698847" >PEDRO IVO SANTOS SILVA - CRO 2082</option>
+								
+								<option value="51675706204" >PEDRO MENDES DA SILVA FILHO - CRM </option>
+								
+								<option value="74068725268" >PEDRO PAULO DIAS PANTOJA - CRM 2935</option>
+								
+								<option value="00047000236" >PLEBSON DUARTE CAMURCA - CRM </option>
+								
+								<option value="1235698262" >PLINIO ARAUJO DE CARVALHO - CRM </option>
+								
+								<option value="85828629204" >POLIANA EREIRA BARROS - CRM </option>
+								
+								<option value="34757385897" >POLIANA LIE WATANABE - CRM </option>
+								
+								<option value="61431915220" >PRISCILA MARTINS DA SILVA TOURINHO - CRM </option>
+								
+								<option value="96728183" >PRISCILA MENDES E SILVA - CRM </option>
+								
+								<option value="72270390130" >PRISCILA ROSAL HONORATO DE VASCONCELOS - CRM </option>
+								
+								<option value="89169867291" >PRISCILA VASCONCELOS MACIEL - CRM </option>
+								
+								<option value="67592937204" >QUELMA FELICIO DA SILVA - CRM </option>
+								
+								<option value="879858290" >QUESLEI DO AMPARO DE BEM VIEIRA - CRM </option>
+								
+								<option value="85064661215" >QUETILEN CANDIDA MARQUES MOREIRA - CRM </option>
+								
+								<option value="5313508784" >RACHEL SOUTO TORQUATO - CRM 4730</option>
+								
+								<option value="00188536337" >RAFAELA ARRAIS PESSOA - CRM 21883</option>
+								
+								<option value="1029981248" >RAFAELA CAROLINE BRITO GARCIA - CRM </option>
+								
+								<option value="4504073900" >RAFAELA GARCIA DANCINI - CRM </option>
+								
+								<option value="958015295" >RAFAELA RODRIGUES GOMES - CRM </option>
+								
+								<option value="53621212" >RAFAELA SILVA BRAGA - CRM </option>
+								
+								<option value="1719185255" >RAFAEL PAULINO BRITO - CRM </option>
+								
+								<option value="51159783268" >RAIMUNDO DA SILVA MAIA JUNIOR - CRM </option>
+								
+								<option value="02862037150" >RAISSA DALAT COELHO FURTADO - CRM 78824</option>
+								
+								<option value="78853591153" >RAITANY COSTA DE ALMEIDA - CRM </option>
+								
+								<option value="93094108253" >RANIERI PRATA MACHADO - CRM </option>
+								
+								<option value="22772705803" >RAQUEL LOURDES MURILLO ALCOREZA - CRM </option>
+								
+								<option value="70039738205" >RAUL RODRIGO ARTEAGA RADUAN - CRM </option>
+								
+								<option value="3159909298" >RAYANY DE SOUZA GALVAO - CRM </option>
+								
+								<option value="1564662284" >RAYRA MENEZES DE ALMEIDA - CRM 5780</option>
+								
+								<option value="47877820291" >REGINALDO FERNANDES LOURENCO - CRM 2643</option>
+								
+								<option value="52677672200" >REMBERTO JAVIER CHAVARRIA PONCE - CRM </option>
+								
+								<option value="27126493894" >RENATA DANIELA MARTINS SARDI - CRM </option>
+								
+								<option value="01039932231" >RENATA DA SILVA PAIVA - CRM </option>
+								
+								<option value="182849228" >RENATA MARIELA CARLOTTO DE LIMA - CRM </option>
+								
+								<option value="55972764253" >RENATA RODRIGUES DA LUZ - CRM </option>
+								
+								<option value="11201107776" >RENATA TEIXEIRA MAGALHAES - CRM </option>
+								
+								<option value="8880185764" >RENATO DE ABREU JUNQUEIRA BORGES - CRM </option>
+								
+								<option value="28760064803" >RENATO DE FIGUEIREDO RADAELI - CRM </option>
+								
+								<option value="86264508853" >RENATO HIDEAKI WATANABE - CRM </option>
+								
+								<option value="10665188234" >RENE HUMBERTO FERREL CAMACHO - CRM </option>
+								
+								<option value="2496688156" >RHUAN ANTONIO DE PAULA SILVEIRA E SILVA - CRM </option>
+								
+								<option value="52376753287" >RIAD JOEKEL KASSEM - CRM 6112</option>
+								
+								<option value="536076278" >RIAN PEREIRA DA SILVA - CRM </option>
+								
+								<option value="91209323168" >RICARDO DUARTE MOTA - CRM </option>
+								
+								<option value="89695704468" >RICARDO TORRES NEGRAES - CRM 1922</option>
+								
+								<option value="74987429268" >RICELI FERREIRA XIMENES - TEF -1</option>
+								
+								<option value="95325956272" >RICHEL MENEZES DE ALMEIDA - CRM </option>
+								
+								<option value="27212173215" >RITA DE CASSIA ALVES FERREIRA - CRM </option>
+								
+								<option value="01275754210" >ROBERTO HUGO AGUIAR ABILIO - CRM 6879</option>
+								
+								<option value="2230359711" >ROBERTO MARTINEZ ALVAREZ - CRM 6879</option>
+								
+								<option value="9870893821" >ROBINSON CARDOSO MACHADO YALUZAN - CRM 1188</option>
+								
+								<option value="77222911200" >ROBSON APARECIDO FECINI - CRO 2671</option>
+								
+								<option value="39492303272" >ROBSON STELMASTCHUK DA SILVA - CRM </option>
+								
+								<option value="4918518800" >RODOLFO LUIS KORTE - CRM 2178</option>
+								
+								<option value="72684283249" >RODRIGO DE FIGUEIREDO GONCALVES - CRM </option>
+								
+								<option value="21768281866" >RODRIGO JACON JACOB - CRM </option>
+								
+								<option value="397322232" >ROGER ANDRE MOLINA CLAROS - CRM </option>
+								
+								<option value="23442034272" >ROGERES AUGUSTO BARROSO - CRM </option>
+								
+								<option value="86374516249" >ROGERIO DA SILVA SOUZA - CRM 5931</option>
+								
+								<option value="66186293220" >ROGERIO MACHADO CANTO - CRM </option>
+								
+								<option value="79766854220" >RONALDO FRANCISCO DOS SANTOS - CRM </option>
+								
+								<option value="40976220210" >ROSARIA PARDO MORENO DOS SANTOS - CRM </option>
+								
+								<option value="43960227434" >ROSE-MARY MEDEIROS BRITTO - CRM </option>
+								
+								<option value="63627248287" >ROSEMEIRE MESQUITA LEITE OLIVEIRA - CRM </option>
+								
+								<option value="84364408204" >ROSILAINE KEFFER DELFINO - CRM </option>
+								
+								<option value="55967400206" >ROSIMEIRE CARNEIRO PEREIRA - CRM </option>
+								
+								<option value="90563751215" >ROSSANNY OLIVEIRA VIEIRA - CRM </option>
+								
+								<option value="32436254400" >ROZILDA BATISTA SILVA - CRM </option>
+								
+								<option value="2514133220" >RUBENS RODRIGUES PINTO - CRM </option>
+								
+								<option value="89652614220" >SABRINA ALVES PINHEIRO - CRM </option>
+								
+								<option value="22086799896" >SABRINA MIRELLA RUZZENE - CRM 4940</option>
+								
+								<option value="78548128291" >SABRINA VERGANI ARAUJO - CRM </option>
+								
+								<option value="2708000268" >SALEH MAHMOUD ABDUL RAZZAK - CRM </option>
+								
+								<option value="3808267712" >SAMIA    GUALBERTO - CRM </option>
+								
+								<option value="34062564220" >SANDRA MACIEL FARIA - CRM </option>
+								
+								<option value="57014469487" >SANDRA MARIA BRAGA CAVALCANTE GUIMARAES - CRM </option>
+								
+								<option value="2000481205" >SANDY RIBEIRO BARROS - CRM </option>
+								
+								<option value="52745139215" >SAORI CAROLINE COSTA MARINHO - TEF 5139215</option>
+								
+								<option value="3701319405" >SARA CILEA LOPES CAVALCANTE FEITOSA - CRM </option>
+								
+								<option value="48821691691" >SEBASTIAO FERREIRA CAMPOS - CRM </option>
+								
+								<option value="69528799949" >SELMA REGINE SPESIA - CRM </option>
+								
+								<option value="71472894715" >SERGIO DA COSTA DE MORAES - CRM </option>
+								
+								<option value="64028577268" >SERGIO PEREIRA - CRM </option>
+								
+								<option value="72573279200" >SHARON CARDOSO CANDIDO DE OLIVEIRA - CRM 8715</option>
+								
+								<option value="01075253136" >SILAS ROCHA NETO - CRM 9074</option>
+								
+								<option value="62381814272" >SILVANA  CAPICHE - COREN 197655</option>
+								
+								<option value="35027029268" >SILVANA DAS CHAGAS CARLOS - CRM </option>
+								
+								<option value="81075324904" >SILVANA MANO GROSS DE ALMEIDA - CRM </option>
+								
+								<option value="24199400249" >SILVANE MAZIERO MONGE - CRM </option>
+								
+								<option value="93262833215" >SIMONE CAYS - CRM </option>
+								
+								<option value="3488286916" >SIMONE DE JESUS MACHADO - CRM </option>
+								
+								<option value="82833877234" >SIMONE DELANNE CAMPOS DE OLIVEIRA - CRM </option>
+								
+								<option value="77017102215" >SIMONI TOWNES DE CASTRO - CRM </option>
+								
+								<option value="81462441220" >SOLANGE DA SILVA SILVEIRA - CRM </option>
+								
+								<option value="32272439896" >SOLANGE PATRICIA CABRAL NASCIMENTO - CRM </option>
+								
+								<option value="19196997249" >SOLIMAR MARIA DAS NEVES - CRM </option>
+								
+								<option value="77805712115" >SOLINO PRADO ASSIS - CRM </option>
+								
+								<option value="66397669220" >SONIA MOTTA PEREIRA - CRM </option>
+								
+								<option value="18706049893" >SONIA REGINA DOS SANTOS MARINI - CRM </option>
+								
+								<option value="43834973220" >SORAYA CRUZ BELEZA - CRM </option>
+								
+								<option value="639114261" >SORAYA DA SILVA NOGUEIRA - CRM </option>
+								
+								<option value="07013715956" >STEFANY GOUDZENKO HERNANDEZ DUARTE - CRM 8938</option>
+								
+								<option value="94081743215" >STHEPHANE AZEVEDO - CRM </option>
+								
+								<option value="86132890297" >SUELEN MENDES MEDEIROS - COREN 516123</option>
+								
+								<option value="57344264404" >SUPORTE VISUAL HOSPUB - CRM 123456</option>
+								
+								<option value="564610208" >SUWANY    ISMAIL - CRM </option>
+								
+								<option value="45713634272" >SUZIANE VASCONCELOS LIMA - COREN 2344961</option>
+								
+								<option value="83825266249" >SUZYE KELEN MONTEIRO LOUREIRO - CRM </option>
+								
+								<option value="37064274" >TAIANA CARVALHO DE SOUZA - CRM </option>
+								
+								<option value="58206264" >TAIANE ROCHA CAMPELO - CRM </option>
+								
+								<option value="393220176" >TAINA GARCIA FERREIRA GAMA - CRM 4970</option>
+								
+								<option value="992261201" >TAINA TABOSA FREIRE PEREIRA - CRM </option>
+								
+								<option value="1586733109" >TAIS GAVIRA WONG - CRM 14301</option>
+								
+								<option value="1189370220" >TAMARA ALVES EVANGELISTA - CRM </option>
+								
+								<option value="478026188" >TAMARA BARROS DORAZIO SOUZA - CRM </option>
+								
+								<option value="25567781806" >TAMARA MARGATHO RAMOS DE CASTRO - CRM </option>
+								
+								<option value="52885267291" >TAMILA FERNANDES ARAGAO - CRM 3956</option>
+								
+								<option value="90757009204" >TAMY CLOSS AMARO - CRM </option>
+								
+								<option value="80213170000" >TATIANA BRASIL PESSOA - CRM </option>
+								
+								<option value="77957938272" >TATIANA LUZIA TIBURTINO SOUZA - CRM </option>
+								
+								<option value="70382140125" >TATIANA PERES COSTA - CRM </option>
+								
+								<option value="2389880908" >TATIANA TOMOE DO - CRM </option>
+								
+								<option value="77920279291" >TATIARA BUENO PARREIRA - CRM </option>
+								
+								<option value="96811994215" >THAINA BASTOS VENTURIM - CRM 7033</option>
+								
+								<option value="99852284215" >THAINARA REYES BATISTA DE SOUZA - CRM 5262</option>
+								
+								<option value="93766580272" >THAIRINI FUZA DE SOUZA VIEIRA - CRM </option>
+								
+								<option value="81914458249" >THAIS DE CARVALHO CAMPOS - CRM </option>
+								
+								<option value="278161251" >THAIS SANTOS ZOPPI LEAL DE OLIVEIRA - CRM 5259</option>
+								
+								<option value="3618632258" >THAIZ MENDONCA BARBOSA - CRM </option>
+								
+								<option value="2549164229" >THALIA ADELINA FLORES SORUCO - CRM </option>
+								
+								<option value="51914247" >THALYTA RAYANNE MELO CURY - CRM 7396</option>
+								
+								<option value="2472022158" >THAMIRIS MENESES CALDEIRA - CRM </option>
+								
+								<option value="31381126847" >THAMY YAMASHITA SHIBAYAMA -  CRM 3394 RO - CRM </option>
+								
+								<option value="74026259234" >THATIANE TANAKA OTA - CRM </option>
+								
+								<option value="93483376291" >THAYANA PESSOA TAKEMURA - CRM 4026</option>
+								
+								<option value="85503282" >THEMIS BORCHE DA SILVA - CRM </option>
+								
+								<option value="94756309291" >THIAGO ROBERTO PERONDI VERGILIO - CRM </option>
+								
+								<option value="71386262234" >THICIANE PAZ MENACHO - CRM </option>
+								
+								<option value="1760989258" >THOBIAS ALVES BARBOSA - CRM </option>
+								
+								<option value="81300840234" >TIAGO COSTA DO AMARAL - CRM </option>
+								
+								<option value="16546950847" >TITO DIAS JUNIOR - CRM 8755</option>
+								
+								<option value="6358267981" >ULISSES CATOSSI JUNIOR - CRM </option>
+								
+								<option value="20072547863" >VALDEMAR KATAYAMA KJAER - CRM </option>
+								
+								<option value="73009695268" >VALENTINA MENDONCA DA SILVA - CRM </option>
+								
+								<option value="88429075291" >VALERIA GUEDES COSTA DA SILVA - TEF 549106</option>
+								
+								<option value="85450081200" >VALERIA M. GALHERI - CRM </option>
+								
+								<option value="71170200915" >VALMOR ARTUR PATRICIO JUNIOR - CRM </option>
+								
+								<option value="85984515253" >VANDERLEI PEREIRA LIMA - CRM </option>
+								
+								<option value="81309635234" >VANESSA DO VALE CASTRO - CRM </option>
+								
+								<option value="63397960363" >VANESSA MARIA DANTAS DE MORAIS LIMA - CRM </option>
+								
+								<option value="27937864893" >VANESSA MERLEN FALEIROS FERRAZ DE SA - CRM </option>
+								
+								<option value="81467710253" >VANESSA NICOLETTI ARAUJO - CRM </option>
+								
+								<option value="68315805215" >VANIA CRISTINA CARRILHO - CRM </option>
+								
+								<option value="62972596234" >VANIA DE LOURDES TEODORA MUNHOZ - CRM </option>
+								
+								<option value="65853881272" >VANIELA MILAN LANZA - CRM 2128</option>
+								
+								<option value="64686728215" >VANJA RAQUEL BENTES DE SOUSA - COREN 426931</option>
+								
+								<option value="64859266900" >VERA JOANA BECKER DE MELO E SILVA - CRM </option>
+								
+								<option value="00320570240" >VERCILENE ALMEIDA CAMPOS - CRM </option>
+								
+								<option value="34849351204" >VERONICA NASCIMENTO SILVA - CRM </option>
+								
+								<option value="4195459990" >VERONICA RAMOS ORIANI - COREN 127417</option>
+								
+								<option value="6714015640" >VICTOR DALL AGLIO DE ORNELLAS - CRM </option>
+								
+								<option value="58629505249" >VILANY MENEZES DA SILVA - CRM </option>
+								
+								<option value="66804892291" >VINICIUS UBIRAJARA MARQUES - CRM </option>
+								
+								<option value="50866834168" >VIRGINIA BRAZ DA SILVA - CRM </option>
+								
+								<option value="1059461170" >VITOR ELISIO SANTANA DE SOUSA - CRM </option>
+								
+								<option value="82192545720" >VITOR HUGO ALMEIDA DA SILVA - CRM </option>
+								
+								<option value="02465342223" >VITORIA DA SILVA BRESSAN BARBIERI - CRM 6240</option>
+								
+								<option value="82833648200" >VITOR MARCELO FREZ MARQUES - CRM 7790</option>
+								
+								<option value="89580230234" >VIVALDO PINHEIRO LIMA JUNIOR - CRM </option>
+								
+								<option value="93008520278" >VIVIANE FAGUNDES BRITO - CRM </option>
+								
+								<option value="90133803287" >VIVIANE GUTIERREZ DE MATOS - CRM 8023</option>
+								
+								<option value="52272621287" >VIVIANE LORENA DO NASCIMENTO - CRM </option>
+								
+								<option value="98718789234" >VIVIANE MARTINS DE SOUSA - CRM 6684</option>
+								
+								<option value="65411048915" >VLADMIR GARCIA - CRM </option>
+								
+								<option value="92124143204" >WALDIR DE SOUZA FERNANDES JUNIOR - CRM </option>
+								
+								<option value="52217205234" >WALTER EDUARDO CARMONA HINOJOSA - CRM </option>
+								
+								<option value="63514494215" >WALTER NUNES HITZESCHKY DE MELO NETO - CRM 2378</option>
+								
+								<option value="51956047204" >WANUSA MADALENO SILVA CARNEIRO - CRM </option>
+								
+								<option value="43789862215" >WELLINGTON MAGALHÃES DE MORAIS - CRM 7837</option>
+								
+								<option value="98595768234" >WELLITON HENRIQUE RIBEIRO SILVA - CRM 4161</option>
+								
+								<option value="01645186229" >WESLEY FERREIRA ALMEIDA - CREFITO 19404</option>
+								
+								<option value="10823598748" >WILLANIA CRISTINE DAMM LOURENCO - CRM 7824</option>
+								
+								<option value="45767505268" >WILMERSON VIEIRA DA SILVA - CRM </option>
+								
+								<option value="8898852819" >WILSON ATSUMI OTANI - CRM </option>
+								
+								<option value="28377117215" >WISLENY PALOMEQUE GONCALVES - CRM </option>
+								
+								<option value="52972780230" >YANA CAROLINE MARTINS RIBEIRO - CRM </option>
+								
+								<option value="04657046110" >YASMIN PIRES VILELA - CRM 7046110</option>
+								
+								<option value="99562804100" >YNA SILVA RAMOS - CRM 7872</option>
+								
+								<option value="28592280206" >ZENILDA DALPRA GALDINO - CRM </option>
+								
+								<option value="62383728268" >ZILMA FERREIRA MASCARENHAS DA SILVA - CRM </option>
+								
+								<option value="83504060204" >ZULIVAM ZEFERINO YALUZAN MACHADO - CRM </option>
+								
+							</select>
+						</td>
+						<td></td>
+						<td></td>
+						<td></td>
+						<td></td>
+					</tr>
+				</table>
+				<br>
+				<div id="Salvar" align="center">
+					<!--<button type="button" class="btn btn-primary" onClick="salva_proc()">Salvar</button> &nbsp;&nbsp;-->
+					<button type="button" class="btn btn-primary" onClick="limpar_proc()">Limpar</button> &nbsp;&nbsp;
+					<button type="button" class="btn btn-danger pull-center" data-dismiss="modal">Fechar</button>&nbsp;
+					&nbsp;&nbsp; <a href="#" onClick="lista_procedimento()">Listar</a>
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <a href="#" onclick="imprimirProc()"
+						style="cursor: pointer;"><img border=0 src='images/globais/061215-int-picto24x24-imp.gif'>
+						Imprimir</a>
+
+				</div>
+				<br>
+				<div id="res_proc" align="center"></div>
+			</div>
+		</div>
+		<!-- /.modal-content -->
+
+
+	</div>
+
+
+	<!-- /.modal-dialog -->
+</div>
+
+
+
+<div class="modal fade" id="modal-transf_clin" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+	<div class="modal-dialog" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<legend>Nome: <b>ALERRANDO PIETRO GONCALVES RAMOS</b> - Prontuário: <b>40577</b></legend>
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span></button>
+
+				<h4 class="modal-title">Interna&ccedil;&atilde;o - Transfer&ecirc;ncia entre Cl&iacute;nicas </h4>
+			</div>
+			<div class="modal-body">
+
+				<table width="65%">
+					
+					<tr>
+						<td><b>Leito Atual:</b></td>
+						<td align="left"><strong>
+								<div id="refresh_clinica2">002-C I P - 0020002</div>
+							</strong></td>
+					</tr>
+					<tr>
+						<td><label>Data Transfer&ecirc;ncia: </label></td>
+						<!--- | - -  - -->
+
+						<td align="left"><input type="date" name="data_transf" id="data_transf" value="2025-08-05"
+								max="2025-08-05" class="form-nobreak">
+							&nbsp;&nbsp; <input type="time" id="hora_transf" value=""
+								class="form-nobreak"></td>
+					</tr>
+					<tr>
+						<td><label>Clinica Destino:</label></td>
+						<td align="left">
+							<select name="clinicas" id="id_clin" class="form-nobreak">
+								<option value="0" selected>SELECIONE ... </option>
+								
+								<option value="002">C I P</option>
+								
+								<option value="000">CLINICA NAO INFORMADA</option>
+								
+								<option value="001">EMERGENCIA - INTERNADOS</option>
+								
+								<option value="008">ENFERMARIA A</option>
+								
+								<option value="009">ENFERMARIA B</option>
+								
+								<option value="010">ENFERMARIA C</option>
+								
+								<option value="011">ENFERMARIA D</option>
+								
+								<option value="012">ENFERMARIA G</option>
+								
+								<option value="013">ENFERMARIA H</option>
+								
+								<option value="015">ENFERMARIA J</option>
+								
+								<option value="016">ENFERMARIA K</option>
+								
+								<option value="017">ENFERMARIA L</option>
+								
+								<option value="018">ENFERMARIA M</option>
+								
+								<option value="019">HOSPITAL DIA</option>
+								
+								<option value="014">ISOLAMENTO</option>
+								
+								<option value="020">SALA DE PROCEDIMENTO</option>
+								
+								<option value="007">U T I</option>
+								
+								<option value="003">UIR 1 UNID-INTERN RAPIDA</option>
+								
+								<option value="004">UIR 2 UNID-INTERN RAPIDA</option>
+								
+								<option value="005">UIR 3 UNID-INTERN RAPIDA</option>
+								
+							</select>
+
+						</td>
+					</tr>
+
+
+					<tr>
+						<td><label>Leito Destino: </label></td>
+						<td align="left">
+							<div id="lista_leitos"></div>
+						</td>
+					</tr>
+				</table>
+				<br><br><br><br>
+				<div id="transf_leito" align="center" style="display:block">
+					<button type="button" class="btn btn-primary" id="bt_transf" onClick="transf_leito_apc('40577', '')">Transferir</button> &nbsp;&nbsp;
+					<button type="button" class="btn btn-danger pull-center" data-dismiss="modal">Fechar</button>
+					&nbsp;&nbsp; 
+				</div>
+
+				<br>
+				<b>
+					<font color="green">
+						<div id="txtret" align="center"></div>
+					</font>
+				</b>
+
+				<!--
+              <div id="bt_fechar" align="center" style="display:">
+                <button type="button" class="btn btn-danger pull-center" data-dismiss="modal">Fechar</button> &nbsp;&nbsp;                 
+              </div>
+              -->
+
+			</div>
+		</div>
+		<!-- /.modal-content -->
+	</div>
+	<!-- /.modal-dialog -->
+</div>
+<!-- /.modal -->
+
+
+
+<script>
+	//getFilter();
+</script>
