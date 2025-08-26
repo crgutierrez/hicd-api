@@ -42,8 +42,9 @@ async function testarEnfermariaUTI() {
         const pacientesComEvolucoes = [];
 
         // Processar apenas os primeiros 3 pacientes para depuração
-        const pacientesParaTeste = pacientesEnfermaria;
-        // pacientesEnfermaria.slice(0, 3);
+        const pacientesParaTeste = 
+        pacientesEnfermaria;
+        // pacientesEnfermaria.slice(0, 1);
         
         for (let i = 0; i < pacientesParaTeste.length; i++) {
             const paciente = pacientesParaTeste[i];
@@ -76,6 +77,7 @@ async function testarEnfermariaUTI() {
                     prontuario: paciente.prontuario,
                     nome: paciente.nome,
                     leito: paciente.leito,
+                    dataInternacao: paciente.dataInternacao,
                     evolucoes: [],
                     erro: error.message
                 });

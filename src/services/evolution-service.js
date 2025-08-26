@@ -66,14 +66,14 @@ class EvolutionService {
             const evolucoes = this.parser.parseEvolucoes(response.data, pacienteId);
             
             // Remover duplicatas e mesclar evoluções similares
-            const evolucoesUnicas = this.removerDuplicatasEvolucoes(evolucoes);
+           // const evolucoesUnicas = this.removerDuplicatasEvolucoes(evolucoes);
             
-            console.log(`✅ ${evolucoesUnicas.length} evoluções únicas extraídas para o paciente ${pacienteId}`);
-            if (evolucoes.length > evolucoesUnicas.length) {
-                console.log(`[EVOLUCOES] Removidas ${evolucoesUnicas.length - evolucoes.length} duplicações`);
-            }
+            // //console.log(`✅ ${evolucoesUnicas.length} evoluções únicas extraídas para o paciente ${pacienteId}`);
+            // if (evolucoes.length > evolucoesUnicas.length) {
+            //     console.log(`[EVOLUCOES] Removidas ${evolucoesUnicas.length - evolucoes.length} duplicações`);
+            // }
 
-            return evolucoesUnicas;
+            return evolucoes;
 
         } catch (error) {
             console.error(`[EVOLUCOES] Erro ao buscar evoluções do paciente ${pacienteId}:`, error.message);

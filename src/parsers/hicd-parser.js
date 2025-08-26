@@ -26,7 +26,7 @@ class HICDParser {
             $('#clinica option').each((i, element) => {
                 const codigo = $(element).val();
                 const nome = $(element).text().trim();
-                
+
                 if (codigo && nome && codigo !== '0') {
                     clinicas.push({
                         codigo: codigo,
@@ -54,18 +54,18 @@ class HICDParser {
             $('table.hoverTable tbody tr, table.bordasimples tbody tr, table tr').each((i, element) => {
                 const colunas = $(element).find('td');
                 console.log(`Processando linha ${i + 1} com ${colunas.length} colunas`);
-                
+
                 if (colunas.length >= 3) {
                     const nome = $(colunas[0]).text().trim();
                     const prontuario = $(colunas[1]).text().trim();
                     const leito = $(colunas[2]).text().trim();
-                    
+
                     // Verificar se é uma linha válida de paciente
-                    if (nome && prontuario && leito && 
-                        !nome.includes('Nome') && 
+                    if (nome && prontuario && leito &&
+                        !nome.includes('Nome') &&
                         !prontuario.includes('Prontuário') &&
                         /^\d+$/.test(prontuario)) {
-                        
+
                         // Extrair dias de internação (se disponível)
                         let diasInternacao = 0;
                         const diasText = $(colunas[4])?.text().trim();
@@ -87,13 +87,13 @@ class HICDParser {
                         if (colunas.length > 4) {
                             const idade = $(colunas[4])?.text().trim();
                             const sexo = $(colunas[5])?.text().trim();
-                            
+
                             if (idade) paciente.idade = idade;
                             if (sexo) paciente.sexo = sexo;
                         }
 
                         pacientes.push(paciente);
-                        
+
                         if (this.debugMode) {
                             console.log(`[PACIENTES] Paciente encontrado: ${nome} (${prontuario}) - Leito: ${leito}`);
                         }
@@ -106,12 +106,12 @@ class HICDParser {
                 $('.paciente-item, .patient-row, tr').each((i, element) => {
                     const textoElemento = $(element).text();
                     const matchPaciente = textoElemento.match(/([^(]+)\s*\((\d+)\).*?([A-Z0-9.-]+)/);
-                    
+
                     if (matchPaciente) {
                         const nome = matchPaciente[1].trim();
                         const prontuario = matchPaciente[2];
                         const leito = matchPaciente[3];
-                        
+
                         pacientes.push({
                             nome: nome,
                             prontuario: prontuario,
@@ -120,7 +120,7 @@ class HICDParser {
                             diasInternacao: 0,
                             codigoClinica: codigoClinica
                         });
-                        
+
                         if (this.debugMode) {
                             console.log(`[PACIENTES] Paciente encontrado (estrutura alternativa): ${nome} (${prontuario}) - Leito: ${leito}`);
                         }
@@ -155,49 +155,49 @@ class HICDParser {
                 documentos: {}
             };
 
-        
-// Buscar no painel de informações do paciente
+
+            // Buscar no painel de informações do paciente
             const panelBody = $('.panel-body');
-            
+
             if (panelBody.length > 0) {
                 // Extrair dados da primeira coluna (col-lg-3)
                 const primeiraColuna = panelBody.find('.col-lg-3');
                 if (primeiraColuna.length > 0) {
                     const textos = primeiraColuna.find('p');
-                    
+
                     textos.each((i, elemento) => {
                         const texto = $(elemento).text().trim();
-                        
+
                         // Registro/Prontuário
                         if (texto.includes('Registro:')) {
                             const registro = texto.replace('Registro:', '').trim();
                             cadastro.dadosBasicos.prontuario = registro;
                         }
-                        
+
                         // Nome do paciente
                         if (texto.includes('Nome:') && !texto.includes('Nome da mãe:')) {
                             const nome = texto.replace('Nome:', '').trim();
                             cadastro.dadosBasicos.nome = nome;
                         }
-                        
+
                         // Nome da mãe
                         if (texto.includes('Nome da mãe:')) {
                             const nomeMae = texto.replace('Nome da mãe:', '').trim();
                             cadastro.dadosBasicos.nomeMae = nomeMae;
                         }
-                        
+
                         // Logradouro
                         if (texto.includes('Logradouro:')) {
                             const logradouro = texto.replace('Logradouro:', '').trim();
                             cadastro.endereco.logradouro = logradouro;
                         }
-                        
+
                         // Bairro
                         if (texto.includes('Bairro:')) {
                             const bairro = texto.replace('Bairro:', '').trim();
                             cadastro.endereco.bairro = bairro;
                         }
-                        
+
                         // Telefone
                         if (texto.includes('Telefone:')) {
                             const telefone = texto.replace('Telefone:', '').trim();
@@ -210,10 +210,10 @@ class HICDParser {
                 const segundaColuna = panelBody.find('.col-lg-4').first();
                 if (segundaColuna.length > 0) {
                     const textos = segundaColuna.find('p');
-                    
+
                     textos.each((i, elemento) => {
                         const texto = $(elemento).text().trim();
-                        
+
                         // BE (Boletim de Emergência)
                         if (texto.includes('BE:')) {
                             const beMatch = texto.match(/BE:\s*(\d+)/);
@@ -221,31 +221,31 @@ class HICDParser {
                                 cadastro.documentos.be = beMatch[1];
                             }
                         }
-                        
+
                         // CNS (Cartão Nacional de Saúde)
                         if (texto.includes('CNS:')) {
                             const cns = texto.replace('CNS:', '').trim();
                             cadastro.documentos.cns = cns;
                         }
-                        
+
                         // Documento
                         if (texto.includes('Documento:')) {
                             const documento = texto.replace('Documento:', '').trim();
                             cadastro.documentos.documento = documento;
                         }
-                        
+
                         // Número (endereço)
                         if (texto.includes('Número:')) {
                             const numero = texto.replace('Número:', '').trim();
                             cadastro.endereco.numero = numero;
                         }
-                        
+
                         // Município
                         if (texto.includes('Município:')) {
                             const municipio = texto.replace('Município:', '').trim();
                             cadastro.endereco.municipio = municipio;
                         }
-                        
+
                         // Responsável
                         if (texto.includes('Responsável:')) {
                             const responsavel = texto.replace('Responsável:', '').trim();
@@ -258,16 +258,16 @@ class HICDParser {
                 const terceiraColuna = panelBody.find('.col-lg-4').last();
                 if (terceiraColuna.length > 0) {
                     const textos = terceiraColuna.find('p');
-                    
+
                     textos.each((i, elemento) => {
                         const texto = $(elemento).text().trim();
-                        
+
                         // Clínica/Leito
                         if (texto.includes('Clinica / Leito:')) {
                             const clinicaLeitoMatch = texto.match(/Clinica \/ Leito:\s*(.+)/);
                             if (clinicaLeitoMatch) {
                                 cadastro.internacao.clinicaLeito = clinicaLeitoMatch[1].trim();
-                                
+
                                 // Extrair código da clínica e leito separadamente
                                 const leitoMatch = clinicaLeitoMatch[1].match(/(\d{3})-(.+?)\s+(\d+)/);
                                 if (leitoMatch) {
@@ -277,39 +277,39 @@ class HICDParser {
                                 }
                             }
                         }
-                        
+
                         // Nascimento e Idade
                         if (texto.includes('Nascimento:')) {
                             const nascimentoMatch = texto.match(/Nascimento:\s*(\d{2}\/\d{2}\/\d{4})/);
                             if (nascimentoMatch) {
                                 cadastro.dadosBasicos.dataNascimento = nascimentoMatch[1];
                             }
-                            
+
                             const idadeMatch = texto.match(/Idade:\s*(.+?)(?:\s|$)/);
                             if (idadeMatch) {
                                 cadastro.dadosBasicos.idade = idadeMatch[1].trim();
                             }
                         }
-                        
+
                         // Sexo
                         if (texto.includes('Sexo:')) {
                             const sexo = texto.replace('Sexo:', '').trim();
                             cadastro.dadosBasicos.sexo = sexo;
                         }
-                        
+
                         // Complemento (endereço)
                         if (texto.includes('Complemento:')) {
                             const complemento = texto.replace('Complemento:', '').trim();
                             cadastro.endereco.complemento = complemento;
                         }
-                        
+
                         // Estado e CEP
                         if (texto.includes('Estado:')) {
                             const estadoMatch = texto.match(/Estado:\s*(\w+)/);
                             if (estadoMatch) {
                                 cadastro.endereco.estado = estadoMatch[1];
                             }
-                            
+
                             const cepMatch = texto.match(/CEP:\s*(\d+)/);
                             if (cepMatch) {
                                 cadastro.endereco.cep = cepMatch[1];
@@ -322,11 +322,11 @@ class HICDParser {
             // Também extrair dados dos inputs hidden se disponíveis
             const inputNome = $('#pac_name').val();
             const inputProntuario = $('#pac_pront').val();
-            
+
             if (inputNome && !cadastro.dadosBasicos.nome) {
                 cadastro.dadosBasicos.nome = inputNome.trim();
             }
-            
+
             if (inputProntuario && !cadastro.dadosBasicos.prontuario) {
                 cadastro.dadosBasicos.prontuario = inputProntuario.trim();
             }
@@ -341,7 +341,7 @@ class HICDParser {
                 console.log('- Município:', cadastro.endereco.municipio);
             }
 
-            
+
 
             return cadastro;
 
@@ -356,16 +356,16 @@ class HICDParser {
      */
     parseEvolucoes(html, pacienteId) {
         console.log(`[PARSER] Extraindo evoluções do paciente ${pacienteId}...`);
-        
+
         try {
             const $ = cheerio.load(html);
             const evolucoes = [];
 
             // Buscar por estrutura específica do areaHistEvol
             $('#areaHistEvol').each((index, areaElement) => {
-                const evolucao = this.parseEvolucaoDetalhada($, areaElement, pacienteId, index);
-                if (evolucao) {
-                    evolucoes.push(evolucao);
+                const evolucoesDetalhadas = this.parseEvolucaoDetalhada($, areaElement, pacienteId, index);
+                if (evolucoesDetalhadas) {
+                    evolucoes.push(...evolucoesDetalhadas);
                 }
             });
 
@@ -383,13 +383,77 @@ class HICDParser {
         }
     }
 
+    retornaEvolucaoDetalhada($, row) {
+        var retorno = {};
+        const cols = row.find('[class*="col-lg-"]');
+        if (cols.length >= 2) {
+            cols.each((j, colElement) => {
+                const col = $(colElement);
+                const texto = col.text().trim();
+
+                if (texto.includes('Descrição:')) {
+                    const nextCol = cols.eq(j + 1);
+
+                    if (nextCol.length) {
+                        const textoHtml = nextCol.html();
+                        const textoLimpo = this.limparTextoEvolucao(textoHtml);
+                        retorno = this.extrairDadosEstruturadosEvolucao(textoLimpo);
+
+                    }
+                }
+            });
+        }
+        return retorno;
+    }
+
+    retornaCampo($, textoPesquisa, row) {
+        var retorno = '';
+        const cols = row.find('[class*="col-lg-"]');
+        if (cols.length >= 2) {
+            cols.each((j, colElement) => {
+                const col = $(colElement);
+                const texto = col.text().trim();
+
+                if (texto.includes(textoPesquisa)) {
+                    const nextCol = cols.eq(j + 1);
+
+                    if (nextCol.length) {
+                        if (textoPesquisa === 'Descrição:') {
+                            const textoHtml = nextCol.html();
+                            const textoLimpo = this.limparTextoEvolucao(textoHtml);
+
+
+                            retorno = textoLimpo;
+                            //this.extrairResumoEvolucao(textoLimpo);
+
+                            // Extrair dados estruturados da evolução
+                            const dadosEstruturados = this.extrairDadosEstruturadosEvolucao(textoLimpo);
+                        } else {
+                            console.log(nextCol.text())
+                            retorno = this.limparTextoSimples(nextCol.text());
+                        }
+
+                    }
+                }
+            });
+        }
+        return retorno;
+    }
+
     /**
      * Parse detalhado da estrutura de evolução específica
      */
     parseEvolucaoDetalhada($, areaElement, pacienteId, index) {
+        var retornos = [];
         try {
             const area = $(areaElement);
-            const evolucao = {
+            
+
+            // Extrair informações das linhas de dados
+            const rows = area.find('.row');
+            console.log(`Evolução - Encontradas ${area.find('.row').length} linhas de dados`);
+            for (var linha = 0; linha < rows.length; linha = linha + 5) {
+                const evolucao = {
                 id: `${pacienteId}_${index}`,
                 pacienteId: pacienteId,
                 profissional: '',
@@ -401,96 +465,34 @@ class HICDParser {
                 descricao: '',
                 textoCompleto: ''
             };
+                const row = rows.eq(linha);
+                const rowDois = rows.eq(linha + 1)
+                const rowTres = rows.eq(linha + 2);
+                const rowQuatro = rows.eq(linha + 3);
+                evolucao.profissional = this.retornaCampo($, 'Profissional:', row);
+                evolucao.dataEvolucao = this.retornaCampo($, 'Data Evolução:', row);
+                evolucao.atividade = this.retornaCampo($, 'Atividade:', rowDois);
+                evolucao.dataAtualizacao = this.retornaCampo($, 'Data de Atualização:', rowDois);
+                evolucao.clinicaLeito = this.retornaCampo($, 'Clínica/Leito:', rowTres);
+                evolucao.descricao = this.retornaCampo($, 'Descrição:', rowQuatro);
+                evolucao.textoCompleto = evolucao.descricao;
+                evolucao.dadosEstruturados = this.retornaEvolucaoDetalhada($, rowQuatro);
 
-            // Extrair informações das linhas de dados
-            area.find('.row').each((i, rowElement) => {
-                const row = $(rowElement);
-                const cols = row.find('[class*="col-lg-"]');
-                
-                if (cols.length >= 2) {
-                    cols.each((j, colElement) => {
-                        const col = $(colElement);
-                        const texto = col.text().trim();
-                        
-                        // Profissional
-                        if (texto.includes('Profissional:')) {
-                            const nextCol = cols.eq(j + 1);
-                            if (nextCol.length) {
-                                evolucao.profissional = this.limparTextoSimples(nextCol.text());
-                            }
-                        }
-                        
-                        // Data Evolução
-                        if (texto.includes('Data Evolução:')) {
-                            const nextCol = cols.eq(j + 1);
-                            if (nextCol.length) {
-                                evolucao.dataEvolucao = this.limparTextoSimples(nextCol.text());
-                            }
-                        }
-                        
-                        // Atividade
-                        if (texto.includes('Atividade:')) {
-                            const nextCol = cols.eq(j + 1);
-                            if (nextCol.length) {
-                                const atividadeTexto = nextCol.text();
-                                
-                                // Extrair atividade principal
-                                const atividadeMatch = atividadeTexto.match(/^([^S]+)/);
-                                if (atividadeMatch) {
-                                    evolucao.atividade = this.limparTextoSimples(atividadeMatch[1]);
-                                }
-                                
-                                // Extrair sub-atividade
-                                const subAtividadeMatch = atividadeTexto.match(/Sub-Atividade:\s*(.+)/);
-                                if (subAtividadeMatch) {
-                                    evolucao.subAtividade = this.limparTextoSimples(subAtividadeMatch[1]);
-                                }
-                            }
-                        }
-                        
-                        // Data Atualização
-                        if (texto.includes('Data Atualização:')) {
-                            const nextCol = cols.eq(j + 1);
-                            if (nextCol.length) {
-                                evolucao.dataAtualizacao = this.limparTextoSimples(nextCol.text());
-                            }
-                        }
-                        
-                        // Clínica/Leito
-                        if (texto.includes('Clinica / Leito:')) {
-                            const nextCol = cols.eq(j + 1);
-                            if (nextCol.length) {
-                                evolucao.clinicaLeito = this.limparTextoSimples(nextCol.text());
-                            }
-                        }
-                    });
-                }
-            });
-
-            // Extrair descrição/texto da evolução
-            const panelBody = area.find('.panel-body');
-            if (panelBody.length > 0) {
-                const textDiv = panelBody.find('[id$="txtView"]');
-                if (textDiv.length > 0) {
-                    // Extrair texto completo preservando quebras de linha
-                    const textoHtml = textDiv.html();
-                    const textoLimpo = this.limparTextoEvolucao(textoHtml);
-                    
-                    evolucao.textoCompleto = textoLimpo;
-                    evolucao.descricao = this.extrairResumoEvolucao(textoLimpo);
-                    
-                    // Extrair dados estruturados da evolução
-                    const dadosEstruturados = this.extrairDadosEstruturadosEvolucao(textoLimpo);
-                    evolucao.dadosEstruturados = dadosEstruturados;
-                }
-            }
-
-            // Só retornar se tiver dados mínimos
+                // console.log('Profissional: ', profissional);
+                // console.log('Data Evolução: ', dataEvolucao);
+                // console.log('Atividade: ', atividade);
+                // console.log('Data de Atualização: ', dataAtualizacao);
+                // console.log('Clínica/Leito: ', clinicaLeito);
+                // console.log('Descrição: ', this.retornaCampo($, 'Descrição:', rowQuatro));
+            
             if (evolucao.dataEvolucao || evolucao.profissional || evolucao.textoCompleto) {
-                return evolucao;
+                retornos.push(evolucao);
             }
 
-            return null;
+            }
+
+          console.log(`Evolução - Total de evoluções processadas: ${retornos.length}`);
+            return retornos;
 
         } catch (error) {
             console.error(`[PARSER] Erro ao processar evolução ${index}:`, error.message);
@@ -545,7 +547,7 @@ class HICDParser {
      */
     limparTextoEvolucao(textoHtml) {
         if (!textoHtml) return '';
-        
+
         return textoHtml
             .replace(/<br\s*\/?>/gi, '\n')
             .replace(/<[^>]*>/g, '')
@@ -569,12 +571,12 @@ class HICDParser {
      */
     extrairResumoEvolucao(textoCompleto) {
         if (!textoCompleto) return '';
-        
+
         const linhas = textoCompleto.split('\n');
         const linhasSignificativas = linhas
             .filter(linha => linha.trim().length > 10)
             .slice(0, 3);
-            
+
         return linhasSignificativas.join(' ').substring(0, 200);
     }
 
@@ -653,7 +655,7 @@ class HICDParser {
                 texto.match(/Peso\s+[^:]*\s*([0-9.,]+kg)/i),
                 texto.match(/([0-9.,]+kg)/i)
             ];
-            
+
             for (const pesoMatch of pesoMatches) {
                 if (pesoMatch) {
                     dados.sinaisVitais.peso = pesoMatch[1];
@@ -666,22 +668,22 @@ class HICDParser {
             if (sinaisMatch) {
                 dados.sinaisVitais.pressao = sinaisMatch[1].trim();
             }
-            
+
             const fcMatch = texto.match(/FC:\s*([0-9\-\s]+bpm)/i);
             if (fcMatch) {
                 dados.sinaisVitais.frequenciaCardiaca = fcMatch[1].trim();
             }
-            
+
             const frMatch = texto.match(/FR:\s*([0-9\-\s]+irpm)/i);
             if (frMatch) {
                 dados.sinaisVitais.frequenciaRespiratoria = frMatch[1].trim();
             }
-            
+
             const tempMatch = texto.match(/T(?:ax)?:\s*([0-9.,\-\s]+°C)/i);
             if (tempMatch) {
                 dados.sinaisVitais.temperatura = tempMatch[1].trim();
             }
-            
+
             const satMatch = texto.match(/Sat:\s*([0-9\-\s]+%)/i);
             if (satMatch) {
                 dados.sinaisVitais.saturacao = satMatch[1].trim();
