@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste HICD Frontend</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 2rem; 
+            background: #f5f6fa;
+        }
+        .test-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+        .test-btn {
+            background: #0d6efd;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0.25rem;
+        }
+        .test-btn:hover { background: #0b5ed7; }
+        .result { 
+            margin-top: 1rem; 
+            padding: 1rem; 
+            background: #f8f9fa; 
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .success { background: #d1edff !important; }
+        .error { background: #f8d7da !important; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Teste de Funcionalidades - HICD Frontend</h1>
+        
+        <div class="test-section">
+            <h3>🔗 Conectividade</h3>
+            <button class="test-btn" onclick="testAPI()">Testar API</button>
+            <button class="test-btn" onclick="testFrontend()">Testar Frontend</button>
+            <div id="connectivity-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🏥 Clínicas</h3>
+            <button class="test-btn" onclick="testClinicas()">Carregar Clínicas</button>
+            <button class="test-btn" onclick="testClinicaDetails()">Detalhes Clínica</button>
+            <div id="clinicas-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>👥 Pacientes</h3>
+            <button class="test-btn" onclick="testPacientes()">Carregar Pacientes</button>
+            <button class="test-btn" onclick="testPacienteSearch()">Buscar Paciente</button>
+            <button class="test-btn" onclick="testPacienteDetails()">Detalhes Paciente</button>
+            <div id="pacientes-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Busca</h3>
+            <button class="test-btn" onclick="testQuickSearch()">Busca Rápida</button>
+            <button class="test-btn" onclick="testAdvancedSearch()">Busca Avançada</button>
+            <div id="search-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Resultados Gerais</h3>
+            <div id="summary-result" class="result">Clique nos botões acima para testar as funcionalidades</div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let testResults = {};
+
+        async function testAPI() {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    updateResult('connectivity-result', `✅ API OK: ${data.status} (uptime: ${Math.round(data.uptime)}s)`, 'success');
+                    testResults.api = true;
+                } else {
+                    updateResult('connectivity-result', `❌ API Error: ${response.status}`, 'error');
+                    testResults.api = false;
+                }
+            } catch (error) {
+                updateResult('connectivity-result', `❌ API Offline: ${error.message}`, 'error');
+                testResults.api = false;
+            }
+            updateSummary();
+        }
+
+        async function testFrontend() {
+            try {
+                const response = await fetch('http://localhost:8080');
+                if (response.ok) {
+                    updateResult('connectivity-result', '✅ Frontend acessível', 'success');
+                    testResults.frontend = true;
+                } else {
+                    updateResult('connectivity-result', `❌ Frontend Error: ${response.status}`, 'error');
+                    testResults.frontend = false;
+                }
+            } catch (error) {
+                updateResult('connectivity-result', `❌ Frontend Offline: ${error.message}`, 'error');
+                testResults.frontend = false;
+            }
+            updateSummary();
+        }
+
+        async function testClinicas() {
+            try {
+                const response = await fetch(`${API_URL}/clinicas`);
+                const clinicas = await response.json();
+                
+                if (response.ok && Array.isArray(clinicas)) {
+                    updateResult('clinicas-result', `✅ ${clinicas.length} clínicas carregadas\n${clinicas.slice(0,3).map(c => `- ${c.nome} (${c.codigo})`).join('\n')}`, 'success');
+                    testResults.clinicas = true;
+                } else {
+                    updateResult('clinicas-result', `❌ Erro ao carregar clínicas`, 'error');
+                    testResults.clinicas = false;
+                }
+            } catch (error) {
+                updateResult('clinicas-result', `❌ Erro: ${error.message}`, 'error');
+                testResults.clinicas = false;
+            }
+            updateSummary();
+        }
+
+        async function testClinicaDetails() {
+            try {
+                const response = await fetch(`${API_URL}/clinicas`);
+                const clinicas = await response.json();
+                
+                if (clinicas.length > 0) {
+                    const clinica = clinicas[0];
+                    const pacientesResponse = await fetch(`${API_URL}/pacientes`);
+                    const pacientes = await pacientesResponse.json();
+                    const pacientesClinica = pacientes.filter(p => p.clinica_id == clinica.id);
+                    
+                    updateResult('clinicas-result', `✅ Detalhes da clínica ${clinica.nome}:\n- ${pacientesClinica.length} pacientes\n- Código: ${clinica.codigo}`, 'success');
+                    testResults.clinicaDetails = true;
+                } else {
+                    updateResult('clinicas-result', `❌ Nenhuma clínica disponível`, 'error');
+                    testResults.clinicaDetails = false;
+                }
+            } catch (error) {
+                updateResult('clinicas-result', `❌ Erro: ${error.message}`, 'error');
+                testResults.clinicaDetails = false;
+            }
+            updateSummary();
+        }
+
+        async function testPacientes() {
+            try {
+                const response = await fetch(`${API_URL}/pacientes`);
+                const pacientes = await response.json();
+                
+                if (response.ok && Array.isArray(pacientes)) {
+                    updateResult('pacientes-result', `✅ ${pacientes.length} pacientes carregados\n${pacientes.slice(0,3).map(p => `- ${p.nome} (CPF: ${p.cpf})`).join('\n')}`, 'success');
+                    testResults.pacientes = true;
+                } else {
+                    updateResult('pacientes-result', `❌ Erro ao carregar pacientes`, 'error');
+                    testResults.pacientes = false;
+                }
+            } catch (error) {
+                updateResult('pacientes-result', `❌ Erro: ${error.message}`, 'error');
+                testResults.pacientes = false;
+            }
+            updateSummary();
+        }
+
+        async function testPacienteSearch() {
+            try {
+                const response = await fetch(`${API_URL}/pacientes`);
+                const pacientes = await response.json();
+                
+                if (pacientes.length > 0) {
+                    // Simular busca por nome
+                    const searchTerm = pacientes[0].nome.split(' ')[0];
+                    const results = pacientes.filter(p => p.nome.toLowerCase().includes(searchTerm.toLowerCase()));
+                    
+                    updateResult('pacientes-result', `✅ Busca por "${searchTerm}": ${results.length} resultados`, 'success');
+                    testResults.pacienteSearch = true;
+                } else {
+                    updateResult('pacientes-result', `❌ Nenhum paciente para testar busca`, 'error');
+                    testResults.pacienteSearch = false;
+                }
+            } catch (error) {
+                updateResult('pacientes-result', `❌ Erro: ${error.message}`, 'error');
+                testResults.pacienteSearch = false;
+            }
+            updateSummary();
+        }
+
+        async function testPacienteDetails() {
+            try {
+                const response = await fetch(`${API_URL}/pacientes`);
+                const pacientes = await response.json();
+                
+                if (pacientes.length > 0) {
+                    const paciente = pacientes[0];
+                    updateResult('pacientes-result', `✅ Detalhes do paciente:\n- Nome: ${paciente.nome}\n- CPF: ${paciente.cpf}\n- Clínica: ${paciente.clinica}`, 'success');
+                    testResults.pacienteDetails = true;
+                } else {
+                    updateResult('pacientes-result', `❌ Nenhum paciente disponível`, 'error');
+                    testResults.pacienteDetails = false;
+                }
+            } catch (error) {
+                updateResult('pacientes-result', `❌ Erro: ${error.message}`, 'error');
+                testResults.pacienteDetails = false;
+            }
+            updateSummary();
+        }
+
+        async function testQuickSearch() {
+            try {
+                const response = await fetch(`${API_URL}/pacientes`);
+                const pacientes = await response.json();
+                
+                if (pacientes.length > 0) {
+                    const searchTerm = 'silva';
+                    const results = pacientes.filter(p => 
+                        p.nome.toLowerCase().includes(searchTerm) ||
+                        p.cpf.includes(searchTerm)
+                    );
+                    
+                    updateResult('search-result', `✅ Busca rápida por "silva": ${results.length} resultados`, 'success');
+                    testResults.quickSearch = true;
+                } else {
+                    updateResult('search-result', `❌ Nenhum paciente para busca`, 'error');
+                    testResults.quickSearch = false;
+                }
+            } catch (error) {
+                updateResult('search-result', `❌ Erro: ${error.message}`, 'error');
+                testResults.quickSearch = false;
+            }
+            updateSummary();
+        }
+
+        async function testAdvancedSearch() {
+            try {
+                const response = await fetch(`${API_URL}/pacientes`);
+                const pacientes = await response.json();
+                
+                if (pacientes.length > 0) {
+                    // Simular busca avançada por clínica
+                    const clinicaFilter = pacientes[0].clinica_id;
+                    const results = pacientes.filter(p => p.clinica_id == clinicaFilter);
+                    
+                    updateResult('search-result', `✅ Busca avançada por clínica ${clinicaFilter}: ${results.length} resultados`, 'success');
+                    testResults.advancedSearch = true;
+                } else {
+                    updateResult('search-result', `❌ Nenhum paciente para busca avançada`, 'error');
+                    testResults.advancedSearch = false;
+                }
+            } catch (error) {
+                updateResult('search-result', `❌ Erro: ${error.message}`, 'error');
+                testResults.advancedSearch = false;
+            }
+            updateSummary();
+        }
+
+        function updateResult(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+        }
+
+        function updateSummary() {
+            const total = Object.keys(testResults).length;
+            const passed = Object.values(testResults).filter(Boolean).length;
+            const percentage = total > 0 ? Math.round((passed / total) * 100) : 0;
+            
+            let status = '🔴 Falhas críticas';
+            if (percentage >= 80) status = '🟢 Excelente';
+            else if (percentage >= 60) status = '🟡 Bom';
+            else if (percentage >= 40) status = '🟠 Precisa melhorar';
+            
+            updateResult('summary-result', 
+                `${status}\n\nResumo dos Testes:\n- Testes executados: ${total}\n- Sucessos: ${passed}\n- Falhas: ${total - passed}\n- Taxa de sucesso: ${percentage}%\n\nDetalhes:\n${Object.entries(testResults).map(([test, result]) => `- ${test}: ${result ? '✅' : '❌'}`).join('\n')}`,
+                percentage >= 60 ? 'success' : 'error'
+            );
+        }
+
+        // Executar testes automáticos ao carregar
+        window.onload = function() {
+            setTimeout(() => {
+                testAPI();
+                setTimeout(() => testFrontend(), 500);
+                setTimeout(() => testClinicas(), 1000);
+                setTimeout(() => testPacientes(), 1500);
+            }, 1000);
+        };
+    </script>
+</body>
+</html>

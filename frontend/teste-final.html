@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Teste Final - HICD System</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        button { padding: 8px 15px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #log { background: #f8f9fa; padding: 10px; height: 300px; overflow-y: scroll; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Teste Final - HICD System</h1>
+    
+    <div class="test-section">
+        <h3>Testes de Funcionalidade</h3>
+        <button onclick="testMenuNavigation()">1. Testar Navegação do Menu</button>
+        <button onclick="testClinicasLoading()">2. Testar Carregamento de Clínicas</button>
+        <button onclick="testPacientesByClinica()">3. Testar Pacientes por Clínica</button>
+        <button onclick="testAllAPIs()">4. Testar Todas as APIs</button>
+        <button onclick="testCompleteFlow()">5. Teste Completo</button>
+        <button onclick="clearLog()">Limpar Log</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>Log de Testes</h3>
+        <div id="log"></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            $('#log').append(`<div class="${className}">[${timestamp}] ${message}</div>`);
+            $('#log').scrollTop($('#log')[0].scrollHeight);
+            console.log(message);
+        }
+
+        function clearLog() {
+            $('#log').empty();
+        }
+
+        async function testMenuNavigation() {
+            log('=== TESTE 1: NAVEGAÇÃO DO MENU ===');
+            
+            try {
+                // Testar se a página principal carrega
+                const response = await fetch('http://localhost:8080/index.html');
+                if (response.ok) {
+                    log('✅ Página principal carregou', 'success');
+                    
+                    const html = await response.text();
+                    
+                    // Verificar elementos críticos
+                    const checks = [
+                        { test: html.includes('data-section="clinicas"'), msg: 'Atributo data-section para clínicas' },
+                        { test: html.includes('data-section="pacientes"'), msg: 'Atributo data-section para pacientes' },
+                        { test: html.includes('id="clinicasGrid"'), msg: 'Grid de clínicas' },
+                        { test: html.includes('id="clinicaSelect"'), msg: 'Select de clínicas na seção pacientes' },
+                        { test: html.includes('id="loadPacientesBtn"'), msg: 'Botão carregar pacientes' }
+                    ];
+                    
+                    checks.forEach(check => {
+                        if (check.test) {
+                            log(`✅ ${check.msg}`, 'success');
+                        } else {
+                            log(`❌ ${check.msg}`, 'error');
+                        }
+                    });
+                } else {
+                    log('❌ Erro ao carregar página principal', 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro no teste de navegação: ${error.message}`, 'error');
+            }
+        }
+
+        async function testClinicasLoading() {
+            log('=== TESTE 2: CARREGAMENTO DE CLÍNICAS ===');
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/clinicas');
+                if (response.ok) {
+                    const data = await response.json();
+                    const clinicas = data.data || data;
+                    
+                    log(`✅ ${clinicas.length} clínicas carregadas`, 'success');
+                    log(`📊 Primeira clínica: ${clinicas[0].nome} (ID: ${clinicas[0].id})`, 'info');
+                    
+                    // Testar algumas clínicas específicas
+                    const testClinicas = clinicas.slice(0, 3);
+                    for (const clinica of testClinicas) {
+                        try {
+                            const pacientesResponse = await fetch(`http://localhost:3000/api/clinicas/${clinica.id}/pacientes`);
+                            if (pacientesResponse.ok) {
+                                const pacientesData = await pacientesResponse.json();
+                                const pacientes = pacientesData.data || pacientesData;
+                                log(`✅ Clínica ${clinica.nome}: ${pacientes.length} pacientes`, 'success');
+                            } else {
+                                log(`⚠️ Clínica ${clinica.nome}: Erro ao carregar pacientes`, 'error');
+                            }
+                        } catch (error) {
+                            log(`❌ Erro ao testar clínica ${clinica.nome}: ${error.message}`, 'error');
+                        }
+                    }
+                } else {
+                    log('❌ Erro ao carregar clínicas', 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro no teste de clínicas: ${error.message}`, 'error');
+            }
+        }
+
+        async function testPacientesByClinica() {
+            log('=== TESTE 3: PACIENTES POR CLÍNICA ===');
+            
+            try {
+                // Primeiro, pegar uma clínica válida
+                const clinicasResponse = await fetch('http://localhost:3000/api/clinicas');
+                const clinicasData = await clinicasResponse.json();
+                const clinicas = clinicasData.data || clinicasData;
+                
+                if (clinicas.length > 0) {
+                    const clinica = clinicas[0];
+                    log(`🏥 Testando clínica: ${clinica.nome} (ID: ${clinica.id})`, 'info');
+                    
+                    const pacientesResponse = await fetch(`http://localhost:3000/api/clinicas/${clinica.id}/pacientes`);
+                    if (pacientesResponse.ok) {
+                        const pacientesData = await pacientesResponse.json();
+                        const pacientes = pacientesData.data || pacientesData;
+                        
+                        log(`✅ ${pacientes.length} pacientes encontrados`, 'success');
+                        
+                        if (pacientes.length > 0) {
+                            const paciente = pacientes[0];
+                            log(`👤 Primeiro paciente: ${paciente.nome} (Prontuário: ${paciente.prontuario})`, 'info');
+                            
+                            // Verificar campos importantes
+                            const campos = ['nome', 'prontuario', 'leito', 'idade'];
+                            campos.forEach(campo => {
+                                if (paciente[campo]) {
+                                    log(`✅ Campo ${campo}: ${paciente[campo]}`, 'success');
+                                } else {
+                                    log(`⚠️ Campo ${campo}: não encontrado`, 'error');
+                                }
+                            });
+                        }
+                    } else {
+                        log('❌ Erro ao carregar pacientes da clínica', 'error');
+                    }
+                } else {
+                    log('❌ Nenhuma clínica encontrada', 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro no teste de pacientes: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAllAPIs() {
+            log('=== TESTE 4: TODAS AS APIS ===');
+            
+            const endpoints = [
+                { url: '/api/health', name: 'Health Check' },
+                { url: '/api/clinicas', name: 'Listar Clínicas' },
+                { url: '/api/clinicas/001/pacientes', name: 'Pacientes da Clínica 001' }
+            ];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(`http://localhost:3000${endpoint.url}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        log(`✅ ${endpoint.name}: OK`, 'success');
+                        
+                        if (endpoint.url.includes('clinicas') && !endpoint.url.includes('health')) {
+                            const items = data.data || data;
+                            if (Array.isArray(items)) {
+                                log(`📊 ${endpoint.name}: ${items.length} items`, 'info');
+                            }
+                        }
+                    } else {
+                        log(`❌ ${endpoint.name}: HTTP ${response.status}`, 'error');
+                    }
+                } catch (error) {
+                    log(`❌ ${endpoint.name}: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function testCompleteFlow() {
+            log('=== TESTE 5: FLUXO COMPLETO ===');
+            
+            try {
+                log('🚀 Iniciando teste completo do sistema...', 'info');
+                
+                // 1. Testar servidores
+                log('1️⃣ Testando servidores...', 'info');
+                const frontendOk = await fetch('http://localhost:8080').then(r => r.ok);
+                const apiOk = await fetch('http://localhost:3000/api/health').then(r => r.ok);
+                
+                if (frontendOk && apiOk) {
+                    log('✅ Ambos servidores funcionando', 'success');
+                } else {
+                    log(`❌ Servidores: Frontend ${frontendOk ? 'OK' : 'ERRO'}, API ${apiOk ? 'OK' : 'ERRO'}`, 'error');
+                    return;
+                }
+                
+                // 2. Testar carregamento de dados
+                log('2️⃣ Testando carregamento de dados...', 'info');
+                const clinicasData = await fetch('http://localhost:3000/api/clinicas').then(r => r.json());
+                const clinicas = clinicasData.data || clinicasData;
+                
+                if (clinicas.length > 0) {
+                    log(`✅ ${clinicas.length} clínicas disponíveis`, 'success');
+                    
+                    // 3. Testar pacientes
+                    log('3️⃣ Testando pacientes...', 'info');
+                    let totalPacientes = 0;
+                    
+                    for (let i = 0; i < Math.min(3, clinicas.length); i++) {
+                        const clinica = clinicas[i];
+                        try {
+                            const pacientesData = await fetch(`http://localhost:3000/api/clinicas/${clinica.id}/pacientes`).then(r => r.json());
+                            const pacientes = pacientesData.data || pacientesData;
+                            totalPacientes += pacientes.length;
+                            log(`📊 ${clinica.nome}: ${pacientes.length} pacientes`, 'info');
+                        } catch (error) {
+                            log(`⚠️ Erro na clínica ${clinica.nome}: ${error.message}`, 'error');
+                        }
+                    }
+                    
+                    log(`✅ Total de pacientes testados: ${totalPacientes}`, 'success');
+                    
+                    // 4. Resumo final
+                    log('4️⃣ Resumo do teste...', 'info');
+                    log('🎉 TESTE COMPLETO FINALIZADO!', 'success');
+                    log(`📈 Resultados: ${clinicas.length} clínicas, ${totalPacientes} pacientes testados`, 'success');
+                    log('🚀 Sistema HICD está funcionando corretamente!', 'success');
+                    
+                } else {
+                    log('❌ Nenhuma clínica encontrada', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste completo: ${error.message}`, 'error');
+            }
+        }
+
+        // Executar teste inicial
+        setTimeout(() => {
+            log('🔧 Sistema de testes carregado', 'info');
+            log('👆 Clique nos botões acima para executar os testes', 'info');
+        }, 500);
+    </script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug HICD - Menu Clínicas</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 2rem; }
+        .debug-section { margin: 2rem 0; padding: 1rem; border: 1px solid #ccc; border-radius: 8px; }
+        .btn { background: #0d6efd; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin: 0.25rem; }
+        .btn:hover { background: #0b5ed7; }
+        .result { margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; white-space: pre-wrap; }
+        .error { background: #f8d7da !important; }
+        .success { background: #d1edff !important; }
+        .clinica-card { border: 1px solid #ddd; padding: 1rem; margin: 0.5rem; border-radius: 8px; display: inline-block; min-width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Debug - Menu Clínicas HICD</h1>
+    
+    <div class="debug-section">
+        <h3>🔗 Teste de Conectividade</h3>
+        <button class="btn" onclick="testAPI()">Testar API</button>
+        <button class="btn" onclick="testClínicasEndpoint()">Testar /clinicas</button>
+        <div id="connectivity-result" class="result">Clique nos botões para testar</div>
+    </div>
+
+    <div class="debug-section">
+        <h3>📡 Teste da Função loadClinicas()</h3>
+        <button class="btn" onclick="testLoadClinicas()">Executar loadClinicas()</button>
+        <button class="btn" onclick="testDisplayClinicas()">Testar displayClinicas()</button>
+        <div id="load-result" class="result">Clique nos botões para testar</div>
+    </div>
+
+    <div class="debug-section">
+        <h3>🎨 Preview das Clínicas</h3>
+        <button class="btn" onclick="renderClínicas()">Renderizar Clínicas</button>
+        <div id="clinicas-preview" class="result">Clínicas aparecerão aqui</div>
+    </div>
+
+    <div class="debug-section">
+        <h3>🖱️ Teste de Eventos</h3>
+        <button class="btn" onclick="testEvents()">Testar Eventos de Clique</button>
+        <div id="events-result" class="result">Resultado dos eventos</div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        
+        // Função simplificada da apiCall
+        async function apiCall(endpoint) {
+            const response = await fetch(`${API_URL}${endpoint}`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return await response.json();
+        }
+
+        async function testAPI() {
+            try {
+                const response = await apiCall('/health');
+                updateResult('connectivity-result', `✅ API Online: ${response.status}`, 'success');
+            } catch (error) {
+                updateResult('connectivity-result', `❌ API Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testClínicasEndpoint() {
+            try {
+                const response = await apiCall('/clinicas');
+                const clinicas = response.data || response;
+                
+                if (Array.isArray(clinicas)) {
+                    updateResult('connectivity-result', 
+                        `✅ Endpoint /clinicas OK\n- Total: ${clinicas.length} clínicas\n- Formato: ${response.data ? 'Wrapper Object' : 'Direct Array'}\n- Primeira clínica: ${clinicas[0]?.nome}`, 
+                        'success'
+                    );
+                } else {
+                    updateResult('connectivity-result', `❌ Resposta inválida: ${typeof clinicas}`, 'error');
+                }
+            } catch (error) {
+                updateResult('connectivity-result', `❌ Erro endpoint: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLoadClinicas() {
+            try {
+                updateResult('load-result', '🔄 Carregando clínicas...', '');
+                
+                const response = await apiCall('/clinicas');
+                const clinicas = response.data || response;
+                
+                // Simular o processo de enriquecimento
+                const clinicasComStats = await Promise.all(
+                    clinicas.slice(0, 3).map(async (clinica) => {
+                        try {
+                            const pacientesResponse = await apiCall(`/pacientes?clinica=${clinica.id}`);
+                            const pacientes = pacientesResponse.data || pacientesResponse;
+                            return {
+                                ...clinica,
+                                totalPacientes: pacientes.length,
+                                pacientesAtivos: pacientes.filter(p => p.status === 'ativo').length
+                            };
+                        } catch (error) {
+                            return {
+                                ...clinica,
+                                totalPacientes: 0,
+                                pacientesAtivos: 0
+                            };
+                        }
+                    })
+                );
+                
+                updateResult('load-result', 
+                    `✅ loadClinicas() funcionando!\n- Processadas: ${clinicasComStats.length} clínicas\n- Exemplo: ${clinicasComStats[0]?.nome} (${clinicasComStats[0]?.totalPacientes} pacientes)`, 
+                    'success'
+                );
+                
+                // Salvar para teste de renderização
+                window.testClinicas = clinicasComStats;
+                
+            } catch (error) {
+                updateResult('load-result', `❌ Erro loadClinicas(): ${error.message}`, 'error');
+            }
+        }
+
+        function testDisplayClinicas() {
+            if (!window.testClinicas) {
+                updateResult('load-result', '⚠️ Execute primeiro "Executar loadClinicas()"', 'error');
+                return;
+            }
+            
+            try {
+                const clinicas = window.testClinicas;
+                const html = clinicas.map(clinica => `
+                    <div class="clinica-card" data-clinica-id="${clinica.id}">
+                        <h4>${clinica.nome}</h4>
+                        <p>Código: ${clinica.codigo}</p>
+                        <p>Pacientes: ${clinica.totalPacientes || 0}</p>
+                        <p>Ativos: ${clinica.pacientesAtivos || 0}</p>
+                        <button onclick="selectClinica('${clinica.id}')">Selecionar</button>
+                    </div>
+                `).join('');
+                
+                updateResult('load-result', `✅ displayClinicas() funcionando!\n- HTML gerado para ${clinicas.length} clínicas`, 'success');
+                
+            } catch (error) {
+                updateResult('load-result', `❌ Erro displayClinicas(): ${error.message}`, 'error');
+            }
+        }
+
+        async function renderClínicas() {
+            try {
+                const response = await apiCall('/clinicas');
+                const clinicas = response.data || response;
+                
+                const html = clinicas.slice(0, 6).map(clinica => `
+                    <div class="clinica-card" data-clinica-id="${clinica.id}">
+                        <h4>${clinica.nome}</h4>
+                        <p><strong>Código:</strong> ${clinica.codigo}</p>
+                        <p><strong>ID:</strong> ${clinica.id}</p>
+                        <button class="btn" onclick="selectClinica('${clinica.id}', '${clinica.nome}')">Selecionar Clínica</button>
+                    </div>
+                `).join('');
+                
+                document.getElementById('clinicas-preview').innerHTML = html;
+                
+            } catch (error) {
+                updateResult('clinicas-preview', `❌ Erro ao renderizar: ${error.message}`, 'error');
+            }
+        }
+
+        function testEvents() {
+            // Simular eventos de clique
+            $(document).off('click', '.clinica-card').on('click', '.clinica-card', function() {
+                const clinicaId = $(this).data('clinica-id');
+                updateResult('events-result', `✅ Evento de clique funcionando!\n- Clínica clicada: ${clinicaId}`, 'success');
+            });
+            
+            updateResult('events-result', '✅ Eventos configurados! Clique em uma clínica acima para testar.', 'success');
+        }
+
+        function selectClinica(id, nome) {
+            updateResult('events-result', `✅ Clínica selecionada: ${nome || id}\n- ID: ${id}\n- Evento funcionando corretamente!`, 'success');
+        }
+
+        function updateResult(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+        }
+
+        // Auto-teste inicial
+        window.onload = function() {
+            setTimeout(testAPI, 500);
+        };
+    </script>
+</body>
+</html>

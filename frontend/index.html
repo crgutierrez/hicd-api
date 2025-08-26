@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HICD System - Prontuário Eletrônico</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Sistema de Prontuário Eletrônico HICD - Gestão hospitalar inteligente">
+    <meta name="theme-color" content="#0d6efd">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512x512.png">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link href="css/style.css" rel="stylesheet">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="https://code.jquery.com/jquery-3.7.1.min.js" as="script">
+    <link rel="preload" href="js/app.js" as="script">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-logo">
+                <i class="bi bi-hospital-fill text-primary"></i>
+            </div>
+            <div class="loading-text">
+                <h4>HICD System</h4>
+                <p>Carregando sistema...</p>
+            </div>
+            <div class="loading-spinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top shadow">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <i class="bi bi-hospital-fill me-2 fs-4"></i>
+                <span class="fw-bold">HICD System</span>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="nav-dashboard" href="#dashboard" data-section="dashboard">
+                            <i class="bi bi-grid-fill me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="nav-clinicas" href="#clinicas" data-section="clinicas">
+                            <i class="bi bi-building me-1"></i>Clínicas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="nav-pacientes" href="#pacientes" data-section="pacientes">
+                            <i class="bi bi-people-fill me-1"></i>Pacientes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="nav-busca" href="#busca" data-section="busca">
+                            <i class="bi bi-search me-1"></i>Busca Avançada
+                        </a>
+                    </li>
+                </ul>
+                
+                <!-- Connection Status -->
+                <div class="navbar-text me-3">
+                    <span id="connectionStatus" class="badge bg-success">
+                        <i class="bi bi-wifi"></i> Online
+                    </span>
+                </div>
+                
+                <!-- Settings -->
+                <button class="btn btn-outline-light" id="settingsBtn" title="Configurações">
+                    <i class="bi bi-gear-fill"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container-fluid py-4">
+            
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="content-section active">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="page-header mb-4">
+                            <h2 class="page-title">
+                                <i class="bi bi-grid-fill text-primary me-2"></i>
+                                Dashboard
+                            </h2>
+                            <p class="page-subtitle text-muted">
+                                Visão geral do sistema hospitalar
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="row mb-4">
+                    <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
+                        <div class="card stats-card bg-primary text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="card-title mb-1">Total de Clínicas</h6>
+                                        <h3 class="mb-0" id="totalClinicas">-</h3>
+                                    </div>
+                                    <div class="stats-icon">
+                                        <i class="bi bi-building"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
+                        <div class="card stats-card bg-success text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="card-title mb-1">Pacientes Ativos</h6>
+                                        <h3 class="mb-0" id="totalPacientes">-</h3>
+                                    </div>
+                                    <div class="stats-icon">
+                                        <i class="bi bi-people-fill"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
+                        <div class="card stats-card bg-warning text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="card-title mb-1">Status API</h6>
+                                        <h3 class="mb-0" id="apiStatus">-</h3>
+                                    </div>
+                                    <div class="stats-icon">
+                                        <i class="bi bi-wifi"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
+                        <div class="card stats-card bg-info text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="card-title mb-1">Última Atualização</h6>
+                                        <h6 class="mb-0" id="lastUpdate">-</h6>
+                                    </div>
+                                    <div class="stats-icon">
+                                        <i class="bi bi-clock-history"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-lightning-charge-fill text-warning me-2"></i>
+                                    Ações Rápidas
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-6 mb-3">
+                                        <div class="quick-search-card">
+                                            <h6 class="mb-3">
+                                                <i class="bi bi-search text-primary me-2"></i>
+                                                Busca Rápida de Paciente
+                                            </h6>
+                                            <div class="input-group">
+                                                <input type="text" class="form-control" id="quickSearchInput" 
+                                                       placeholder="Digite o prontuário ou nome...">
+                                                <button class="btn btn-primary" id="quickSearchBtn">
+                                                    <i class="bi bi-search"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-lg-6 mb-3">
+                                        <div class="quick-actions">
+                                            <h6 class="mb-3">
+                                                <i class="bi bi-gear-fill text-success me-2"></i>
+                                                Navegação Rápida
+                                            </h6>
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                <button class="btn btn-outline-primary btn-sm quick-nav" data-target="clinicas">
+                                                    <i class="bi bi-building me-1"></i>Ver Clínicas
+                                                </button>
+                                                <button class="btn btn-outline-success btn-sm quick-nav" data-target="pacientes">
+                                                    <i class="bi bi-people me-1"></i>Lista Pacientes
+                                                </button>
+                                                <button class="btn btn-outline-info btn-sm" id="refreshDashboard">
+                                                    <i class="bi bi-arrow-clockwise me-1"></i>Atualizar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-clock-history text-info me-2"></i>
+                                    Atividade Recente
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="recentActivity" class="activity-timeline">
+                                    <p class="text-muted text-center py-4">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        Carregando atividades recentes...
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Clínicas Section -->
+            <section id="clinicas" class="content-section">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="page-header mb-4">
+                            <h2 class="page-title">
+                                <i class="bi bi-building text-primary me-2"></i>
+                                Clínicas
+                            </h2>
+                            <p class="page-subtitle text-muted">
+                                Gestão e visualização de clínicas hospitalares
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search and Filter -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="row align-items-end">
+                                    <div class="col-lg-8 mb-3">
+                                        <label class="form-label">Buscar Clínicas</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">
+                                                <i class="bi bi-search"></i>
+                                            </span>
+                                            <input type="text" class="form-control" id="clinicaSearchInput" 
+                                                   placeholder="Digite o nome da clínica...">
+                                            <button class="btn btn-primary" id="clinicaSearchBtn">
+                                                Buscar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4 mb-3 text-lg-end">
+                                        <button class="btn btn-outline-secondary" id="limparFiltroClinicas">
+                                            <i class="bi bi-x-circle me-1"></i>Limpar
+                                        </button>
+                                        <button class="btn btn-success" id="refreshClinicas">
+                                            <i class="bi bi-arrow-clockwise me-1"></i>Atualizar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Clínicas Grid -->
+                <div class="row" id="clinicasGrid">
+                    <div class="col-12 text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando clínicas...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Carregando clínicas...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Pacientes Section -->
+            <section id="pacientes" class="content-section">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div class="page-header">
+                                <h2 class="page-title">
+                                    <i class="bi bi-people-fill text-primary me-2"></i>
+                                    Pacientes
+                                </h2>
+                                <p class="page-subtitle text-muted">
+                                    Gestão e acompanhamento de pacientes
+                                </p>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-secondary" id="clearFilters">
+                                    <i class="fas fa-times me-1"></i> Limpar Filtros
+                                </button>
+                                <button class="btn btn-primary" onclick="window.hicdApp.loadPacientes()">
+                                    <i class="fas fa-sync me-1"></i> Atualizar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter Controls -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-6 mb-3">
+                                        <label for="clinicaSelect" class="form-label">Selecionar Clínica</label>
+                                        <select class="form-select" id="clinicaSelect">
+                                            <option value="">Carregando clínicas...</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-6 mb-3">
+                                        <div class="form-label">Ações</div>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-primary" id="loadPacientesBtn" disabled>
+                                                <i class="bi bi-list-ul me-1"></i>Carregar Pacientes
+                                            </button>
+                                            <button class="btn btn-outline-info" id="statsClinicaBtn" disabled>
+                                                <i class="bi bi-graph-up me-1"></i>Estatísticas
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pacientes List -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-list-ul text-info me-2"></i>
+                                    Lista de Pacientes
+                                </h5>
+                                <div class="badge bg-primary" id="pacientesCount">0 pacientes</div>
+                            </div>
+                            <div class="card-body">
+                                <div id="pacientesTable">
+                                    <div class="text-center py-5 text-muted">
+                                        <i class="bi bi-info-circle display-6 mb-3"></i>
+                                        <p>Selecione uma clínica para visualizar os pacientes</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Busca Avançada Section -->
+            <section id="busca" class="content-section">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="page-header mb-4">
+                            <h2 class="page-title">
+                                <i class="bi bi-search text-primary me-2"></i>
+                                Busca Avançada
+                            </h2>
+                            <p class="page-subtitle text-muted">
+                                Ferramentas avançadas de busca e análise
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Forms -->
+                <div class="row mb-4">
+                    <!-- Busca por Prontuário -->
+                    <div class="col-lg-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-person-badge text-primary me-2"></i>
+                                    Busca por Prontuário
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Número do Prontuário</label>
+                                    <input type="text" class="form-control" id="prontuarioInput" 
+                                           placeholder="Ex: 40562">
+                                </div>
+                                <button class="btn btn-primary w-100" id="buscarProntuarioBtn">
+                                    <i class="bi bi-search me-1"></i>Buscar Paciente
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Busca por Leito -->
+                    <div class="col-lg-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-hospital text-success me-2"></i>
+                                    Busca por Leito
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Número do Leito</label>
+                                    <input type="text" class="form-control" id="leitoInput" 
+                                           placeholder="Ex: 015.015-0007">
+                                </div>
+                                <button class="btn btn-success w-100" id="buscarLeitoBtn">
+                                    <i class="bi bi-search me-1"></i>Buscar Ocupante
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-list-check text-info me-2"></i>
+                                    Resultados da Busca
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="buscaResults">
+                                    <div class="text-center py-5 text-muted">
+                                        <i class="bi bi-search display-6 mb-3"></i>
+                                        <p>Utilize os formulários acima para buscar pacientes</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Modal for Patient Details -->
+    <div class="modal fade" id="patientModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-person-circle text-primary me-2"></i>
+                        Detalhes do Paciente
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="patientModalBody">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-2">Carregando dados do paciente...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary" id="viewEvolucoeBtn">
+                        <i class="bi bi-file-medical me-1"></i>Ver Evoluções
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+
+    <!-- Offline Indicator -->
+    <div id="offlineIndicator" class="offline-indicator d-none">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <i class="bi bi-wifi-off me-2"></i>
+                    Você está offline. Algumas funcionalidades podem não estar disponíveis.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/app.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

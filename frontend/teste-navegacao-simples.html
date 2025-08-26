@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Teste Simples - Navegação</title>
+    <style>
+        .section { display: none; padding: 20px; border: 1px solid #ccc; margin: 10px; }
+        .section.active { display: block; background: #f0f8ff; }
+        .nav { padding: 10px; background: #333; }
+        .nav a { color: white; text-decoration: none; margin: 0 10px; padding: 5px; }
+        .nav a.active { background: #555; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="#" class="nav-link" data-section="dashboard">Dashboard</a>
+        <a href="#" class="nav-link" data-section="clinicas">Clínicas</a>
+        <a href="#" class="nav-link" data-section="pacientes">Pacientes</a>
+    </div>
+
+    <div id="dashboard" class="section active">
+        <h2>Dashboard</h2>
+        <p>Página inicial do sistema</p>
+    </div>
+
+    <div id="clinicas" class="section">
+        <h2>Clínicas</h2>
+        <p>Gestão de clínicas</p>
+        <div id="clinicasContent">Carregando clínicas...</div>
+    </div>
+
+    <div id="pacientes" class="section">
+        <h2>Pacientes</h2>
+        <p>Gestão de pacientes</p>
+    </div>
+
+    <div id="log" style="background: #f5f5f5; padding: 10px; margin: 10px; height: 200px; overflow-y: scroll;"></div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            $('#log').append(`<div>[${timestamp}] ${message}</div>`);
+            $('#log').scrollTop($('#log')[0].scrollHeight);
+            console.log(message);
+        }
+
+        function showSection(sectionId) {
+            log(`Mostrando seção: ${sectionId}`);
+            $('.section').removeClass('active');
+            $(`#${sectionId}`).addClass('active');
+            
+            if (sectionId === 'clinicas') {
+                loadClinicas();
+            }
+        }
+
+        function updateNavigation(activeSection) {
+            $('.nav-link').removeClass('active');
+            $(`.nav-link[data-section="${activeSection}"]`).addClass('active');
+        }
+
+        async function loadClinicas() {
+            log('Carregando clínicas...');
+            try {
+                const response = await fetch('http://localhost:3000/api/clinicas');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const data = await response.json();
+                const clinicas = data.data || data;
+                
+                log(`${clinicas.length} clínicas carregadas`);
+                
+                const html = clinicas.map(c => `<div style="border: 1px solid #ddd; padding: 10px; margin: 5px;">
+                    <strong>${c.nome}</strong> (${c.codigo})
+                </div>`).join('');
+                
+                $('#clinicasContent').html(html);
+            } catch (error) {
+                log(`Erro ao carregar clínicas: ${error.message}`);
+                $('#clinicasContent').html(`<div style="color: red;">Erro: ${error.message}</div>`);
+            }
+        }
+
+        $(document).ready(() => {
+            log('Sistema iniciado');
+            
+            // Bind events
+            $(document).on('click', '.nav-link', (e) => {
+                e.preventDefault();
+                const section = $(e.target).data('section');
+                log(`Clique detectado em: ${section}`);
+                if (section) {
+                    showSection(section);
+                    updateNavigation(section);
+                } else {
+                    log('ERRO: data-section não encontrado');
+                }
+            });
+            
+            log('Eventos configurados');
+        });
+    </script>
+</body>
+</html>

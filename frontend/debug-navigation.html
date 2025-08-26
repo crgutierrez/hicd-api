@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Navegação HICD</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { border: 1px solid #ccc; padding: 15px; margin: 10px 0; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+        button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Debug - Navegação HICD System</h1>
+    
+    <div class="debug-section">
+        <h3>Testes de Navegação</h3>
+        <button onclick="testBasicNavigation()">Teste Básico de Navegação</button>
+        <button onclick="testClinicasSection()">Teste Seção Clínicas</button>
+        <button onclick="testEvents()">Teste Eventos</button>
+        <button onclick="clearLog()">Limpar Log</button>
+    </div>
+    
+    <div class="debug-section">
+        <h3>Log de Debug</h3>
+        <div id="debugLog" style="background: #f5f5f5; padding: 10px; height: 400px; overflow-y: scroll;"></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('debugLog');
+            logDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+        }
+
+        function testBasicNavigation() {
+            log('=== TESTE BÁSICO DE NAVEGAÇÃO ===');
+            
+            // Verificar se jQuery está disponível
+            if (typeof $ === 'undefined') {
+                log('ERRO: jQuery não está carregado!', 'error');
+                return;
+            }
+            log('jQuery carregado com sucesso', 'success');
+            
+            // Testar acesso ao sistema principal
+            fetch('http://localhost:8080/index.html')
+                .then(response => {
+                    if (response.ok) {
+                        log('Servidor frontend funcionando na porta 8080', 'success');
+                        return response.text();
+                    } else {
+                        throw new Error('Servidor não respondeu');
+                    }
+                })
+                .then(html => {
+                    // Verificar se contém elementos necessários
+                    if (html.includes('nav-clinicas')) {
+                        log('Elemento nav-clinicas encontrado no HTML', 'success');
+                    } else {
+                        log('Elemento nav-clinicas NÃO encontrado no HTML', 'error');
+                    }
+                    
+                    if (html.includes('data-section="clinicas"')) {
+                        log('Atributo data-section="clinicas" encontrado', 'success');
+                    } else {
+                        log('Atributo data-section="clinicas" NÃO encontrado', 'error');
+                    }
+                })
+                .catch(error => {
+                    log('ERRO ao acessar servidor: ' + error.message, 'error');
+                });
+        }
+
+        function testClinicasSection() {
+            log('=== TESTE SEÇÃO CLÍNICAS ===');
+            
+            // Simular clique no iframe (se existir)
+            const iframe = document.querySelector('iframe');
+            if (iframe) {
+                log('iFrame encontrado, tentando acessar conteúdo...', 'info');
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const clinicasLink = iframeDoc.querySelector('#nav-clinicas');
+                    if (clinicasLink) {
+                        log('Link de clínicas encontrado no iframe', 'success');
+                        log('Atributos: ' + JSON.stringify({
+                            id: clinicasLink.id,
+                            href: clinicasLink.href,
+                            dataSection: clinicasLink.getAttribute('data-section')
+                        }), 'info');
+                    } else {
+                        log('Link de clínicas NÃO encontrado no iframe', 'error');
+                    }
+                } catch (e) {
+                    log('Erro ao acessar iframe (CORS): ' + e.message, 'error');
+                }
+            } else {
+                log('Nenhum iframe encontrado', 'info');
+            }
+        }
+
+        function testEvents() {
+            log('=== TESTE DE EVENTOS ===');
+            
+            // Testar API
+            fetch('http://localhost:3000/api/clinicas')
+                .then(response => {
+                    if (response.ok) {
+                        log('API respondendo na porta 3000', 'success');
+                        return response.json();
+                    } else {
+                        throw new Error('API não respondeu');
+                    }
+                })
+                .then(data => {
+                    log('Dados de clínicas recebidos: ' + data.length + ' clínicas', 'success');
+                })
+                .catch(error => {
+                    log('ERRO na API: ' + error.message, 'error');
+                });
+        }
+
+        // Executar teste inicial
+        setTimeout(() => {
+            log('Iniciando testes automáticos...', 'info');
+            testBasicNavigation();
+            setTimeout(testEvents, 1000);
+        }, 500);
+    </script>
+</body>
+</html>

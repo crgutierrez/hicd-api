@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Ícones PWA - HICD System</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #f5f6fa;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0d6efd;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .icon-item {
+            text-align: center;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        .icon-item h3 {
+            margin: 0.5rem 0;
+            color: #495057;
+        }
+        canvas {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+        }
+        .download-btn {
+            background: #0d6efd;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .download-btn:hover {
+            background: #0b5ed7;
+        }
+        .instructions {
+            background: #e3f2fd;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+            border-left: 4px solid #0d6efd;
+        }
+        .source-icon {
+            text-align: center;
+            margin: 2rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 Gerador de Ícones PWA - HICD System</h1>
+        
+        <div class="instructions">
+            <h3>📋 Instruções:</h3>
+            <ol>
+                <li>O ícone principal está carregado abaixo</li>
+                <li>Clique em "Gerar Ícones" para criar todos os tamanhos</li>
+                <li>Baixe cada ícone clicando no botão "Download"</li>
+                <li>Salve os arquivos na pasta <code>/frontend/icons/</code></li>
+            </ol>
+        </div>
+
+        <div class="source-icon">
+            <h3>🎨 Ícone Original (SVG)</h3>
+            <div id="svgContainer"></div>
+        </div>
+
+        <div style="text-align: center; margin: 2rem 0;">
+            <button onclick="generateIcons()" style="background: #198754; color: white; border: none; padding: 1rem 2rem; border-radius: 8px; font-size: 1.1rem; cursor: pointer;">
+                🚀 Gerar Todos os Ícones
+            </button>
+        </div>
+
+        <div class="icon-grid" id="iconGrid"></div>
+    </div>
+
+    <script>
+        const iconSizes = [
+            { size: 72, name: 'icon-72x72.png' },
+            { size: 96, name: 'icon-96x96.png' },
+            { size: 128, name: 'icon-128x128.png' },
+            { size: 144, name: 'icon-144x144.png' },
+            { size: 152, name: 'icon-152x152.png' },
+            { size: 192, name: 'icon-192x192.png' },
+            { size: 384, name: 'icon-384x384.png' },
+            { size: 512, name: 'icon-512x512.png' }
+        ];
+
+        const svgContent = '<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">' +
+            '<defs>' +
+                '<linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">' +
+                    '<stop offset="0%" style="stop-color:#0d6efd;stop-opacity:1" />' +
+                    '<stop offset="100%" style="stop-color:#4c84ff;stop-opacity:1" />' +
+                '</linearGradient>' +
+                '<linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">' +
+                    '<stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />' +
+                    '<stop offset="100%" style="stop-color:#f8f9fa;stop-opacity:1" />' +
+                '</linearGradient>' +
+            '</defs>' +
+            '<rect width="512" height="512" rx="80" ry="80" fill="url(#bgGradient)"/>' +
+            '<g transform="translate(86, 86)">' +
+                '<rect x="60" y="180" width="220" height="160" rx="8" ry="8" fill="url(#iconGradient)" opacity="0.9"/>' +
+                '<rect x="140" y="80" width="60" height="180" rx="4" ry="4" fill="url(#iconGradient)"/>' +
+                '<rect x="110" y="110" width="120" height="60" rx="4" ry="4" fill="url(#iconGradient)"/>' +
+                '<rect x="20" y="200" width="40" height="120" rx="4" ry="4" fill="url(#iconGradient)" opacity="0.8"/>' +
+                '<rect x="280" y="200" width="40" height="120" rx="4" ry="4" fill="url(#iconGradient)" opacity="0.8"/>' +
+                '<circle cx="90" cy="220" r="8" fill="#0d6efd" opacity="0.6"/>' +
+                '<circle cx="90" cy="250" r="8" fill="#0d6efd" opacity="0.6"/>' +
+                '<circle cx="90" cy="280" r="8" fill="#0d6efd" opacity="0.6"/>' +
+                '<circle cx="250" cy="220" r="8" fill="#0d6efd" opacity="0.6"/>' +
+                '<circle cx="250" cy="250" r="8" fill="#0d6efd" opacity="0.6"/>' +
+                '<circle cx="250" cy="280" r="8" fill="#0d6efd" opacity="0.6"/>' +
+                '<circle cx="120" cy="200" r="6" fill="#0d6efd" opacity="0.6"/>' +
+                '<circle cx="150" cy="200" r="6" fill="#0d6efd" opacity="0.6"/>' +
+                '<circle cx="190" cy="200" r="6" fill="#0d6efd" opacity="0.6"/>' +
+                '<circle cx="220" cy="200" r="6" fill="#0d6efd" opacity="0.6"/>' +
+                '<path d="M 40 60 Q 170 40 300 60" stroke="url(#iconGradient)" stroke-width="3" fill="none" opacity="0.7"/>' +
+                '<path d="M 60 40 Q 170 20 280 40" stroke="url(#iconGradient)" stroke-width="2" fill="none" opacity="0.5"/>' +
+                '<circle cx="40" cy="60" r="4" fill="url(#iconGradient)"/>' +
+                '<circle cx="300" cy="60" r="4" fill="url(#iconGradient)"/>' +
+                '<circle cx="60" cy="40" r="3" fill="url(#iconGradient)" opacity="0.8"/>' +
+                '<circle cx="280" cy="40" r="3" fill="url(#iconGradient)" opacity="0.8"/>' +
+            '</g>' +
+            '<circle cx="450" cy="100" r="20" fill="rgba(255,255,255,0.1)"/>' +
+            '<circle cx="80" cy="450" r="15" fill="rgba(255,255,255,0.1)"/>' +
+            '<circle cx="430" cy="430" r="12" fill="rgba(255,255,255,0.1)"/>' +
+        '</svg>';
+
+        // Mostrar SVG original
+        document.getElementById('svgContainer').innerHTML = svgContent;
+
+        function generateIcons() {
+            const iconGrid = document.getElementById('iconGrid');
+            iconGrid.innerHTML = '';
+
+            iconSizes.forEach(iconInfo => {
+                const iconItem = document.createElement('div');
+                iconItem.className = 'icon-item';
+                
+                const title = document.createElement('h3');
+                title.textContent = iconInfo.size + 'x' + iconInfo.size;
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = iconInfo.size;
+                canvas.height = iconInfo.size;
+                
+                const downloadBtn = document.createElement('button');
+                downloadBtn.className = 'download-btn';
+                downloadBtn.textContent = 'Download';
+                downloadBtn.onclick = () => downloadIcon(canvas, iconInfo.name);
+                
+                iconItem.appendChild(title);
+                iconItem.appendChild(canvas);
+                iconItem.appendChild(downloadBtn);
+                iconGrid.appendChild(iconItem);
+                
+                // Gerar o ícone
+                generateIcon(canvas, iconInfo.size);
+            });
+        }
+
+        function generateIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = function() {
+                ctx.clearRect(0, 0, size, size);
+                ctx.drawImage(img, 0, 0, size, size);
+            };
+            
+            const svgBlob = new Blob([svgContent], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(svgBlob);
+            img.src = url;
+        }
+
+        function downloadIcon(canvas, filename) {
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+
+        // Gerar ícones automaticamente ao carregar
+        window.onload = function() {
+            setTimeout(generateIcons, 500);
+        };
+    </script>
+</body>
+</html>
