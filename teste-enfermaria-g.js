@@ -8,16 +8,17 @@
 const HICDCrawler = require('./hicd-crawler.js');
 
 async function testarAnaliseEnfermariaG() {
-    console.log('🧪 TESTE - ANÁLISE DA ENFERMARIA G');
+     const enfermaria = "ENFERMARIA J"
+       
+    console.log('🧪 TESTE - ANÁLISE DA ENFERMARIA ', enfermaria);
     console.log('='.repeat(50));
     
     const crawler = new HICDCrawler();
     
     try {
         // Testar método específico da Enfermaria G
-        console.log('🏥 Testando método analisarEnfermariaG()...\n');
-        
-        const relatorio = await crawler.analisarEnfermariaG({
+        console.log('🏥 Testando método analisarEnfermaria()...\n');
+        const relatorio = await crawler.analisarEnfermaria(enfermaria,{
             salvarArquivo: true,
             incluirDetalhes: true,
             diretorioSaida: 'output'

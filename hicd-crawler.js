@@ -2097,6 +2097,9 @@ class HICDCrawler {
     async analisarEnfermariaG(opcoes = {}) {
         return await this.analisarClinica('ENFERMARIA G', opcoes);
     }
+        async analisarEnfermaria(enfermaria,opcoes = {}) {
+        return await this.analisarClinica(enfermaria, opcoes);
+    }
 }
 
 module.exports = HICDCrawler;
