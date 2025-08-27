@@ -159,7 +159,7 @@ class PacientesController {
                 // Apenas informações essenciais
                 resultado = evolucoesFiltradas.map(evolucao => ({
                     id: evolucao.id,
-                    data: evolucao.data,
+                    dataEvolucao: evolucao.dataEvolucao,
                     profissional: evolucao.profissional,
                     atividade: evolucao.atividade,
                     resumo: evolucao.textoCompleto ? 
@@ -269,6 +269,58 @@ class PacientesController {
             });
         }
     }
+
+
+    // Obter Exames de um paciente
+    async obterExamesPaciente(req, res) {
+        try {
+            const { prontuario } = req.params;
+            
+            if (!prontuario) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro obrigatório',
+                    message: 'O prontuário é obrigatório'
+                });
+            }
+
+            const crawler = await this.initCrawler();
+            
+            console.log(`Obtendo detalhes do paciente: ${prontuario}`);
+            
+            // Buscar cadastro do paciente
+            const cadastro = await crawler.getPacienteCadastro(prontuario);
+            
+            if (!cadastro) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Paciente não encontrado',
+                    message: `Paciente com prontuário "${prontuario}" não foi encontrado`
+                });
+            }
+            // Buscar Exames
+                const exames = await crawler.getExames(prontuario);
+                
+
+            res.json({
+                success: true,
+                data: {
+                    prontuario: prontuario,
+                    cadastro: cadastro,
+                    exames: exames || [],
+                    timestamp: new Date().toISOString()
+                }
+            });
+        } catch (error) {
+            console.error('Erro ao obter detalhes do paciente:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Erro ao obter detalhes do paciente',
+                message: error.message
+            });
+        }
+    }
+
 
     // Buscar paciente por leito
     async buscarPacientePorLeito(req, res) {

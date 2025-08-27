@@ -138,6 +138,13 @@ class HICDCrawler {
         this.verificarAutenticacao();
         return await this.evolutionService.getEvolucoes(pacienteId, filtros);
     }
+    /**
+     * Busca exames do Paciente
+     */
+    async getExames(pacienteId, filtros = {}) {
+        this.verificarAutenticacao();
+        return await this.evolutionService.getResultadosExames(pacienteId, filtros);
+    }
 
     // ========================================
     // MÉTODOS DE ANÁLISE CLÍNICA

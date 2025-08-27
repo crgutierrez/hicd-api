@@ -15,7 +15,7 @@ const HOST = process.env.HOST || 'localhost';
 function startServer() {
     try {
 
-        
+
         const server = app.listen(PORT, HOST, () => {
             console.log('\n🚀 API HICD iniciada com sucesso!');
             console.log(`📡 Servidor rodando em: http://${HOST}:${PORT}`);
@@ -33,6 +33,7 @@ function startServer() {
             console.log(`    GET  http://${HOST}:${PORT}/api/pacientes/:prontuario`);
             console.log(`    GET  http://${HOST}:${PORT}/api/pacientes/:prontuario/evolucoes`);
             console.log(`    GET  http://${HOST}:${PORT}/api/pacientes/:prontuario/analise`);
+            console.log(`    GET  http://${HOST}:${PORT}/api/pacientes/:prontuario/exames`);
             console.log('\n🔧 Pressione Ctrl+C para parar o servidor\n');
         });
 
@@ -76,7 +77,7 @@ function startServer() {
 if (require.main === module) {
     // Carregar variáveis de ambiente
     require('dotenv').config();
-    
+
     console.log('🔄 Iniciando API HICD...');
     startServer();
 }

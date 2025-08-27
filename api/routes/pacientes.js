@@ -40,4 +40,8 @@ router.get('/:prontuario/analise', validateProntuario, async (req, res) => {
     await pacientesController.obterAnaliseClinica(req, res);
 });
 
+router.get('/:prontuario/exames', validateProntuario, async (req, res) => {
+    await pacientesController.obterExamesPaciente(req, res);
+});
+
 module.exports = router;
