@@ -61,11 +61,16 @@ async function testarEnfermariaUTI() {
                 const evolucoesPaciente = await crawler.getEvolucoes(paciente.prontuario);
                 
                 console.log(`✅ Encontradas ${evolucoesPaciente ? evolucoesPaciente.length : 0} evoluções`);
-                
+
+                console.log(`📊 Buscando resultados completos dos exames do paciente ${paciente.prontuario}...`);
+                const resultadosCompletos = await crawler.evolutionService.getResultadosExames(paciente.prontuario); 
+
                 pacientesComEvolucoes.push({
                     prontuario: paciente.prontuario,
                     nome: paciente.nome,
                     leito: paciente.leito,
+                    dataInternacao: paciente.dataInternacao,
+                    exames: resultadosCompletos || [],
                     evolucoes: evolucoesPaciente || []
                 });
                 

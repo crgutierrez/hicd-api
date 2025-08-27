@@ -271,13 +271,13 @@ class HICDApp {
             
             const [clinicasResponse, pacientesResponse] = await Promise.all([
                 this.apiCall('/clinicas'),
-                this.apiCall('/pacientes')
+             //   this.apiCall('/pacientes')
             ]);
 
             const clinicas = clinicasResponse.data || clinicasResponse;
-            const pacientes = pacientesResponse.data || pacientesResponse;
+          //  const pacientes = pacientesResponse.data || pacientesResponse;
 
-            this.updateDashboardStats(clinicas, pacientes);
+            this.updateDashboardStats(clinicas, {});
             this.updateRecentActivity();
             this.updateQuickSearch();
             
@@ -421,12 +421,12 @@ class HICDApp {
             const clinicasComStats = await Promise.all(
                 clinicas.map(async (clinica) => {
                     try {
-                        const pacientesResponse = await this.apiCall(`/clinicas/${clinica.id}/pacientes`);
-                        const pacientes = pacientesResponse.data || pacientesResponse;
+                        // const pacientesResponse = await this.apiCall(`/clinicas/${clinica.id}/pacientes`);
+                        // const pacientes = pacientesResponse.data || pacientesResponse;
                         return {
                             ...clinica,
                             totalPacientes: pacientes.length,
-                            pacientesAtivos: pacientes.filter(p => p.status === 'ativo').length
+                            pacientesAtivos: 0
                         };
                     } catch (error) {
                         console.warn(`Erro ao carregar pacientes da clínica ${clinica.id}:`, error);
@@ -657,10 +657,10 @@ class HICDApp {
                     <thead>
                         <tr>
                             <th>Paciente</th>
-                            <th>CPF</th>
+                            <th>CNS</th>
                             <th>Clínica</th>
-                            <th>Status</th>
-                            <th>Última Consulta</th>
+                            <th>Dias Internado</th>
+                            <th>Data de Internação</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -670,18 +670,18 @@ class HICDApp {
                                 <td data-label="Paciente">
                                     <div class="patient-name">${paciente.nome}</div>
                                     <div class="patient-info">
-                                        <i class="fas fa-calendar me-1"></i> ${this.formatDate(paciente.detalhes.dadosBasicos.dataNascimento)}
+                                        <i class="fas fa-calendar me-1"></i> ${paciente.detalhes.endereco.municipio}
                                         <i class="fas fa-phone ms-2 me-1"></i> ${paciente.detalhes.contatos.telefone || 'N/A'}
                                     </div>
                                 </td>
-                                <td data-label="CPF">${paciente.detalhes.dadosBasicos.cpf || 'N/A'}</td>
+                                <td data-label="CNS">${paciente.detalhes.documentos.cns || 'N/A'}</td>
                                 <td data-label="Clínica">${paciente.leito || 'N/A'}</td>
                                 <td data-label="Status">
-                                    <span class="badge badge-status ${this.getStatusClass(paciente.status)}">
-                                        ${paciente.diasInternado || 'N/A'}
+                                    <span class="badge badge-status ">
+                                        ${paciente.diasInternacao || 'N/A'}
                                     </span>
                                 </td>
-                                <td data-label="Última Consulta">${this.formatDate(paciente.ultimaConsulta)}</td>
+                                <td data-label="Data de Internação">${this.formatDate(paciente.idade)}</td>
                                 <td data-label="Ações">
                                     <button class="btn btn-sm btn-primary btn-ver-detalhes" 
                                             data-paciente-id="${paciente.prontuario}">
@@ -774,8 +774,8 @@ class HICDApp {
                             <i class="fas fa-user"></i>
                         </div>
                         <div>
-                            <h4 class="mb-1">${paciente.nome}</h4>
-                            <p class="mb-0 opacity-75">CPF: ${paciente.cpf}</p>
+                            <h4 class="mb-1">${paciente.data.cadastro.dadosBasicos.nome}</h4>
+                            <p class="mb-0 opacity-75">CNS: ${paciente.data.cadastro.documentos.cns}</p>
                         </div>
                     </div>
                 </div>
@@ -788,33 +788,33 @@ class HICDApp {
                             </div>
                             <div class="detail-row">
                                 <div class="detail-label">Telefone</div>
-                                <div class="detail-value">${paciente.telefone || 'N/A'}</div>
+                                <div class="detail-value">${paciente.data.cadastro.contatos.telefone || 'N/A'}</div>
                             </div>
                             <div class="detail-row">
                                 <div class="detail-label">Email</div>
-                                <div class="detail-value">${paciente.email || 'N/A'}</div>
+                                <div class="detail-value">${paciente.data.cadastro.contatos.email || 'N/A'}</div>
                             </div>
                             <div class="detail-row">
-                                <div class="detail-label">Endereço</div>
-                                <div class="detail-value">${paciente.endereco || 'N/A'}</div>
+                                <div class="detail-label">Cidade</div>
+                                <div class="detail-value">${paciente.data.cadastro.endereco.cidade || 'N/A'}</div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="detail-row">
                                 <div class="detail-label">Clínica</div>
-                                <div class="detail-value">${paciente.clinica}</div>
+                                <div class="detail-value">${paciente.data.clinica}</div>
                             </div>
                             <div class="detail-row">
                                 <div class="detail-label">Status</div>
                                 <div class="detail-value">
-                                    <span class="badge ${this.getStatusClass(paciente.status)}">
-                                        ${paciente.status || 'N/A'}
+                                    <span class="badge ${this.getStatusClass(paciente.data.status)}">
+                                        ${paciente.data.status || 'N/A'}
                                     </span>
                                 </div>
                             </div>
                             <div class="detail-row">
                                 <div class="detail-label">Última Consulta</div>
-                                <div class="detail-value">${this.formatDate(paciente.ultimaConsulta)}</div>
+                                <div class="detail-value">${this.formatDate(paciente.data.timestamp)}</div>
                             </div>
                             <div class="detail-row">
                                 <div class="detail-label">Observações</div>

@@ -4,7 +4,7 @@ class ClinicasController {
     constructor() {
         this.crawler = null;
         this.clinicasCache = null;
-        this.cacheTimeout = 5 * 60 * 1000; // 5 minutos
+        this.cacheTimeout = 10 * 60 * 1000; // 5 minutos
         this.lastCacheUpdate = null;
     }
 
