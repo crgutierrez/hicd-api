@@ -1,4 +1,5 @@
 const HICDCrawler = require('../../hicd-crawler-refactored');
+const { Paciente } = require('../models');
 
 class ClinicasController {
     constructor() {
@@ -123,7 +124,7 @@ class ClinicasController {
     async listarPacientesClinica(req, res) {
         try {
             const { id } = req.params;
-            const { incluirDetalhes = true } = req.query;
+            const { formato = 'resumido' } = req.query;
             
             if (!id) {
                 return res.status(400).json({
@@ -156,28 +157,46 @@ class ClinicasController {
             // Buscar pacientes da clínica
             console.log(`\n🏥 Listando pacientes da clínica: ${clinica.id}`);
             console.log(`Buscando pacientes da clínica: ${clinica.nome}`);
-            const pacientes = await crawler.getPacientesClinica(id);
+            const pacientesData = await crawler.getPacientesClinica(id);
 
-            // Se incluirDetalhes for true, buscar informações adicionais
-            let pacientesDetalhados = pacientes;
-            if (incluirDetalhes === 'true' || incluirDetalhes === true) {
-                pacientesDetalhados = [];
-                for (const paciente of pacientes) {
-                    try {
-                        const detalhes = await crawler.getPacienteCadastro(paciente.prontuario);
-                        pacientesDetalhados.push({
-                            ...paciente,
-                            detalhes: detalhes
-                        });
-                    } catch (error) {
-                        console.warn(`Erro ao buscar detalhes do paciente ${paciente.prontuario}:`, error.message);
-                        pacientesDetalhados.push({
-                            ...paciente,
-                            detalhes: null,
-                            erro: `Erro ao buscar detalhes: ${error.message}`
-                        });
+            // Converter para objetos Paciente
+            const pacientes = [];
+            for (const pacienteData of pacientesData) {
+                try {
+                    let paciente;
+                    
+                    if (formato === 'resumido') {
+                        // Para formato resumido, usar apenas dados da lista
+                        paciente = Paciente.fromListData(pacienteData);
+                    } else {
+                        // Para formato completo/detalhado, buscar dados completos
+                        const dadosCompletos = await crawler.getPacienteCadastro(pacienteData.prontuario);
+                        paciente = Paciente.fromParserData(dadosCompletos);
                     }
+                    
+                    pacientes.push(paciente);
+                } catch (error) {
+                    console.warn(`Erro ao processar paciente ${pacienteData.prontuario}:`, error.message);
+                    // Criar objeto com dados básicos em caso de erro
+                    pacientes.push({
+                        prontuario: pacienteData.prontuario,
+                        nome: pacienteData.nome || 'N/A',
+                        erro: `Erro ao processar: ${error.message}`
+                    });
                 }
+            }
+
+            // Aplicar formato de saída
+            let dadosFormatados;
+            switch (formato) {
+                case 'completo':
+                    dadosFormatados = pacientes.map(p => p.toCompleto ? p.toCompleto() : p);
+                    break;
+                case 'detalhado':
+                    dadosFormatados = pacientes.map(p => p.toDetalhado ? p.toDetalhado() : p);
+                    break;
+                default: // resumido
+                    dadosFormatados = pacientes.map(p => p.toResumo ? p.toResumo() : p);
             }
 
             res.json({
@@ -187,9 +206,14 @@ class ClinicasController {
                     nome: clinica.nome,
                     codigo: clinica.codigo
                 },
-                data: pacientesDetalhados,
-                total: pacientesDetalhados.length,
-                incluiDetalhes: incluirDetalhes === 'true' || incluirDetalhes === true
+                data: dadosFormatados,
+                total: dadosFormatados.length,
+                formato: formato,
+                metadata: {
+                    timestamp: new Date().toISOString(),
+                    fonte: 'HICD',
+                    versao: '1.0'
+                }
             });
         } catch (error) {
             console.error('Erro ao listar pacientes da clínica:', error);

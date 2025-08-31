@@ -124,7 +124,6 @@ class PatientService {
 
         try {
             const urls = this.httpClient.getUrls();
-            
             // Preparar dados para busca de pacientes
             const pacientesData = new URLSearchParams({
                 'Param': 'SIGHO',

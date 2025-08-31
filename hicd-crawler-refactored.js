@@ -114,7 +114,6 @@ class HICDCrawler {
         this.verificarAutenticacao();
         return await this.patientService.getPacientesClinica(codigoClinica, referencia, filtroNome, ordem);
     }
-
     /**
      * Busca paciente por leito específico
      */

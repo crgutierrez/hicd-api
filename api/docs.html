@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API HICD - Documentação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            height: 100vh;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+        }
+        .main-content {
+            height: 100vh;
+            overflow-y: auto;
+            padding: 2rem;
+        }
+        .endpoint-card {
+            border-left: 4px solid #007bff;
+            margin-bottom: 1.5rem;
+        }
+        .method-badge {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.6rem;
+        }
+        .json-example {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+        .format-badge {
+            font-size: 0.75rem;
+            margin: 0.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 sidebar p-3">
+                <h5 class="mb-4">📚 API HICD</h5>
+                <nav class="nav flex-column">
+                    <a class="nav-link" href="#overview">🔍 Visão Geral</a>
+                    <a class="nav-link" href="#models">🏗️ Modelos</a>
+                    <a class="nav-link" href="#formats">🎨 Formatos</a>
+                    <a class="nav-link" href="#endpoints">📡 Endpoints</a>
+                    <a class="nav-link ms-3" href="#health">Health Check</a>
+                    <a class="nav-link ms-3" href="#clinicas">Clínicas</a>
+                    <a class="nav-link ms-3" href="#pacientes">Pacientes</a>
+                    <a class="nav-link" href="#examples">💡 Exemplos</a>
+                    <a class="nav-link" href="#errors">⚠️ Tratamento de Erros</a>
+                </nav>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 main-content">
+                <!-- Overview -->
+                <section id="overview">
+                    <h1>🏥 API HICD - Sistema de Prontuário Eletrônico</h1>
+                    <p class="lead">API REST moderna com modelos estruturados para acessar dados do sistema HICD</p>
+                    
+                    <div class="alert alert-info">
+                        <h5>🎯 Versão 2.0.0 - Recursos Principais:</h5>
+                        <ul class="mb-0">
+                            <li><strong>Modelos estruturados:</strong> Paciente, Evolucao, Exame</li>
+                            <li><strong>Múltiplos formatos:</strong> resumido, detalhado, completo, clinico, resultados</li>
+                            <li><strong>Validação automática:</strong> Dados sempre consistentes e validados</li>
+                            <li><strong>Análise inteligente:</strong> Extração automática de dados clínicos</li>
+                            <li><strong>Cache otimizado:</strong> Performance melhorada com cache inteligente</li>
+                        </ul>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5>🎯 Base URL</h5>
+                                    <code>http://localhost:3000/api</code>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5>📊 Status</h5>
+                                    <span class="badge bg-success">Operacional</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5>🔄 Versão</h5>
+                                    <span class="badge bg-primary">v2.0.0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Models -->
+                <section id="models" class="mt-5">
+                    <h2>🏗️ Modelos Estruturados</h2>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-primary text-white">
+                                    <h5>👤 Paciente</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p>Dados estruturados de cadastro e informações pessoais</p>
+                                    <ul class="list-unstyled">
+                                        <li>✅ Validação automática</li>
+                                        <li>✅ Normalização de dados</li>
+                                        <li>✅ Informações de internação</li>
+                                        <li>✅ Contatos e endereços</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h5>📋 Evolução</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p>Registros médicos com análise clínica automática</p>
+                                    <ul class="list-unstyled">
+                                        <li>✅ Extração de sintomas</li>
+                                        <li>✅ Identificação de medicamentos</li>
+                                        <li>✅ Análise de diagnósticos</li>
+                                        <li>✅ Resumos automáticos</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-warning text-white">
+                                    <h5>🧪 Exame</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p>Resultados laboratoriais com estatísticas</p>
+                                    <ul class="list-unstyled">
+                                        <li>✅ Categorização automática</li>
+                                        <li>✅ Análise de normalidade</li>
+                                        <li>✅ Estatísticas integradas</li>
+                                        <li>✅ Comparações temporais</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Formats -->
+                <section id="formats" class="mt-5">
+                    <h2>🎨 Formatos de Resposta</h2>
+                    <p>Todos os endpoints suportam diferentes formatos através do parâmetro <code>formato</code>:</p>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <span class="badge bg-primary format-badge">resumido</span>
+                            <span class="text-muted">(padrão)</span> - Dados essenciais
+                            <br><br>
+                            
+                            <span class="badge bg-info format-badge">detalhado</span>
+                            Dados completos com informações adicionais
+                            <br><br>
+                            
+                            <span class="badge bg-success format-badge">completo</span>
+                            Todos os dados disponíveis
+                        </div>
+                        <div class="col-md-6">
+                            <span class="badge bg-warning format-badge">clinico</span>
+                            <span class="text-muted">(evoluções/exames)</span> - Foco clínico
+                            <br><br>
+                            
+                            <span class="badge bg-danger format-badge">resultados</span>
+                            <span class="text-muted">(apenas exames)</span> - Apenas valores
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Endpoints -->
+                <section id="endpoints" class="mt-5">
+                    <h2>📡 Endpoints</h2>
+
+                    <!-- Health Check -->
+                    <div id="health" class="endpoint-card card">
+                        <div class="card-header">
+                            <span class="badge bg-success method-badge">GET</span>
+                            <code>/api/health</code>
+                            <span class="float-end badge bg-secondary">Health Check</span>
+                        </div>
+                        <div class="card-body">
+                            <p>Verificação de saúde da API</p>
+                            <div class="json-example">
+                                <pre><code class="language-json">{
+  "status": "ok",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "uptime": 3600,
+  "version": "2.0.0"
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clinicas -->
+                    <div id="clinicas" class="endpoint-card card">
+                        <div class="card-header">
+                            <span class="badge bg-success method-badge">GET</span>
+                            <code>/api/clinicas</code>
+                            <span class="float-end badge bg-secondary">Clínicas</span>
+                        </div>
+                        <div class="card-body">
+                            <p>Lista todas as clínicas disponíveis com cache inteligente (10 minutos)</p>
+                            <div class="json-example">
+                                <pre><code class="language-json">{
+  "success": true,
+  "data": [
+    {
+      "id": "CLINICA_MEDICA",
+      "nome": "Clínica Médica",
+      "codigo": "CM",
+      "totalPacientes": 45
+    }
+  ],
+  "total": 1,
+  "cache": {
+    "lastUpdate": "2024-01-15T10:30:00Z",
+    "nextUpdate": "2024-01-15T10:40:00Z"
+  }
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Buscar Clinica -->
+                    <div class="endpoint-card card">
+                        <div class="card-header">
+                            <span class="badge bg-success method-badge">GET</span>
+                            <code>/api/clinicas/search?nome=cardiologia</code>
+                        </div>
+                        <div class="card-body">
+                            <p>Busca clínicas por nome</p>
+                            <strong>Parâmetros:</strong>
+                            <ul>
+                                <li><code>nome</code> <span class="badge bg-danger">required</span> - Nome da clínica</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Pacientes da Clinica -->
+                    <div class="endpoint-card card">
+                        <div class="card-header">
+                            <span class="badge bg-success method-badge">GET</span>
+                            <code>/api/clinicas/:id/pacientes?formato=resumido</code>
+                        </div>
+                        <div class="card-body">
+                            <p>Lista pacientes de uma clínica com objetos <strong>Paciente</strong> estruturados</p>
+                            <strong>Parâmetros:</strong>
+                            <ul>
+                                <li><code>id</code> <span class="badge bg-danger">required</span> - ID da clínica</li>
+                                <li><code>formato</code> <span class="badge bg-secondary">optional</span> - resumido|detalhado|completo</li>
+                            </ul>
+                            <strong>Formatos disponíveis:</strong>
+                            <span class="badge bg-primary format-badge">resumido</span>
+                            <span class="badge bg-info format-badge">detalhado</span>
+                            <span class="badge bg-success format-badge">completo</span>
+                        </div>
+                    </div>
+
+                    <!-- Pacientes -->
+                    <div id="pacientes" class="endpoint-card card">
+                        <div class="card-header">
+                            <span class="badge bg-success method-badge">GET</span>
+                            <code>/api/pacientes/search?prontuario=123456&formato=resumido</code>
+                            <span class="float-end badge bg-secondary">Pacientes</span>
+                        </div>
+                        <div class="card-body">
+                            <p>Busca paciente por prontuário retornando objeto <strong>Paciente</strong> estruturado</p>
+                            <strong>Parâmetros:</strong>
+                            <ul>
+                                <li><code>prontuario</code> <span class="badge bg-danger">required</span> - Número do prontuário</li>
+                                <li><code>formato</code> <span class="badge bg-secondary">optional</span> - resumido|detalhado|completo</li>
+                            </ul>
+                            <div class="json-example">
+                                <pre><code class="language-json">{
+  "success": true,
+  "data": {
+    "prontuario": "123456",
+    "nome": "João Silva",
+    "leito": "101A",
+    "idade": 45,
+    "status": "internado"
+  },
+  "formato": "resumido",
+  "metadata": {
+    "timestamp": "2024-01-15T10:30:00Z",
+    "fonte": "HICD",
+    "versao": "1.0"
+  }
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Evolucoes -->
+                    <div class="endpoint-card card">
+                        <div class="card-header">
+                            <span class="badge bg-success method-badge">GET</span>
+                            <code>/api/pacientes/:prontuario/evolucoes?formato=clinico</code>
+                        </div>
+                        <div class="card-body">
+                            <p>Lista evoluções médicas com objetos <strong>Evolucao</strong> estruturados e análise clínica</p>
+                            <strong>Formatos disponíveis:</strong>
+                            <span class="badge bg-primary format-badge">resumido</span>
+                            <span class="badge bg-info format-badge">detalhado</span>
+                            <span class="badge bg-success format-badge">completo</span>
+                            <span class="badge bg-warning format-badge">clinico</span>
+                            
+                            <div class="json-example mt-3">
+                                <pre><code class="language-json">{
+  "success": true,
+  "data": [{
+    "data": "2024-01-15",
+    "medico": "Dr. Carlos Santos",
+    "diagnosticos": ["Pneumonia", "Hipertensão"],
+    "medicamentos": ["Amoxicilina", "Losartana"],
+    "dadosClinicos": {
+      "sinaisVitais": {
+        "pressao": "140/90",
+        "temperatura": "37.2°C"
+      },
+      "sintomas": ["febre", "tosse"],
+      "condicaoGeral": "estável"
+    },
+    "resumoAutomatico": "Paciente apresenta melhora..."
+  }],
+  "formato": "clinico"
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exames -->
+                    <div class="endpoint-card card">
+                        <div class="card-header">
+                            <span class="badge bg-success method-badge">GET</span>
+                            <code>/api/pacientes/:prontuario/exames?formato=resultados</code>
+                        </div>
+                        <div class="card-body">
+                            <p>Lista exames laboratoriais com objetos <strong>Exame</strong> estruturados e estatísticas</p>
+                            <strong>Formatos disponíveis:</strong>
+                            <span class="badge bg-primary format-badge">resumido</span>
+                            <span class="badge bg-info format-badge">detalhado</span>
+                            <span class="badge bg-success format-badge">completo</span>
+                            <span class="badge bg-warning format-badge">clinico</span>
+                            <span class="badge bg-danger format-badge">resultados</span>
+                            
+                            <div class="json-example mt-3">
+                                <pre><code class="language-json">{
+  "success": true,
+  "data": [{
+    "data": "2024-01-15",
+    "tipo": "Hemograma Completo",
+    "resultados": {
+      "LEUC": {
+        "valor": "8.5",
+        "unidade": "mil/mm³",
+        "referencia": "4.0-11.0",
+        "status": "normal"
+      }
+    },
+    "estatisticas": {
+      "totalExames": 3,
+      "normais": 3,
+      "alterados": 0,
+      "percentualNormal": 100
+    }
+  }],
+  "formato": "resultados"
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analise Clinica -->
+                    <div class="endpoint-card card">
+                        <div class="card-header">
+                            <span class="badge bg-success method-badge">GET</span>
+                            <code>/api/pacientes/:prontuario/analise</code>
+                        </div>
+                        <div class="card-body">
+                            <p>Análise clínica completa integrando todos os modelos (Paciente + Evolucao + Exame)</p>
+                            <div class="json-example">
+                                <pre><code class="language-json">{
+  "success": true,
+  "paciente": {
+    "prontuario": "123456",
+    "nome": "João Silva",
+    "idade": 45,
+    "leito": "101A"
+  },
+  "resumoClinico": {
+    "ultimaEvolucao": "2024-01-15",
+    "diagnosticoPrincipal": "Pneumonia",
+    "medicamentosAtuais": ["Amoxicilina"],
+    "ultimosExames": {
+      "data": "2024-01-15",
+      "principais": ["Hemograma"]
+    }
+  },
+  "indicadoresRisco": {
+    "febre": true,
+    "alteracoesLaboratoriais": false
+  }
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Examples -->
+                <section id="examples" class="mt-5">
+                    <h2>💡 Exemplos de Uso</h2>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>JavaScript - Fetch API</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="json-example">
+                                <pre><code class="language-javascript">// 1. Buscar paciente
+const paciente = await fetch('/api/pacientes/search?prontuario=123456&formato=detalhado')
+  .then(res => res.json());
+
+// 2. Obter evoluções clínicas
+const evolucoes = await fetch('/api/pacientes/123456/evolucoes?formato=clinico')
+  .then(res => res.json());
+
+// 3. Obter exames recentes
+const exames = await fetch('/api/pacientes/123456/exames?formato=resultados')
+  .then(res => res.json());
+
+// 4. Análise integrada
+const analise = await fetch('/api/pacientes/123456/analise')
+  .then(res => res.json());</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Errors -->
+                <section id="errors" class="mt-5">
+                    <h2>⚠️ Tratamento de Erros</h2>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-danger text-white">
+                                    <h6>400 - Erro de Validação</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="json-example">
+                                        <pre><code class="language-json">{
+  "success": false,
+  "error": "Parâmetro inválido",
+  "message": "Prontuário é obrigatório"
+}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-warning text-white">
+                                    <h6>404 - Não Encontrado</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="json-example">
+                                        <pre><code class="language-json">{
+  "success": false,
+  "error": "Paciente não encontrado",
+  "message": "Prontuário 123 não existe"
+}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <h6>📋 Códigos de Status</h6>
+                        <ul class="mb-0">
+                            <li><strong>200:</strong> Sucesso - Dados retornados com sucesso</li>
+                            <li><strong>400:</strong> Erro de validação - Parâmetros inválidos</li>
+                            <li><strong>404:</strong> Não encontrado - Recurso não existe</li>
+                            <li><strong>500:</strong> Erro interno - Falha no servidor</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <hr class="mt-5">
+                <footer class="text-center text-muted">
+                    <p>🏥 API HICD v2.0.0 - Sistema de Prontuário Eletrônico com Modelos Estruturados</p>
+                </footer>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+</body>
+</html>

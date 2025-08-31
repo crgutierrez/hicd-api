@@ -144,7 +144,7 @@ class HICDParser {
 
             console.log(`[PARSER] Extraindo cadastro do paciente ${pacienteId}...`);
             console.log('=====================================');
-            console.log('html:', html); // Log inicial do HTML para debug
+            // console.log('html:', html); // Log inicial do HTML para debug
             const cadastro = {
                 pacienteId: pacienteId,
                 dadosBasicos: {},
