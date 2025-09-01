@@ -460,6 +460,48 @@ class PacientesController {
         }
     }
 
+    async obterPrescricaoPaciente(req, res) {
+        try {
+            const { prontuario } = req.params;
+
+            if (!prontuario) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro obrigatório',
+                    message: 'O prontuário é obrigatório'
+                });
+            }
+
+            const crawler = await this.initCrawler();
+
+            console.log(`Obtendo prescrição do paciente: ${prontuario}`);
+
+            // Buscar prescrições
+            const prescricoes = await crawler.getPrescricoesPaciente(prontuario);
+
+            if (!prescricoes || prescricoes.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Prescrições não encontradas',
+                    message: `Nenhuma prescrição encontrada para o prontuário "${prontuario}"`
+                });
+            }
+
+
+            res.json({
+                success: true,
+                prontuario: prontuario,
+                data: prescricoes,
+            });
+        } catch (error) {
+            console.error('Erro ao obter prescrições do paciente:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Erro ao obter prescrições do paciente',
+                message: error.message
+            });
+        }
+    }
 
     // Buscar paciente por leito
     async buscarPacientePorLeito(req, res) {

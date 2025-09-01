@@ -34,6 +34,7 @@ function startServer() {
             console.log(`    GET  http://${HOST}:${PORT}/api/pacientes/:prontuario/evolucoes`);
             console.log(`    GET  http://${HOST}:${PORT}/api/pacientes/:prontuario/analise`);
             console.log(`    GET  http://${HOST}:${PORT}/api/pacientes/:prontuario/exames`);
+            console.log(`    GET  http://${HOST}:${PORT}/api/pacientes/:prontuario/prescricoes`);
             console.log('\n🔧 Pressione Ctrl+C para parar o servidor\n');
         });
 

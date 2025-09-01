@@ -140,6 +140,14 @@ app.get('/api/docs', (req, res) => {
                 parameters: [
                     { name: 'prontuario', type: 'string', required: true, description: 'Número do prontuário' }
                 ]
+            },
+            {
+                path: '/pacientes/:prontuario/prescricoes',
+                method: 'GET',
+                description: 'Obtém prescrições de um paciente',
+                parameters: [
+                    { name: 'prontuario', type: 'string', required: true, description: 'Número do prontuário' }
+                ]
             }
         ]
     });
@@ -160,7 +168,9 @@ app.use('*', (req, res) => {
             'GET /api/pacientes/search',
             'GET /api/pacientes/:prontuario',
             'GET /api/pacientes/:prontuario/evolucoes',
-            'GET /api/pacientes/:prontuario/analise'
+            'GET /api/pacientes/:prontuario/analise',
+            'GET /api/pacientes/:prontuario/exames',
+            'GET /api/pacientes/:prontuario/prescricoes'
         ]
     });
 });
