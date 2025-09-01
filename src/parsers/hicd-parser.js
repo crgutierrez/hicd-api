@@ -1261,6 +1261,647 @@ class HICDParser {
 
         return resultados;
     }
+
+    // ========================================
+    // PRESCRIÇÕES MÉDICAS
+    // ========================================
+
+    /**
+     * Extrai lista de prescrições médicas do HTML
+     * @param {string} html - HTML da página de prescrições
+     * @param {string} prontuario - Número do prontuário
+     * @returns {Array} Lista de prescrições
+     */
+    parsePrescricoesList(html, prontuario) {
+        if (this.debugMode) {
+            console.log('[PARSER] Extraindo prescrições do paciente', prontuario);
+        }
+
+        const prescricoes = [];
+        
+        try {
+            const $ = cheerio.load(html);
+            
+            // Buscar todas as linhas da tabela de prescrições
+            $('table.linhas_impressao_med tr').each((index, element) => {
+                // Pular o cabeçalho
+                if (index === 0) return;
+                
+                const $row = $(element);
+                const colunas = $row.find('td');
+                
+                if (colunas.length >= 7) {
+                    const codigo = $(colunas[0]).find('label.valorV3').text().trim();
+                    const dataHora = $(colunas[1]).find('label.valorV3').text().trim();
+                    const pacienteNome = $(colunas[2]).find('label.valorV3').text().trim();
+                    const registro = $(colunas[3]).find('label.valorV3').text().trim();
+                    const internacao = $(colunas[4]).find('label.valorV3').text().trim();
+                    const enfLeito = $(colunas[5]).find('label.valorV3').text().trim();
+                    const clinica = $(colunas[6]).find('label.valorV3').text().trim();
+                    
+                    // Extrair o ID da prescrição do botão imprimir
+                    const botaoImprimir = $row.find('input[type="button"][value="Imprimir"]');
+                    const onclickAttr = botaoImprimir.attr('onclick');
+                    let idPrescricao = null;
+                    
+                    if (onclickAttr) {
+                        const match = onclickAttr.match(/id_prescricao=(\d+)/);
+                        if (match) {
+                            idPrescricao = match[1];
+                        }
+                    }
+                    
+                    if (codigo && idPrescricao) {
+                        prescricoes.push({
+                            id: idPrescricao,
+                            codigo: codigo,
+                            dataHora: dataHora,
+                            pacienteNome: pacienteNome,
+                            registro: registro,
+                            internacao: internacao,
+                            enfLeito: enfLeito,
+                            clinica: clinica,
+                            prontuario: prontuario
+                        });
+                        
+                        if (this.debugMode) {
+                            console.log(`[PARSER] Prescrição encontrada: ${idPrescricao} - ${dataHora} - ${clinica}`);
+                        }
+                    }
+                }
+            });
+            
+            if (this.debugMode) {
+                console.log(`[PARSER] ✅ ${prescricoes.length} prescrições extraídas para o paciente ${prontuario}`);
+            }
+            
+        } catch (error) {
+            console.error('[PARSER] Erro ao extrair prescrições:', error.message);
+        }
+        
+        return prescricoes;
+    }
+
+    /**
+     * Extrai detalhes de uma prescrição médica específica
+     * @param {string} html - HTML da página de detalhes da prescrição
+     * @param {string} idPrescricao - ID da prescrição
+     * @returns {Object} Detalhes da prescrição
+     */
+    parsePrescricaoDetalhes(html, idPrescricao) {
+        if (this.debugMode) {
+            console.log(`[PARSER] Extraindo detalhes da prescrição ${idPrescricao}`);
+        }
+
+        const detalhes = {
+            id: idPrescricao,
+            cabecalho: {},
+            medicamentos: [],
+            observacoes: [],
+            assinaturas: [],
+            dataHoraImpressao: null
+        };
+        
+        try {
+            const $ = cheerio.load(html);
+            
+            // Extrair informações do cabeçalho
+            this.extrairCabecalhoPrescricao($, detalhes);
+            
+            // Extrair medicamentos prescritos
+            this.extrairMedicamentosPrescricao($, detalhes);
+            
+            // Extrair observações
+            this.extrairObservacoesPrescricao($, detalhes);
+            
+            // Extrair assinaturas
+            this.extrairAssinaturasPrescricao($, detalhes);
+            
+            // Extrair data/hora de impressão
+            this.extrairDataImpressaoPrescricao($, detalhes);
+            
+            if (this.debugMode) {
+                console.log(`[PARSER] ✅ Detalhes extraídos da prescrição ${idPrescricao}:`);
+                console.log(`  - Medicamentos: ${detalhes.medicamentos.length}`);
+                console.log(`  - Observações: ${detalhes.observacoes.length}`);
+                console.log(`  - Assinaturas: ${detalhes.assinaturas.length}`);
+            }
+            
+        } catch (error) {
+            console.error(`[PARSER] Erro ao extrair detalhes da prescrição ${idPrescricao}:`, error.message);
+        }
+        
+        return detalhes;
+    }
+
+    /**
+     * Extrai informações do cabeçalho da prescrição
+     */
+    extrairCabecalhoPrescricao($, detalhes) {
+        try {
+            // Extrair nome do paciente
+            const nomeElement = $('font:contains("NOME :")').parent();
+            if (nomeElement.length > 0) {
+                const nomeTexto = nomeElement.text();
+                const matchNome = nomeTexto.match(/NOME\s*:\s*([A-Z\s]+)/);
+                if (matchNome) {
+                    detalhes.cabecalho.pacienteNome = matchNome[1].trim();
+                }
+            }
+            
+            // Extrair registro/prontuário
+            const registroElement = $('font:contains("REGISTRO/BE:")').parent();
+            if (registroElement.length > 0) {
+                const registroTexto = registroElement.text();
+                const matchRegistro = registroTexto.match(/REGISTRO\/BE:\s*(\d+)/);
+                if (matchRegistro) {
+                    detalhes.cabecalho.registro = matchRegistro[1].trim();
+                    detalhes.cabecalho.prontuario = matchRegistro[1].trim(); // Mesmo valor
+                }
+            }
+            
+            // Extrair leito
+            const leitoElement = $('font:contains("LEITO:")').parent();
+            if (leitoElement.length > 0) {
+                const leitoTexto = leitoElement.text();
+                const matchLeito = leitoTexto.match(/LEITO:\s*(\d+)/);
+                if (matchLeito) {
+                    detalhes.cabecalho.leito = matchLeito[1].trim();
+                }
+            }
+            
+            // Extrair data de nascimento e idade
+            const nascElement = $('font:contains("DT. NASC:")').parent();
+            if (nascElement.length > 0) {
+                const nascTexto = nascElement.text();
+                const matchNasc = nascTexto.match(/DT\.\s*NASC:\s*(\d{2}\/\d{2}\/\d{4})/);
+                if (matchNasc) {
+                    detalhes.cabecalho.dataNascimento = matchNasc[1].trim();
+                }
+                
+                const matchIdade = nascTexto.match(/IDADE:\s*([^-\s]+(?:\s+[a-zA-Z]+)?)/);
+                if (matchIdade) {
+                    detalhes.cabecalho.idade = matchIdade[1].trim();
+                }
+                
+                const matchCNS = nascTexto.match(/CNS:\s*(\d+)/);
+                if (matchCNS) {
+                    detalhes.cabecalho.cns = matchCNS[1].trim();
+                }
+            }
+            
+            // Extrair peso
+            const pesoElement = $('font:contains("PESO:")').parent();
+            if (pesoElement.length > 0) {
+                const pesoTexto = pesoElement.text();
+                const matchPeso = pesoTexto.match(/PESO:\s*([\d,]+\s*Kg)/);
+                if (matchPeso) {
+                    detalhes.cabecalho.peso = matchPeso[1].trim();
+                }
+            }
+            
+            // Extrair data de internação e clínica
+            const internadoElement = $('font:contains("INTERNADO")').parent();
+            if (internadoElement.length > 0) {
+                const internadoTexto = internadoElement.text();
+                const matchInternacao = internadoTexto.match(/INTERNADO\s*(\d{2}\/\d{2}\/\d{4})/);
+                if (matchInternacao) {
+                    detalhes.cabecalho.dataInternacao = matchInternacao[1].trim();
+                }
+                
+                const matchClinica = internadoTexto.match(/CLINICA\/SETOR:\s*([^-]+?)(?:\s*-|$)/);
+                if (matchClinica) {
+                    detalhes.cabecalho.clinica = matchClinica[1].trim();
+                }
+            }
+            
+            // Extrair data da prescrição do cabeçalho
+            const prescricaoElement = $('font:contains("PRESCRIÇÃO MÉDICA válida para")').parent();
+            if (prescricaoElement.length > 0) {
+                const prescricaoTexto = prescricaoElement.text();
+                const matchDataPrescricao = prescricaoTexto.match(/válida para\s*(\d{2}\/\d{2}\/\d{4})/);
+                if (matchDataPrescricao) {
+                    detalhes.cabecalho.dataPrescricao = matchDataPrescricao[1].trim();
+                }
+            }
+            
+            // Extrair hospital
+            const hospitalElement = $('font:contains("Hospital")').first();
+            if (hospitalElement.length > 0) {
+                detalhes.cabecalho.hospital = hospitalElement.text().trim();
+            }
+            
+        } catch (error) {
+            console.warn('[PARSER] Erro ao extrair cabeçalho da prescrição:', error.message);
+        }
+    }
+
+    /**
+     * Extrai medicamentos da prescrição
+     */
+    extrairMedicamentosPrescricao($, detalhes) {
+        try {
+            // Buscar tabela de medicamentos principais
+            $('table[border="1"]').each((index, table) => {
+                const $table = $(table);
+                
+                // Verificar se é a tabela de medicamentos (tem "Medicação: LEGENDA" antes)
+                const prevText = $table.prev().text();
+                if (prevText.includes('Medicação') && prevText.includes('LEGENDA')) {
+                    
+                    $table.find('tr').each((rowIndex, row) => {
+                        const $row = $(row);
+                        const colunas = $row.find('td');
+                        
+                        if (colunas.length >= 2) {
+                            const numero = $(colunas[0]).text().trim();
+                            const medicamentoTexto = $(colunas[1]).text().trim();
+                            
+                            if (numero.match(/^\d+-?$/) && medicamentoTexto.length > 0) {
+                                const medicamento = this.extrairDadosMedicamento(medicamentoTexto);
+                                if (medicamento.nome) {
+                                    detalhes.medicamentos.push(medicamento);
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+            
+            // Buscar medicamentos não padronizados
+            $('table[border="1"]').each((index, table) => {
+                const $table = $(table);
+                
+                // Verificar se é a tabela de medicamentos não padronizados
+                const prevText = $table.prev().text();
+                if (prevText.includes('não padronizada') || prevText.includes('sem estoque')) {
+                    
+                    $table.find('tr').each((rowIndex, row) => {
+                        const $row = $(row);
+                        const colunas = $row.find('td');
+                        
+                        if (colunas.length >= 2) {
+                            const numero = $(colunas[0]).text().trim();
+                            const medicamentoTexto = $(colunas[1]).text().trim();
+                            
+                            if (numero.match(/^\d+-?$/) && medicamentoTexto.length > 0) {
+                                const medicamento = this.extrairDadosMedicamentoNaoPadronizado(medicamentoTexto);
+                                if (medicamento.nome) {
+                                    medicamento.naoPadronizado = true;
+                                    detalhes.medicamentos.push(medicamento);
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+            
+            // Extrair dietas se presentes
+            this.extrairDietas($, detalhes);
+            
+        } catch (error) {
+            console.warn('[PARSER] Erro ao extrair medicamentos:', error.message);
+        }
+    }
+
+    /**
+     * Extrai dados estruturados de um medicamento padrão
+     */
+    extrairDadosMedicamento(textoMedicamento) {
+        try {
+            // Padrão: [NOME_MEDICAMENTO]   (dose), (apresentacao), via, intervalo, observacao, dias
+            const medicamento = {
+                nome: '',
+                dose: '',
+                apresentacao: '',
+                via: '',
+                intervalo: '',
+                observacao: '',
+                dias: '',
+                textoMedicamento:'',
+            };
+            medicamento.textoMedicamento = textoMedicamento;
+            
+            // Extrair nome do medicamento (entre colchetes)
+            const matchNome = textoMedicamento.match(/\[\s*([^\]]+)\]/);
+            if (matchNome) {
+                medicamento.nome = matchNome[1].trim();
+            }
+            
+            // Extrair dados após o nome usando divisão por vírgulas e espaços
+            const aposNome = textoMedicamento.replace(/\[[^\]]+\]/, '').trim();
+            
+            // Dividir por vírgulas principais
+            const segmentos = aposNome.split(',').map(s => s.trim());
+            
+            // Processar cada segmento
+            for (let i = 0; i < segmentos.length; i++) {
+                const segmento = segmentos[i];
+                
+                if (i === 0) {
+                    // Primeiro segmento - geralmente dose em parênteses
+                    const matchDose = segmento.match(/\(([^)]+)\)/);
+                    if (matchDose) {
+                        medicamento.dose = matchDose[1].trim();
+                    } else {
+                        medicamento.dose = segmento.trim();
+                    }
+                } else if (i === 1) {
+                    // Segundo segmento - apresentação em parênteses
+                    const matchApresentacao = segmento.match(/\(([^)]+)\)/);
+                    if (matchApresentacao) {
+                        medicamento.apresentacao = matchApresentacao[1].trim();
+                    }
+                    else {
+medicamento.apresentecao = segmento.trim();
+                    }
+                } else if (i === 3) {
+                    // Via de administração
+                    if (segmento && segmento !== '.') {
+                        medicamento.via = segmento.trim();
+                    }
+                } else if (i === 4) {
+                    // Intervalo
+                    if (segmento && segmento.includes('Horas')) {
+                        medicamento.intervalo = segmento.trim();
+                    }
+                } else if (i === 5) {
+                    // Observação
+                    if (segmento && segmento.length > 2 && segmento !== '.') {
+                        medicamento.observacao = segmento.trim();
+                    }
+                } else if (i === 6) {
+                    // Dias
+                    const dias = segmento.trim();
+                    if (dias && dias.match(/\d+\s*\/\s*/)) {
+                        medicamento.dias = dias;
+                    }
+                }
+            }
+            
+            // Limpar campos vazios ou com apenas pontos
+            Object.keys(medicamento).forEach(key => {
+                if (medicamento[key] === '.' || medicamento[key] === '') {
+                    medicamento[key] = '';
+                }
+            });
+            
+            return medicamento;
+            
+        } catch (error) {
+            console.warn('[PARSER] Erro ao extrair dados do medicamento:', error.message);
+            return { nome: textoMedicamento, observacao: '' };
+        }
+    }
+
+    /**
+     * Extrai dados de medicamento não padronizado
+     */
+    extrairDadosMedicamentoNaoPadronizado(textoMedicamento) {
+        try {
+            const partes = textoMedicamento.split(/\s{2,}/).filter(p => p.trim());
+            
+            return {
+                nome: partes[0] || '',
+                dose: partes[1] || '',
+                posologia: partes[2] || '',
+                via: partes[3] || '',
+                intervalo: partes[4] || '',
+                observacao: partes.slice(6).join(' ') || ''
+            };
+            
+        } catch (error) {
+            console.warn('[PARSER] Erro ao extrair medicamento não padronizado:', error.message);
+            return { nome: textoMedicamento, observacao: '' };
+        }
+    }
+
+    /**
+     * Extrai informações sobre dietas
+     */
+    extrairDietas($, detalhes) {
+        try {
+            // Buscar seção de dietas
+            $('label.valorV3:contains("Dietas")').each((index, element) => {
+                const $dietasSection = $(element).parent();
+                const $tabela = $dietasSection.find('table').first();
+                
+                $tabela.find('tr').each((rowIndex, row) => {
+                    const $row = $(row);
+                    const colunas = $row.find('td');
+                    
+                    if (colunas.length >= 2) {
+                        const numero = $(colunas[0]).text().trim();
+                        const dietaTexto = $(colunas[1]).text().trim();
+                        
+                        if (numero.match(/^\d+-?$/) && dietaTexto.length > 0) {
+                            if (!detalhes.dietas) {
+                                detalhes.dietas = [];
+                            }
+                            detalhes.dietas.push({
+                                numero: numero.replace('-', ''),
+                                descricao: dietaTexto
+                            });
+                        }
+                    }
+                });
+            });
+        } catch (error) {
+            console.warn('[PARSER] Erro ao extrair dietas:', error.message);
+        }
+    }
+
+    /**
+     * Extrai medicamentos do texto livre
+     */
+    extrairMedicamentosTexto($, detalhes) {
+        try {
+            const textoCompleto = $.text();
+            const linhas = textoCompleto.split('\n');
+            
+            for (const linha of linhas) {
+                const linhaTrim = linha.trim();
+                
+                // Buscar padrões de medicamentos
+                if (linhaTrim.length > 10 && 
+                    (linhaTrim.includes('mg') || linhaTrim.includes('ml') || 
+                     linhaTrim.includes('comp') || linhaTrim.includes('amp') ||
+                     linhaTrim.includes('dose') || linhaTrim.includes('h/'))) {
+                    
+                    detalhes.medicamentos.push({
+                        nome: linhaTrim,
+                        posologia: '',
+                        observacao: ''
+                    });
+                }
+            }
+            
+        } catch (error) {
+            console.warn('[PARSER] Erro ao extrair medicamentos do texto:', error.message);
+        }
+    }
+
+    /**
+     * Extrai observações da prescrição
+     */
+    extrairObservacoesPrescricao($, detalhes) {
+        try {
+            // Extrair cuidados gerais
+            $('label.valorV3:contains("CUIDADOS GERAIS")').each((index, element) => {
+                const $cuidadosSection = $(element).parent();
+                const $tabela = $cuidadosSection.find('table').first();
+                
+                $tabela.find('tr').each((rowIndex, row) => {
+                    const $row = $(row);
+                    const cuidadoTexto = $row.find('label.valorV3').text().trim();
+                    
+                    if (cuidadoTexto && cuidadoTexto.match(/^\d+\s*-\s*.+/)) {
+                        detalhes.observacoes.push({
+                            tipo: 'Cuidado Geral',
+                            descricao: cuidadoTexto
+                        });
+                    }
+                });
+            });
+            
+            // Extrair diagnóstico
+            const diagnosticoElement = $('font:contains("DIAGNÓSTICO:")').parent();
+            if (diagnosticoElement.length > 0) {
+                const diagnosticoTexto = diagnosticoElement.text();
+                
+                // Extrair diagnóstico principal
+                const matchDiagnostico = diagnosticoTexto.match(/DIAGNÓSTICO:\s*([^T]*?)(?:THT:|$)/);
+                if (matchDiagnostico && matchDiagnostico[1].trim()) {
+                    detalhes.observacoes.push({
+                        tipo: 'Diagnóstico',
+                        descricao: matchDiagnostico[1].trim()
+                    });
+                }
+                
+                // Extrair outros campos do diagnóstico
+                const campos = [
+                    { pattern: /THT:\s*([^M]*?)(?:MED:|$)/, nome: 'THT' },
+                    { pattern: /MED:\s*([^H]*?)(?:HV:|$)/, nome: 'MED' },
+                    { pattern: /HV:\s*([^D]*?)(?:DIETA:|$)/, nome: 'HV' },
+                    { pattern: /DIETA:\s*([^V]*?)(?:VM:|$)/, nome: 'DIETA' },
+                    { pattern: /VM:\s*([^$]*)/, nome: 'VM' }
+                ];
+                
+                campos.forEach(campo => {
+                    const match = diagnosticoTexto.match(campo.pattern);
+                    if (match && match[1].trim()) {
+                        detalhes.observacoes.push({
+                            tipo: campo.nome,
+                            descricao: match[1].trim()
+                        });
+                    }
+                });
+            }
+            
+            // Extrair sedação
+            const sedacaoElement = $('label.valorV3:contains("SEDAçãO:")').parent();
+            if (sedacaoElement.length > 0) {
+                const sedacaoTexto = sedacaoElement.text().replace('SEDAçãO:', '').trim();
+                if (sedacaoTexto) {
+                    detalhes.observacoes.push({
+                        tipo: 'Sedação',
+                        descricao: sedacaoTexto
+                    });
+                }
+            }
+            
+            // Extrair terapia venosa
+            const venosaElement = $('label.valorV3:contains("VENOSA:")').parent();
+            if (venosaElement.length > 0) {
+                const venosaTexto = venosaElement.text().replace('VENOSA:', '').trim();
+                if (venosaTexto) {
+                    detalhes.observacoes.push({
+                        tipo: 'Terapia Venosa',
+                        descricao: venosaTexto
+                    });
+                }
+            }
+            
+            // Extrair necessidades (Fisioterapia, etc.)
+            const necessidadeElement = $('b:contains("NECESSIDADE DE:")').parent();
+            if (necessidadeElement.length > 0) {
+                const necessidadeTexto = necessidadeElement.text().replace('NECESSIDADE DE:', '').trim();
+                if (necessidadeTexto) {
+                    detalhes.observacoes.push({
+                        tipo: 'Necessidade',
+                        descricao: necessidadeTexto
+                    });
+                }
+            }
+            
+        } catch (error) {
+            console.warn('[PARSER] Erro ao extrair observações:', error.message);
+        }
+    }
+
+    /**
+     * Extrai assinaturas da prescrição
+     */
+    extrairAssinaturasPrescricao($, detalhes) {
+        try {
+            // Buscar seção de médico e assinatura
+            const medicoElement = $('b:contains("MÉDICO:")').parent();
+            if (medicoElement.length > 0) {
+                const medicoTexto = medicoElement.text();
+                
+                // Extrair nome do médico
+                const matchMedico = medicoTexto.match(/MÉDICO:\s*([^C]+?)(?:CRM:|$)/);
+                if (matchMedico) {
+                    const nomeMedico = matchMedico[1].trim();
+                    detalhes.cabecalho.medico = nomeMedico;
+                    detalhes.assinaturas.push(nomeMedico);
+                }
+                
+                // Extrair CRM
+                const matchCRM = medicoTexto.match(/CRM:\s*(\d+)/);
+                if (matchCRM) {
+                    const crm = matchCRM[1].trim();
+                    detalhes.cabecalho.crm = crm;
+                    detalhes.assinaturas.push(`CRM ${crm}`);
+                }
+                
+                // Extrair data da assinatura
+                const matchDataAssinatura = medicoTexto.match(/DATA:\s*(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})/);
+                if (matchDataAssinatura) {
+                    detalhes.cabecalho.dataAssinatura = matchDataAssinatura[1].trim();
+                }
+                
+                // Extrair informação sobre acompanhante
+                const matchAcompanhante = medicoTexto.match(/ACOMPANHANTE:\s*([^$]+)/);
+                if (matchAcompanhante) {
+                    detalhes.cabecalho.acompanhante = matchAcompanhante[1].trim();
+                }
+            }
+            
+        } catch (error) {
+            console.warn('[PARSER] Erro ao extrair assinaturas:', error.message);
+        }
+    }
+
+    /**
+     * Extrai data de impressão da prescrição
+     */
+    extrairDataImpressaoPrescricao($, detalhes) {
+        try {
+            // A data de impressão geralmente está na seção de assinatura
+            const dataElement = $('b:contains("DATA:")').parent();
+            if (dataElement.length > 0) {
+                const dataTexto = dataElement.text();
+                const matchData = dataTexto.match(/DATA:\s*(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})/);
+                if (matchData) {
+                    detalhes.dataHoraImpressao = matchData[1].trim();
+                }
+            }
+            
+        } catch (error) {
+            console.warn('[PARSER] Erro ao extrair data de impressão:', error.message);
+        }
+    }
 }
 
 module.exports = HICDParser;

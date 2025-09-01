@@ -482,6 +482,149 @@ class HICDCrawler {
         }
     }
 
+    // ========================================
+    // PRESCRIÇÕES MÉDICAS
+    // ========================================
+
+    /**
+     * Buscar prescrições médicas de um paciente
+     * @param {string} prontuario - Número do prontuário do paciente
+     * @returns {Promise<Array>} Lista de prescrições
+     */
+    async getPrescricoesPaciente(prontuario) {
+        this.verificarAutenticacao();
+        
+        try {
+            console.log(`\n💊 Buscando prescrições médicas do paciente: ${prontuario}`);
+            
+            // Passo 1: Acessar o módulo de prescrições
+            console.log('[PRESCRICOES] Passo 1: Acessando módulo de prescrições...');
+            const urls = this.httpClient.getUrls();
+
+// Preparar dados da requisição para buscar clínicas
+            const dados = new URLSearchParams({
+                'Param': 'RUNPLUGIN%PM',
+                'ParamModule': '2751'
+            });
+
+            // Fazer requisição para buscar clínicas
+            const resposta = await this.httpClient.post('https://hicd-hospub.sesau.ro.gov.br/prontuario/frontend/controller/controller.php', dados, {
+                headers: {
+                    'Accept': '*/*',
+                    'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+                    'Connection': 'keep-alive',
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'Origin': 'https://hicd-hospub.sesau.ro.gov.br',
+                    'Referer': urls.index,
+                    'Sec-Fetch-Dest': 'empty',
+                    'Sec-Fetch-Mode': 'cors',
+                    'Sec-Fetch-Site': 'same-origin',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'sec-ch-ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
+                    'sec-ch-ua-mobile': '?0',
+                    'sec-ch-ua-platform': '"Linux"'
+                }
+            });
+
+            
+            // Passo 2: Acessar a interface de consulta
+            console.log('[PRESCRICOES] Passo 2: Acessando interface de consulta...');
+            const xxx= await this.httpClient.post(
+                'https://hicd-hospub.sesau.ro.gov.br/prescricao_medica3/interface/consulta.php'
+            );
+
+            // Passo 3: Buscar todas as prescrições do paciente
+            console.log('[PRESCRICOES] Passo 3: Buscando prescrições...');
+              const parametros = new URLSearchParams({
+                 'campo1': prontuario,
+                        'campo2': '0',
+                        'campo3': '10',
+                        'campo4': 'p'
+            });
+            const response = await this.httpClient.post(
+                'https://hicd-hospub.sesau.ro.gov.br/prescricao_medica3/scripts/todas_prescricoes.php', parametros,
+                {
+                    params: {
+                        campo1: prontuario,
+                        campo2: '0',
+                        campo3: '10',
+                        campo4: 'p'
+                    }
+                }
+            );
+            
+            console.log(`[PRESCRICOES] Resposta recebida - tamanho: ${response.data.length} caracteres`);
+         //   console.log(response.data.substring(0, 200)); // Log dos primeiros 200 caracteres
+            // Passo 4: Extrair lista de prescrições
+            const prescricoes = this.parser.parsePrescricoesList(response.data, prontuario);
+            console.log(`✅ ${prescricoes.length} prescrições encontradas para o paciente ${prontuario}`);
+            
+            // Passo 5: Buscar detalhes de cada prescrição
+            console.log('[PRESCRICOES] Buscando detalhes das prescrições...');
+            const prescricoesCompletas = [];
+            
+            for (let i = 0; i < prescricoes.length; i++) {
+                const prescricao = prescricoes[i];
+                console.log(`[PRESCRICOES] Processando prescrição ${i + 1}/${prescricoes.length} - ID: ${prescricao.id}`);
+                
+                try {
+                    const detalhes = await this.getPrescricaoDetalhes(prescricao.id);
+                   
+                    prescricoesCompletas.push({
+                        ...prescricao,
+                        detalhes: detalhes
+                    });
+                } catch (error) {
+                    console.warn(`[PRESCRICOES] Erro ao buscar detalhes da prescrição ${prescricao.id}:`, error.message);
+                    prescricoesCompletas.push({
+                        ...prescricao,
+                        detalhes: null,
+                        erro: error.message
+                    });
+                }
+            }
+            
+            console.log(`✅ Processamento concluído: ${prescricoesCompletas.length} prescrições processadas`);
+            return prescricoesCompletas;
+            
+        } catch (error) {
+            console.error('[PRESCRICOES] Erro ao buscar prescrições:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Buscar detalhes de uma prescrição específica
+     * @param {string} idPrescricao - ID da prescrição
+     * @returns {Promise<Object>} Detalhes da prescrição
+     */
+    async getPrescricaoDetalhes(idPrescricao) {
+        try {
+            console.log(`[PRESCRICAO] Buscando detalhes da prescrição: ${idPrescricao}`);
+            
+            const response = await this.httpClient.get(
+                `https://hicd-hospub.sesau.ro.gov.br/prescricao_medica3/interface/imprime.php`,
+                {
+                    params: {
+                        id_prescricao: idPrescricao
+                    }
+                }
+            );
+            
+            console.log(`[PRESCRICAO] Resposta recebida para prescrição ${idPrescricao} - tamanho: ${response.data.length} caracteres`);
+            
+            // Extrair detalhes da prescrição
+            const detalhes = this.parser.parsePrescricaoDetalhes(response.data, idPrescricao);
+            console.log(`✅ Detalhes extraídos da prescrição ${idPrescricao}`);
+            
+            return detalhes;
+            
+        } catch (error) {
+            console.error(`[PRESCRICAO] Erro ao buscar detalhes da prescrição ${idPrescricao}:`, error);
+            throw error;
+        }
+    }
+
     /**
      * Log resumo clínico
      */
