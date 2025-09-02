@@ -7,6 +7,7 @@ const path = require('path');
 // Importar rotas
 const clinicasRoutes = require('./routes/clinicas');
 const pacientesRoutes = require('./routes/pacientes');
+const cacheRoutes = require('./routes/cache');
 
 // Criar instância do Express
 const app = express();
@@ -29,6 +30,7 @@ app.use((req, res, next) => {
 // Rotas da API
 app.use('/api/clinicas', clinicasRoutes);
 app.use('/api/pacientes', pacientesRoutes);
+app.use('/api/cache', cacheRoutes);
 
 // Rota de saúde da API
 app.get('/api/health', (req, res) => {
@@ -57,7 +59,15 @@ app.get('/', (req, res) => {
                 detalhes: 'GET /api/pacientes/:prontuario',
                 evolucoes: 'GET /api/pacientes/:prontuario/evolucoes',
                 analise: 'GET /api/pacientes/:prontuario/analise',
-                exames: 'GET /api/pacientes/:prontuario/exames'
+                exames: 'GET /api/pacientes/:prontuario/exames',
+                prescricoes: 'GET /api/pacientes/:prontuario/prescricoes'
+            },
+            cache: {
+                stats: 'GET /api/cache/stats',
+                clear: 'DELETE /api/cache/clear',
+                invalidatePatient: 'DELETE /api/cache/invalidate/patient/:prontuario',
+                invalidateType: 'DELETE /api/cache/invalidate/type/:type',
+                clean: 'POST /api/cache/clean'
             }
         },
         documentation: 'Acesse /api/docs para documentação completa'
@@ -66,7 +76,7 @@ app.get('/', (req, res) => {
 
 // Rota de documentação
 app.get('/api/docs', (req, res) => {
-    res.json({
+    res.json({  
         title: 'API HICD - Documentação',
         description: 'API REST para acessar dados do sistema HICD (Sistema de Prontuário Eletrônico)',
         version: '1.0.0',

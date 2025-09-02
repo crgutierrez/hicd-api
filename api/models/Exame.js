@@ -46,6 +46,7 @@ class Exame {
      * Cria um objeto Exame a partir dos dados do parser
      */
     static fromParserData(parserData) {
+        console.log(parserData)
         if (!parserData) return null;
 
         return new Exame({
