@@ -1,0 +1,60 @@
+{
+  "name": "hicd-crawler",
+  "version": "1.0.0",
+  "description": "Crawler para extrair dados do sistema HICD (Sistema de Prontuário)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "api": "node api-server.js",
+    "api-dev": "nodemon api-server.js",
+    "api-example": "node exemplo-api.js",
+    "full": "node crawler-completo.js",
+    "dev": "nodemon index.js",
+    "test": "node test-crawler.js",
+    "test-html": "node teste-pacientes-html.js",
+    "test-extracao": "node teste-pacientes-html.js --extracao",
+    "test-paciente-detalhado": "node teste-paciente-detalhado.js",
+    "test-multiplos-detalhados": "node teste-multiplos-detalhados.js",
+    "test-busca-leito": "node teste-busca-leito.js",
+    "test-leito-especifico": "node teste-leito-especifico.js",
+    "test-analise-clinica": "node teste-analise-clinica.js",
+    "test-analise-focada": "node teste-analise-focada.js",
+    "test-enfermaria-g": "node teste-enfermaria-g.js",
+    "test-enfermaria-g-refatorado": "node teste-enfermaria-g-refatorado.js",
+    "exemplo-refatorado": "node exemplo-uso-refatorado.js",
+    "examples": "node exemplos.js",
+    "clinicas": "node exemplo-clinicas.js",
+    "setup": "node setup.js",
+    "check": "node setup.js --check",
+    "clean": "rm -rf output/* node_modules/.cache",
+    "install-deps": "npm install && mkdir -p output",
+    "lint": "echo 'Linting... (adicione ESLint se necessário)'",
+    "validate": "node -e \"console.log('Validating configuration...'); require('./config.js'); console.log('✅ Configuration is valid');\""
+  },
+  "keywords": [
+    "crawler",
+    "hicd",
+    "prontuario",
+    "web-scraping",
+    "nodejs"
+  ],
+  "author": "Cristiano",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cheerio": "^1.1.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
