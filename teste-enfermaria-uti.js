@@ -65,6 +65,7 @@ async function testarEnfermariaUTI() {
                 console.log(`📊 Buscando resultados completos dos exames do paciente ${paciente.prontuario}...`);
                 const resultadosCompletos = await crawler.evolutionService.getResultadosExames(paciente.prontuario); 
                 const medicacoes = await crawler.getPrescricoesPaciente(paciente.prontuario);
+                const prescricoes = await crawler.getPrescricoesPaciente(paciente.prontuario);
 
                 pacientesComEvolucoes.push({
                     prontuario: paciente.prontuario,
@@ -73,7 +74,8 @@ async function testarEnfermariaUTI() {
                     dataInternacao: paciente.dataInternacao,
                     exames: resultadosCompletos || [],
                     evolucoes: evolucoesPaciente || [],
-                    medicacoes: medicacoes || []
+                    medicacoes: medicacoes || [],
+                    prescricoes: prescricoes || []
                 });
                 
             } catch (error) {
