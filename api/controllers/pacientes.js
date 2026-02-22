@@ -1,19 +1,10 @@
-const HICDCrawler = require('../../hicd-crawler-refactored');
 const { Paciente, Evolucao, Exame } = require('../models');
 const cache = require('../utils/cache');
+const sharedCrawler = require('../shared-crawler');
 
 class PacientesController {
-    constructor() {
-        this.crawler = null;
-    }
-
-    // Inicializar o crawler (lazy loading)
-    async initCrawler() {
-        if (!this.crawler) {
-            this.crawler = new HICDCrawler();
-            await this.crawler.login();
-        }
-        return this.crawler;
+    initCrawler() {
+        return sharedCrawler.getCrawler();
     }
 
     // Buscar paciente por prontuário
@@ -63,7 +54,7 @@ class PacientesController {
                     searchTerm: prontuario
                 });
             } else {
-                const pacientesRaw = await crawler.getPacientesClinica(0,'',nome);
+                const pacientesRaw = await crawler.getPacientesClinica(0, '', nome);
                 console.log(pacientesRaw);
 
                 if (!pacientesRaw || pacientesRaw.length === 0) {
@@ -74,12 +65,18 @@ class PacientesController {
                     });
                 }
 
-              const pacientes = await Promise.all(pacientesRaw.map(async (p) => {
-                const pac = await crawler.getPacienteCadastro(p.prontuario);
-                const retorn =  Paciente.fromParserData(pac, p.prontuario);
-                retorn.internacao.clinicaLeito = p.clinicaLeito
-                return retorn;
-              }));
+                const BATCH_SIZE = 5;
+                const pacientes = [];
+                for (let i = 0; i < pacientesRaw.length; i += BATCH_SIZE) {
+                    const batch = pacientesRaw.slice(i, i + BATCH_SIZE);
+                    const batchResults = await Promise.all(batch.map(async (p) => {
+                        const pac = await crawler.getPacienteCadastro(p.prontuario);
+                        const retorn = Paciente.fromParserData(pac, p.prontuario);
+                        retorn.internacao.clinicaLeito = p.clinicaLeito;
+                        return retorn;
+                    }));
+                    pacientes.push(...batchResults);
+                }
 
                 res.json({
                     success: true,
@@ -112,35 +109,47 @@ class PacientesController {
 
             const crawler = await this.initCrawler();
 
-            console.log(`Obtendo detalhes do paciente: ${prontuario}`);
+            const cacheKey = cache.generateKey('cadastro', prontuario);
 
-            // Buscar cadastro do paciente
-            const cadastroRaw = await crawler.getPacienteCadastro(prontuario);
+            const dadosCompletos = await cache.getOrSet(cacheKey, async () => {
+                console.log(`Obtendo detalhes do paciente: ${prontuario}`);
 
-            if (!cadastroRaw) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Paciente não encontrado',
-                    message: `Paciente com prontuário "${prontuario}" não foi encontrado`
-                });
-            }
+                const cadastroRaw = await crawler.getPacienteCadastro(prontuario);
 
-            // Converter para o modelo Paciente
-            const paciente = Paciente.fromParserData(cadastroRaw, prontuario);
+                if (!cadastroRaw) {
+                    throw new Error(`CADASTRO_NAO_ENCONTRADO:Paciente com prontuário "${prontuario}" não foi encontrado`);
+                }
 
-            if (!paciente || !paciente.isValid()) {
-                return res.status(422).json({
-                    success: false,
-                    error: 'Dados inválidos',
-                    message: 'Os dados do paciente não puderam ser processados corretamente'
-                });
-            }
+                const paciente = Paciente.fromParserData(cadastroRaw, prontuario);
+
+                if (!paciente || !paciente.isValid()) {
+                    throw new Error(`CADASTRO_INVALIDO:Os dados do paciente não puderam ser processados corretamente`);
+                }
+
+                return paciente.toCompleto();
+            });
 
             res.json({
                 success: true,
-                data: paciente.toCompleto()
+                data: dadosCompletos
             });
         } catch (error) {
+            if (error.message.startsWith('CADASTRO_NAO_ENCONTRADO:')) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Paciente não encontrado',
+                    message: error.message.replace('CADASTRO_NAO_ENCONTRADO:', '')
+                });
+            }
+
+            if (error.message.startsWith('CADASTRO_INVALIDO:')) {
+                return res.status(422).json({
+                    success: false,
+                    error: 'Dados inválidos',
+                    message: error.message.replace('CADASTRO_INVALIDO:', '')
+                });
+            }
+
             console.error('Erro ao obter detalhes do paciente:', error);
             res.status(500).json({
                 success: false,
@@ -154,7 +163,7 @@ class PacientesController {
     async obterEvolucoesPaciente(req, res) {
         try {
             const { prontuario } = req.params;
-            const { limite = 10, formato = 'resumido' } = req.query;
+            const { limite = 1000, formato = 'detalhado' } = req.query;
 
             if (!prontuario) {
                 return res.status(400).json({
@@ -176,14 +185,15 @@ class PacientesController {
                 // Buscar evoluções do paciente
                 const evolucoesRaw = await crawler.getEvolucoes(prontuario);
 
+
                 if (!evolucoesRaw || evolucoesRaw.length === 0) {
                     throw new Error(`Nenhuma evolução médica encontrada para o prontuário "${prontuario}"`);
                 }
 
                 // Converter para o modelo Evolucao
                 const evolucoes = evolucoesRaw
-                    .map(evolucaoRaw => Evolucao.fromParserData(evolucaoRaw))
-                    .filter(evolucao => evolucao && evolucao.isValid());
+                    .map(evolucaoRaw => Evolucao.fromParserData(evolucaoRaw));
+                //   .filter(evolucao => evolucao && evolucao.isValid());
 
                 if (evolucoes.length === 0) {
                     throw new Error('As evoluções encontradas não puderam ser processadas corretamente');
@@ -228,7 +238,7 @@ class PacientesController {
             });
         } catch (error) {
             console.error('Erro ao obter evoluções do paciente:', error);
-            
+
             if (error.message.includes('encontrada') || error.message.includes('processadas')) {
                 return res.status(404).json({
                     success: false,
@@ -260,65 +270,58 @@ class PacientesController {
 
             const crawler = await this.initCrawler();
 
-            console.log(`Analisando clinicamente o paciente: ${prontuario}`);
+            const cacheKey = cache.generateKey('analise', prontuario);
 
-            try {
-                // Buscar dados básicos do paciente
-                const cadastroRaw = await crawler.getPacienteCadastro(prontuario);
+            const analise = await cache.getOrSet(cacheKey, async () => {
+                console.log(`Analisando clinicamente o paciente: ${prontuario}`);
+
+                // Buscar cadastro, evoluções e exames em paralelo (são independentes entre si)
+                const [cadastroRaw, evolucoesRaw, examesRaw] = await Promise.all([
+                    crawler.getPacienteCadastro(prontuario),
+                    crawler.getEvolucoes(prontuario),
+                    crawler.getExames(prontuario).catch(err => {
+                        console.warn(`Erro ao buscar exames: ${err.message}`);
+                        return [];
+                    })
+                ]);
 
                 if (!cadastroRaw) {
-                    return res.status(404).json({
-                        success: false,
-                        error: 'Paciente não encontrado',
-                        message: `Paciente com prontuário "${prontuario}" não foi encontrado`
-                    });
+                    throw new Error(`ANALISE_NAO_ENCONTRADA:Paciente com prontuário "${prontuario}" não foi encontrado`);
                 }
 
                 const paciente = Paciente.fromParserData(cadastroRaw, prontuario);
 
-                // Buscar evoluções
-                const evolucoesRaw = await crawler.getEvolucoes(prontuario);
                 const evolucoes = evolucoesRaw ?
                     evolucoesRaw
                         .map(evolucaoRaw => Evolucao.fromParserData(evolucaoRaw))
                         .filter(evolucao => evolucao && evolucao.isValid()) :
                     [];
 
-                // Buscar exames
                 let exames = [];
-                try {
-                    const examesRaw = await crawler.getExames(prontuario);
-                    if (examesRaw && examesRaw.length > 0) {
-                        exames = examesRaw
-                            .map(exameRaw => Exame.fromParserData(exameRaw))
-                            .filter(exame => exame && exame.isValid());
-                    }
-                } catch (error) {
-                    console.warn(`Erro ao buscar exames: ${error.message}`);
+                if (examesRaw && examesRaw.length > 0) {
+                    exames = examesRaw
+                        .map(exameRaw => Exame.fromParserData(exameRaw))
+                        .filter(exame => exame && exame.isValid());
                 }
 
-                // Extrair dados clínicos da última evolução
+                // Reutilizar evoluções já buscadas — evita segunda requisição ao HICD
                 let dadosClinicosUltimaEvolucao = null;
-                if (evolucoes && evolucoes.length > 0) {
+                if (evolucoesRaw && evolucoesRaw.length > 0) {
                     try {
-                        const ultimaEvolucaoRaw = await crawler.extrairDadosClinicosUltimaEvolucao(prontuario);
-                        if (ultimaEvolucaoRaw) {
-                            dadosClinicosUltimaEvolucao = Evolucao.fromParserData(ultimaEvolucaoRaw);
-                        }
-                    } catch (error) {
-                        console.warn(`Erro ao extrair dados clínicos do paciente ${prontuario}:`, error.message);
+                        dadosClinicosUltimaEvolucao = await crawler.clinicalExtractor
+                            .extrairDadosClinicosUltimaEvolucao(evolucoesRaw);
+                    } catch (err) {
+                        console.warn(`Erro ao extrair dados clínicos do paciente ${prontuario}:`, err.message);
                     }
                 }
 
-                // Montar análise completa estruturada
-                const analise = {
+                return {
                     paciente: paciente ? paciente.toCompleto() : null,
                     evolucoes: {
                         total: evolucoes.length,
                         dados: evolucoes.map(evolucao => evolucao.toDadosClinicos()),
                         ultimaEvolucao: evolucoes.length > 0 ? evolucoes[0].toCompleto() : null,
-                        dadosClinicosUltimaEvolucao: dadosClinicosUltimaEvolucao ?
-                            dadosClinicosUltimaEvolucao.toDadosClinicos() : null,
+                        dadosClinicosUltimaEvolucao: dadosClinicosUltimaEvolucao || null,
                         resumoMedicamentos: Evolucao.extrairMedicamentosUnicos(evolucoes),
                         resumoDiagnosticos: Evolucao.extrairDiagnosticosUnicos(evolucoes)
                     },
@@ -333,32 +336,18 @@ class PacientesController {
                         versao: '1.0'
                     }
                 };
+            });
 
-                res.json({
-                    success: true,
-                    data: analise
-                });
-            } catch (error) {
-                console.error('Erro específico na análise clínica:', error);
-
-                // Retornar análise parcial mesmo com erro
-                res.status(206).json({
+            res.json({ success: true, data: analise });
+        } catch (error) {
+            if (error.message.startsWith('ANALISE_NAO_ENCONTRADA:')) {
+                return res.status(404).json({
                     success: false,
-                    error: 'Análise parcial',
-                    message: `Erro ao analisar paciente: ${error.message}`,
-                    data: {
-                        pacienteId: prontuario,
-                        observacao: 'Análise não pôde ser completada',
-                        erro: error.message,
-                        metadata: {
-                            dataAnalise: new Date().toISOString(),
-                            fonte: 'HICD',
-                            status: 'parcial'
-                        }
-                    }
+                    error: 'Paciente não encontrado',
+                    message: error.message.replace('ANALISE_NAO_ENCONTRADA:', '')
                 });
             }
-        } catch (error) {
+
             console.error('Erro ao obter análise clínica:', error);
             res.status(500).json({
                 success: false,
@@ -373,7 +362,7 @@ class PacientesController {
     async obterExamesPaciente(req, res) {
         try {
             const { prontuario } = req.params;
-            const { formato = 'resumido', incluirResultados = 'true' } = req.query;
+            const { formato = 'detalhado', incluirResultados = 'true' } = req.query;
 
             if (!prontuario) {
                 return res.status(400).json({
@@ -383,98 +372,90 @@ class PacientesController {
                 });
             }
 
-            const crawler = await this.initCrawler();
+
+            console.log(`Obtendo exames do paciente: ${prontuario}`);
+
+           const crawler = await this.initCrawler();
+
 
             // Gerar chave do cache
             const cacheKey = cache.generateKey('exames', prontuario, { formato, incluirResultados });
 
             // Tentar buscar no cache primeiro
-           const resultadoCache = await cache.getOrSet(cacheKey, async () => {
-               console.log(`Obtendo exames do paciente: ${prontuario}`);
+            const resultadoCache = await cache.getOrSet(cacheKey, async () => {
+                console.log(`Obtendo exames do paciente: ${prontuario}`);
 
-            // Buscar exames básicos
-            const examesRaw = await crawler.getExames(prontuario);
+                // Buscar exames básicos
+                   const examesRaw = await crawler.getExames(prontuario);
+                
 
-            if (!examesRaw || examesRaw.length === 0) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Exames não encontrados',
-                    message: `Nenhum exame encontrado para o prontuário "${prontuario}"`
-                });
-            }
-
-            // Converter para o modelo Exame
-            let exames = examesRaw
-                .map(exameRaw => Exame.fromParserData(exameRaw))
-                //.filter(exame => exame && exame.isValid());
-            console.log("============================")
-                console.log(exames);
-            
-
-            if (exames.length === 0) {
-                return res.status(422).json({
-                    success: false,
-                    error: 'Dados inválidos',
-                    message: 'Os exames encontrados não puderam ser processados corretamente'
-                });
-            }
-
-            // Se solicitado, buscar resultados completos
-            if (incluirResultados === 'true') {
-                try {
-                    console.log(`Buscando resultados completos dos exames para paciente: ${prontuario}`);
-                    const resultadosCompletos = await crawler.evolutionService.getResultadosExames(prontuario);
-
-                    if (resultadosCompletos && resultadosCompletos.length > 0) {
-                        // Atualizar exames com resultados
-                        exames = resultadosCompletos.map(resultado =>
-                            Exame.fromResultadosCompletos(resultado)
-                        )
-                        //.filter(exame => exame && exame.isValid());
-                    }
-                } catch (error) {
-                    console.warn(`Erro ao buscar resultados completos: ${error.message}`);
-                    // Continuar com exames básicos mesmo se os resultados falharem
+                if (!examesRaw || examesRaw.length === 0) {
+                    throw new Error(`EXAMES_NAO_ENCONTRADOS:Nenhum exame encontrado para o prontuário "${prontuario}"`);
                 }
-            }
 
-            // Formatar resultado baseado no parâmetro formato
-            let resultado;
-            let estatisticas = {};
+                // Converter para o modelo Exame
+                let exames = examesRaw
+                    .map(exameRaw => Exame.fromParserData(exameRaw));
 
-            if (formato === 'resultados' && incluirResultados === 'true') {
-                resultado = exames.map(exame => exame.toResultados());
-                estatisticas = {
-                    totalExames: exames.length,
-                    examesComResultados: exames.filter(e => e.status.temResultados).length,
-                    totalResultados: exames.reduce((sum, e) => sum + e.metadata.totalResultados, 0),
-                    siglasUnicas: [...new Set(exames.flatMap(e => e.obterSiglasResultados()))],
-                    agrupamentoPorTipo: Exame.agruparPorTipo(exames)
-                };
-            } else if (formato === 'detalhado') {
-                resultado = exames.map(exame => exame.toCompleto());
-                estatisticas = {
-                    totalExames: exames.length,
-                    examesComResultados: exames.filter(e => e.status.temResultados).length
-                };
-            } else {
-                // formato === 'resumido' (padrão)
-                resultado = exames.map(exame => exame.toResumo());
-                estatisticas = {
-                    totalExames: exames.length,
-                    examesComResultados: exames.filter(e => e.status.temResultados).length
-                };
-            }
-                console.log(resultado);
+                if (exames.length === 0) {
+                    throw new Error(`EXAMES_INVALIDOS:Os exames encontrados não puderam ser processados corretamente`);
+                }
+
+                // Se solicitado, buscar resultados completos
+                if (incluirResultados === 'true') {
+                    try {
+                        console.log(`Buscando resultados completos dos exames para paciente: ${prontuario}`);
+                        const resultadosCompletos = await crawler.evolutionService.getResultadosExames(prontuario, {}, examesRaw);
+
+                        if (resultadosCompletos && resultadosCompletos.length > 0) {
+                            // Atualizar exames com resultados
+                            exames = resultadosCompletos.map(resultado =>
+                                Exame.fromResultadosCompletos(resultado)
+                            )
+                            //.filter(exame => exame && exame.isValid());
+                        }
+                    } catch (error) {
+                        console.warn(`Erro ao buscar resultados completos: ${error.message}`);
+                        // Continuar com exames básicos mesmo se os resultados falharem
+                    }
+                }
+
+                // Formatar resultado baseado no parâmetro formato
+                let resultado;
+                let estatisticas = {};
+
+                if (formato === 'resultados' && incluirResultados === 'true') {
+                    resultado = exames.map(exame => exame.toResultados());
+                    estatisticas = {
+                        totalExames: exames.length,
+                        examesComResultados: exames.filter(e => e.status.temResultados).length,
+                        totalResultados: exames.reduce((sum, e) => sum + e.metadata.totalResultados, 0),
+                        siglasUnicas: [...new Set(exames.flatMap(e => e.obterSiglasResultados()))],
+                        agrupamentoPorTipo: Exame.agruparPorTipo(exames)
+                    };
+                } else if (formato === 'detalhado') {
+                    resultado = exames.map(exame => exame.toCompleto());
+                    estatisticas = {
+                        totalExames: exames.length,
+                        examesComResultados: exames.filter(e => e.status.temResultados).length
+                    };
+                } else {
+                    // formato === 'resumido' (padrão)
+                    resultado = exames.map(exame => exame.toResumo());
+                    estatisticas = {
+                        totalExames: exames.length,
+                        examesComResultados: exames.filter(e => e.status.temResultados).length
+                    };
+                }
                 return {
                     data: resultado,
                     estatisticas: estatisticas
                 };
-            
-              });
+
+            });
 
             res.json({
-                success: true,  
+                success: true,
                 prontuario: prontuario,
                 data: resultadoCache.data,
                 formato: formato,
@@ -483,12 +464,20 @@ class PacientesController {
             });
         } catch (error) {
             console.error('Erro ao obter exames do paciente:', error);
-            
-            if (error.message.includes('encontrado') || error.message.includes('processados')) {
+
+            if (error.message.startsWith('EXAMES_NAO_ENCONTRADOS:')) {
                 return res.status(404).json({
                     success: false,
                     error: 'Exames não encontrados',
-                    message: error.message
+                    message: error.message.replace('EXAMES_NAO_ENCONTRADOS:', '')
+                });
+            }
+
+            if (error.message.startsWith('EXAMES_INVALIDOS:')) {
+                return res.status(422).json({
+                    success: false,
+                    error: 'Dados inválidos',
+                    message: error.message.replace('EXAMES_INVALIDOS:', '')
                 });
             }
 
@@ -514,19 +503,19 @@ class PacientesController {
 
             const crawler = await this.initCrawler();
 
-            console.log(`Obtendo prescrição do paciente: ${prontuario}`);
+            const cacheKey = cache.generateKey('prescricoes', prontuario);
 
-            // Buscar prescrições
-            const prescricoes = await crawler.getPrescricoesPaciente(prontuario);
+            const prescricoes = await cache.getOrSet(cacheKey, async () => {
+                console.log(`Obtendo prescrição do paciente: ${prontuario}`);
 
-            if (!prescricoes || prescricoes.length === 0) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Prescrições não encontradas',
-                    message: `Nenhuma prescrição encontrada para o prontuário "${prontuario}"`
-                });
-            }
+                const dados = await crawler.getPrescricoesPaciente(prontuario);
 
+                if (!dados || dados.length === 0) {
+                    throw new Error(`PRESCRICOES_NAO_ENCONTRADAS:Nenhuma prescrição encontrada para o prontuário "${prontuario}"`);
+                }
+
+                return dados;
+            });
 
             res.json({
                 success: true,
@@ -534,6 +523,14 @@ class PacientesController {
                 data: prescricoes,
             });
         } catch (error) {
+            if (error.message.startsWith('PRESCRICOES_NAO_ENCONTRADAS:')) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Prescrições não encontradas',
+                    message: error.message.replace('PRESCRICOES_NAO_ENCONTRADAS:', '')
+                });
+            }
+
             console.error('Erro ao obter prescrições do paciente:', error);
             res.status(500).json({
                 success: false,

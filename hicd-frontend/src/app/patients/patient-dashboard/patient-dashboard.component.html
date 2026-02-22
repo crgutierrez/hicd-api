@@ -1,0 +1,213 @@
+<div class="patient-view-container" *ngIf="patientId">
+  <!-- Loading Overlay -->
+  <div *ngIf="loading" class="loading-overlay">
+    <p-progressSpinner></p-progressSpinner>
+    <p>Carregando informações do paciente...</p>
+  </div>
+
+  <!-- Header do Paciente -->
+  <div class="patient-header" *ngIf="patientDetails">
+    <div class="header-left">
+      <div class="patient-avatar">
+        <i class="pi pi-user"></i>
+      </div>
+      <div class="patient-info">
+        <h2 class="patient-name">{{ patientDetails.dadosBasicos.nome }}</h2>
+        <div class="patient-meta">
+          <span class="meta-item">
+            <i class="pi pi-id-card"></i>
+            Prontuário: <strong>{{ patientDetails.dadosBasicos.prontuario }}</strong>
+          </span>
+          <span class="meta-item">
+            <i class="pi pi-calendar"></i>
+            Nascimento: <strong>{{ patientDetails.dadosBasicos.dataNascimento }}</strong>
+          </span>
+          <span class="meta-item">
+            <i class="pi pi-clock"></i>
+            Idade: <strong>{{ calcularIdade(patientDetails.dadosBasicos.dataNascimento) }}</strong>
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="header-right">
+      <p-button
+        label="Atualizar"
+        icon="pi pi-refresh"
+        (onClick)="loadAllPatientData(patientId)"
+        [loading]="loading"
+        styleClass="p-button-outlined">
+      </p-button>
+    </div>
+  </div>
+
+  <!-- Informações Adicionais -->
+  <div class="patient-secondary-info" *ngIf="patientDetails">
+    <div class="info-card">
+      <label>Nome da Mãe</label>
+      <span>{{ patientDetails.dadosBasicos.nomeMae }}</span>
+    </div>
+    <div class="info-card">
+      <label>Endereço</label>
+      <span>{{ patientDetails.dadosDemograficos?.endereco || "Não informado" }}</span>
+    </div>
+    <div class="info-card">
+      <label>Cidade</label>
+      <span>{{ patientDetails.dadosDemograficos?.cidade || "Não informado" }}</span>
+    </div>
+  </div>
+
+  <!-- Tabs de Conteúdo -->
+  <div class="patient-content" *ngIf="patientDetails">
+    <p-tabView [(activeIndex)]="activeTabIndex" styleClass="tasy-tabs">
+
+      <!-- Aba de Evoluções com Visualizador Completo -->
+      <p-tabPanel header="Evoluções" leftIcon="pi pi-file-edit">
+        <app-evolution-viewer
+          [prontuario]="patientId"
+          [patientName]="patientDetails.dadosBasicos.nome">
+        </app-evolution-viewer>
+      </p-tabPanel>
+
+      <!-- Aba de Prescrições -->
+      <p-tabPanel header="Prescrições" leftIcon="pi pi-book">
+        <div class="tab-content">
+          <div class="content-header">
+            <h3>Prescrições Médicas</h3>
+            <span class="badge">{{ prescriptions.length }} prescrição(ões)</span>
+          </div>
+
+          <div class="prescriptions-grid">
+            <div class="prescription-card" *ngFor="let presc of prescriptions">
+              <div class="prescription-header">
+                <div class="prescription-date">
+                  <i class="pi pi-calendar"></i>
+                  {{ presc.dataPrescricao }}
+                </div>
+                <span class="prescription-status" [ngClass]="getSeverityClass(presc.status)">
+                  {{ presc.status }}
+                </span>
+              </div>
+              <div class="prescription-items">
+                <div class="prescription-item" *ngFor="let item of presc.itens">
+                  <div class="item-header">
+                    <i class="pi pi-circle-fill"></i>
+                    <strong>{{ item.medicamento }}</strong>
+                  </div>
+                  <div class="item-posology">{{ item.posologia }}</div>
+                  <div class="item-observation" *ngIf="item.observacao">
+                    <i class="pi pi-info-circle"></i>
+                    {{ item.observacao }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="prescriptions.length === 0" class="empty-state">
+            <i class="pi pi-inbox"></i>
+            <p>Nenhuma prescrição registrada</p>
+          </div>
+        </div>
+      </p-tabPanel>
+
+      <!-- Aba de Exames -->
+      <p-tabPanel header="Exames" leftIcon="pi pi-chart-line">
+        <div class="tab-content">
+          <div class="content-header">
+            <h3>Exames Laboratoriais e Imagem</h3>
+            <span class="badge">{{ exams.length }} requisição(ões)</span>
+          </div>
+
+          <p-table
+            [value]="exams"
+            styleClass="tasy-table"
+            [paginator]="exams.length > 10"
+            [rows]="10">
+            <ng-template pTemplate="header">
+              <tr>
+                <th style="width: 120px">Requisição</th>
+                <th style="width: 120px">Data</th>
+                <th style="width: 200px">Médico</th>
+                <th>Exames Solicitados</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-exam>
+              <tr>
+                <td>
+                  <span class="exam-requisition">{{ exam.requisicao }}</span>
+                </td>
+                <td>{{ exam.data }}</td>
+                <td>{{ exam.medico }}</td>
+                <td>
+                  <div class="exam-list">
+                    <span class="exam-badge" *ngFor="let e of exam.exames">
+                      {{ e.nome }} - {{ e.resultado }
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td colspan="4">
+                  <div class="empty-state">
+                    <i class="pi pi-inbox"></i>
+                    <p>Nenhum exame registrado</p>
+                  </div>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </p-tabPanel>
+
+      <!-- Aba de Dados Cadastrais -->
+      <p-tabPanel header="Dados Cadastrais" leftIcon="pi pi-user">
+        <div class="tab-content">
+          <div class="content-header">
+            <h3>Informações Cadastrais Completas</h3>
+          </div>
+
+          <div class="data-grid">
+            <div class="data-section">
+              <h4>Dados Básicos</h4>
+              <div class="data-row">
+                <label>Nome Completo:</label>
+                <span>{{ patientDetails.dadosBasicos.nome }}</span>
+              </div>
+              <div class="data-row">
+                <label>Prontuário:</label>
+                <span>{{ patientDetails.dadosBasicos.prontuario }}</span>
+              </div>
+              <div class="data-row">
+                <label>Data de Nascimento:</label>
+                <span>{{ patientDetails.dadosBasicos.dataNascimento }}</span>
+              </div>
+              <div class="data-row">
+                <label>Idade:</label>
+                <span>{{ calcularIdade(patientDetails.dadosBasicos.dataNascimento) }}</span>
+              </div>
+              <div class="data-row">
+                <label>Nome da Mãe:</label>
+                <span>{{ patientDetails.dadosBasicos.nomeMae }}</span>
+              </div>
+            </div>
+
+            <div class="data-section">
+              <h4>Dados Demográficos</h4>
+              <div class="data-row">
+                <label>Endereço:</label>
+                <span>{{ patientDetails.dadosDemograficos?.endereco || "Não informado" }}</span>
+              </div>
+              <div class="data-row">
+                <label>Cidade:</label>
+                <span>{{ patientDetails.dadosDemograficos?.cidade || "Não informado" }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </p-tabPanel>
+
+    </p-tabView>
+  </div>
+</div>

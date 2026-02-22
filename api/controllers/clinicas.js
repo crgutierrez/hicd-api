@@ -1,21 +1,15 @@
-const HICDCrawler = require('../../hicd-crawler-refactored');
 const { Paciente } = require('../models');
+const sharedCrawler = require('../shared-crawler');
 
 class ClinicasController {
     constructor() {
-        this.crawler = null;
         this.clinicasCache = null;
-        this.cacheTimeout = 10 * 60 * 1000; // 5 minutos
+        this.cacheTimeout = 10 * 60 * 1000; // 10 minutos
         this.lastCacheUpdate = null;
     }
 
-    // Inicializar o crawler (lazy loading)
-    async initCrawler() {
-        if (!this.crawler) {
-            this.crawler = new HICDCrawler();
-            await this.crawler.login();
-        }
-        return this.crawler;
+    initCrawler() {
+        return sharedCrawler.getCrawler();
     }
 
     // Verificar se o cache é válido
@@ -171,7 +165,7 @@ class ClinicasController {
                     } else {
                         // Para formato completo/detalhado, buscar dados completos
                         const dadosCompletos = await crawler.getPacienteCadastro(pacienteData.prontuario);
-                        paciente = Paciente.fromParserData(dadosCompletos);
+                        paciente = Paciente.fromParserData(dadosCompletos, pacienteData.prontuario);
                     }
                     
                     pacientes.push(paciente);
@@ -193,7 +187,7 @@ class ClinicasController {
                     dadosFormatados = pacientes.map(p => p.toCompleto ? p.toCompleto() : p);
                     break;
                 case 'detalhado':
-                    dadosFormatados = pacientes.map(p => p.toDetalhado ? p.toDetalhado() : p);
+                    dadosFormatados = pacientes.map(p => p.toCompleto ? p.toCompleto() : p);
                     break;
                 default: // resumido
                     dadosFormatados = pacientes.map(p => p.toResumo ? p.toResumo() : p);
@@ -288,6 +282,55 @@ class ClinicasController {
                 error: 'Erro ao obter estatísticas da clínica',
                 message: error.message
             });
+        }
+    }
+      async buscarPareceres(req, res) {
+        const { idClinica } = req.params;
+        const cacheKey = `pareceres:${idClinica}`;
+
+        try {
+            // Tenta buscar do cache primeiro
+            // const cachedData = cache.get(cacheKey);
+            // if (cachedData) {
+            //     return res.json({ success: true, source: 'cache', data: cachedData });
+            // }
+
+            const crawler = await this.initCrawler();
+            const pacientes = await crawler.getPacientesClinica(idClinica);
+            if (!pacientes || pacientes.length === 0) {
+                return res.json({ success: true, data: [] });
+            }
+
+            const todosOsPareceres = [];
+            
+            for (const paciente of pacientes) {
+                const evolucoes = await crawler.getEvolucoes(paciente.prontuario);
+                if (!evolucoes || evolucoes.length === 0) continue;
+
+                for (const evolucao of evolucoes) {
+                    const pareceresEncontrados = crawler.parser.evolucaoParser.parsePareceres(evolucao.textoCompleto, {
+                        paciente: {
+                            nome: paciente.nome,
+                            prontuario: paciente.prontuario,
+                            leito: paciente.leito
+                        },
+                        dataEvolucao: evolucao.dataEvolucao,
+                        profissional: evolucao.profissional
+                    });
+
+                    if (pareceresEncontrados.length > 0) {
+                        todosOsPareceres.push(...pareceresEncontrados);
+                    }
+                }
+            }
+
+            // Salva no cache por 15 minutos
+            //cache.set(cacheKey, todosOsPareceres, 900); 
+            res.json({ success: true, source: 'live', data: todosOsPareceres });
+
+        } catch (error) {
+            console.error(`Erro ao buscar pareceres para a clínica ${idClinica}:`, error);
+            res.status(500).json({ success: false, error: 'Erro interno do servidor', message: error.message });
         }
     }
 }

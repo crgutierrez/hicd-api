@@ -5,10 +5,10 @@ const path = require('path');
  * Serviço de autenticação para o sistema HICD
  */
 class HICDAuthService {
-    constructor(httpClient) {
+    constructor(httpClient, username, password) {
         this.httpClient = httpClient;
-        this.username = process.env.HICD_USERNAME || 'cristiano';
-        this.password = process.env.HICD_PASSWORD || '12345678';
+        this.username = username || process.env.HICD_USERNAME;
+        this.password = password || process.env.HICD_PASSWORD;
         this.isLoggedIn = false;
         this.debugMode = false;
     }

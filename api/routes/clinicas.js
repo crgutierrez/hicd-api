@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const clinicasController = require('../controllers/clinicas');
+const { requireCrawler } = require('../middleware/require-auth');
+
+router.use(requireCrawler);
 
 // Middleware para validação de parâmetros
 const validateClinicaId = (req, res, next) => {
@@ -81,5 +84,8 @@ router.get('/:id', validateClinicaId, async (req, res) => {
         });
     }
 });
+
+// Nova rota para buscar pareceres
+router.get('/:idClinica/pareceres', (req, res) => clinicasController.buscarPareceres(req, res));
 
 module.exports = router;

@@ -167,7 +167,8 @@ class PatientService {
             if (pacientes.length > 0) {
                 console.log('[PACIENTES] Primeiros pacientes encontrados:');
                 pacientes.slice(0, 3).forEach((p, i) => {
-                    console.log(`  ${i+1}. ${p.nome} - Prontuário: ${p.prontuario} - Leito: ${p.leito} - Dias: ${p.diasInternacao}`);
+                    console.log(p);
+                    console.log(`  ${i+1}. ${p.nome} - Prontuário: ${p.prontuario} - Leito: ${p.clinica} - Dias: ${p.dataInternacao}`);
                 });
             }
 

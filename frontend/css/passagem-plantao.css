@@ -1,0 +1,652 @@
+/* CSS específico para Passagem de Plantão */
+
+/* =======================
+   LAYOUT GERAL
+   ======================= */
+.main-content {
+    margin-top: 60px;
+    min-height: calc(100vh - 60px);
+}
+
+.step-section {
+    display: none;
+}
+
+.step-section.active {
+    display: block;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* =======================
+   INDICADOR DE ETAPAS
+   ======================= */
+.step-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+}
+
+.step-number.active {
+    background-color: #0d6efd;
+    color: white;
+    transform: scale(1.1);
+}
+
+.step-number.completed {
+    background-color: #198754;
+    color: white;
+}
+
+.step-connector {
+    width: 60px;
+    height: 2px;
+    background-color: #e9ecef;
+    margin: 0 10px;
+    transition: all 0.3s ease;
+}
+
+.step-connector.completed {
+    background-color: #198754;
+}
+
+/* =======================
+   GRID DE CLÍNICAS
+   ======================= */
+.clinicas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    max-height: 500px;
+    overflow-y: auto;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+}
+
+.clinica-card {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.clinica-card:hover {
+    border-color: #0d6efd;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
+}
+
+.clinica-card.selected {
+    border-color: #0d6efd;
+    background-color: #f0f7ff;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+}
+
+.clinica-card .clinica-icon {
+    font-size: 2rem;
+    color: #0d6efd;
+    margin-bottom: 0.5rem;
+}
+
+.clinica-card .clinica-name {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #212529;
+    margin-bottom: 0.5rem;
+}
+
+.clinica-card .clinica-code {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.clinica-card .clinica-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.clinica-stat {
+    text-align: center;
+}
+
+.clinica-stat .stat-number {
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: #0d6efd;
+}
+
+.clinica-stat .stat-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+/* =======================
+   GRID DE PACIENTES
+   ======================= */
+.pacientes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+    max-height: 600px;
+    overflow-y: auto;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+}
+
+.paciente-card {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.paciente-card:hover {
+    border-color: #198754;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(25, 135, 84, 0.15);
+}
+
+.paciente-card.selected {
+    border-color: #198754;
+    background-color: #f0fff4;
+    box-shadow: 0 4px 12px rgba(25, 135, 84, 0.2);
+}
+
+.paciente-card .paciente-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.paciente-card .paciente-name {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #212529;
+    margin-bottom: 0.25rem;
+}
+
+.paciente-card .paciente-prontuario {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.paciente-card .evolucao-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.evolucao-badge.completa {
+    background-color: #d1edff;
+    color: #0969da;
+    border: 1px solid #0969da;
+}
+
+.evolucao-badge.incompleta {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #856404;
+}
+
+.paciente-card .paciente-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.paciente-info-item {
+    font-size: 0.9rem;
+}
+
+.paciente-info-item .label {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.paciente-info-item .value {
+    color: #212529;
+    font-weight: bold;
+}
+
+.paciente-card .paciente-indicators {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.indicator {
+    display: flex;
+    align-items: center;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+}
+
+.indicator.positive {
+    background-color: #d1edff;
+    color: #0969da;
+}
+
+.indicator.negative {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* =======================
+   ESTATÍSTICAS
+   ======================= */
+.stat-card {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #0d6efd;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+/* =======================
+   PASSAGEM DE PLANTÃO
+   ======================= */
+.plantao-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #dee2e6;
+}
+
+.evolucao-status {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.section-card {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.section-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.section-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.section-header h5 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.section-content {
+    padding: 1.5rem;
+}
+
+.loading-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: #6c757d;
+}
+
+/* Diagnósticos */
+.diagnostico-item {
+    background: #fff5f5;
+    border: 1px solid #fed7d7;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.diagnostico-principal {
+    background: #f0fff4;
+    border-color: #c6f6d5;
+}
+
+.diagnostico-secundario {
+    background: #fffaf0;
+    border-color: #fbd38d;
+}
+
+/* Medicamentos */
+.medicamento-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f0fff4;
+    border: 1px solid #c6f6d5;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.medicamento-nome {
+    font-weight: bold;
+    color: #2d3748;
+}
+
+.medicamento-dose {
+    color: #718096;
+    font-size: 0.9rem;
+}
+
+.medicamento-horario {
+    color: #4a5568;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Sinais Vitais */
+.sinais-vitais-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.sinal-vital-item {
+    background: #fff9e6;
+    border: 1px solid #fbbf24;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+}
+
+.sinal-vital-valor {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #d97706;
+    margin-bottom: 0.25rem;
+}
+
+.sinal-vital-label {
+    color: #92400e;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.sinal-vital-horario {
+    color: #a8a29e;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+}
+
+/* Exames */
+.exame-item {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.exame-nome {
+    font-weight: bold;
+    color: #1e40af;
+    margin-bottom: 0.5rem;
+}
+
+.exame-resultado {
+    color: #374151;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.exame-data {
+    color: #9ca3af;
+    font-size: 0.8rem;
+}
+
+/* Evolução */
+.evolucao-texto {
+    background: #f9fafb;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #374151;
+}
+
+.evolucao-meta {
+    background: #f3f4f6;
+    border-radius: 0.25rem;
+    padding: 0.5rem 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+/* Observações */
+.observacao-item {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-left: 4px solid #f59e0b;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.observacao-tipo {
+    font-weight: bold;
+    color: #92400e;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.observacao-texto {
+    color: #78350f;
+}
+
+/* =======================
+   RESPONSIVIDADE
+   ======================= */
+@media (max-width: 768px) {
+    .main-content {
+        margin-top: 70px;
+    }
+    
+    .clinicas-grid,
+    .pacientes-grid {
+        grid-template-columns: 1fr;
+        max-height: 400px;
+    }
+    
+    .step-indicator {
+        transform: scale(0.8);
+    }
+    
+    .paciente-card .paciente-info {
+        grid-template-columns: 1fr;
+    }
+    
+    .sinais-vitais-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .section-content {
+        padding: 1rem;
+    }
+    
+    .plantao-header .container-fluid {
+        padding: 1rem !important;
+    }
+    
+    .plantao-header .row .col-md-6 {
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .clinica-card,
+    .paciente-card {
+        padding: 1rem;
+    }
+    
+    .step-connector {
+        width: 40px;
+    }
+    
+    .sinais-vitais-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .medicamento-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+}
+
+/* =======================
+   IMPRESSÃO
+   ======================= */
+@media print {
+    .navbar,
+    .card-header .btn,
+    .loading-placeholder,
+    #toastContainer {
+        display: none !important;
+    }
+    
+    .main-content {
+        margin-top: 0;
+    }
+    
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    .section-card {
+        break-inside: avoid;
+        margin-bottom: 1rem;
+    }
+    
+    .plantao-header {
+        background: white !important;
+    }
+    
+    .section-header {
+        background: #f8f9fa !important;
+    }
+    
+    body {
+        font-size: 12px;
+    }
+    
+    .section-header h5 {
+        font-size: 14px;
+    }
+    
+    .paciente-name {
+        font-size: 16px;
+    }
+}
+
+/* =======================
+   ACESSIBILIDADE
+   ======================= */
+.clinica-card:focus,
+.paciente-card:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+.step-number:focus {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+/* Estados de hover melhorados */
+.btn:hover,
+.btn:focus {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Transições suaves */
+* {
+    transition: all 0.2s ease;
+}
+
+/* Loading states */
+.loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(5px);
+}
+
+.loading-content {
+    text-align: center;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}

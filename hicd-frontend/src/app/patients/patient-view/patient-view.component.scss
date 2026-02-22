@@ -1,0 +1,523 @@
+// Inspirado no layout do TASY - Sistema Hospitalar
+// Cores institucionais e design profissional
+
+.patient-view-container {
+  position: relative;
+  background: #f5f7fa;
+  min-height: 100vh;
+  padding: 1.5rem;
+
+  .loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    gap: 1rem;
+
+    p {
+      font-size: 1.1rem;
+      color: #495057;
+      font-weight: 500;
+    }
+  }
+
+  .patient-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.25);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .patient-avatar {
+      width: 80px;
+      height: 80px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .patient-info {
+      .patient-name {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.8rem;
+        font-weight: 600;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .patient-meta {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+
+        .meta-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.95rem;
+          opacity: 0.95;
+
+          i {
+            font-size: 1rem;
+          }
+
+          strong {
+            font-weight: 600;
+          }
+        }
+      }
+    }
+  }
+
+  .patient-secondary-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+
+    .info-card {
+      background: white;
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      border-left: 4px solid #667eea;
+
+      label {
+        display: block;
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      span {
+        display: block;
+        font-size: 1rem;
+        color: #2c3e50;
+        font-weight: 500;
+      }
+    }
+  }
+
+  .patient-content {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+
+    ::ng-deep .tasy-tabs {
+      .p-tabview-nav {
+        background: #f8f9fa;
+        border-bottom: 2px solid #e9ecef;
+
+        li {
+          .p-tabview-nav-link {
+            padding: 1rem 1.5rem;
+            font-weight: 500;
+            color: #495057;
+            transition: all 0.3s;
+
+            &:hover {
+              background: rgba(102, 126, 234, 0.05);
+              color: #667eea;
+            }
+          }
+
+          &.p-highlight .p-tabview-nav-link {
+            background: white;
+            color: #667eea;
+            border-color: #667eea;
+          }
+        }
+      }
+
+      .p-tabview-panels {
+        background: white;
+        padding: 0;
+      }
+    }
+  }
+
+  .tab-content {
+    padding: 2rem;
+
+    .content-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid #e9ecef;
+
+      h3 {
+        margin: 0;
+        color: #2c3e50;
+        font-size: 1.4rem;
+        font-weight: 600;
+      }
+
+      .badge {
+        background: #667eea;
+        color: white;
+        padding: 0.4rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+    }
+  }
+
+  .evolutions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+
+    .evolution-item {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 1.25rem;
+      transition: all 0.3s;
+
+      &:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border-color: #667eea;
+      }
+
+      .evolution-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+
+        .evolution-date,
+        .evolution-professional {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.9rem;
+          color: #495057;
+          font-weight: 500;
+
+          i {
+            color: #667eea;
+          }
+        }
+      }
+
+      .evolution-content {
+        padding: 1rem;
+        background: white;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+        line-height: 1.6;
+        color: #2c3e50;
+      }
+
+      .evolution-footer {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+
+        .tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          padding: 0.3rem 0.8rem;
+          background: #e7f3ff;
+          color: #0066cc;
+          border-radius: 4px;
+          font-size: 0.8rem;
+          font-weight: 500;
+
+          i {
+            font-size: 0.7rem;
+          }
+        }
+      }
+    }
+  }
+
+  .prescriptions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+
+    .prescription-card {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.3s;
+
+      &:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border-color: #667eea;
+      }
+
+      .prescription-header {
+        background: white;
+        padding: 1rem 1.25rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #e9ecef;
+
+        .prescription-date {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-weight: 600;
+          color: #2c3e50;
+
+          i {
+            color: #667eea;
+          }
+        }
+
+        .prescription-status {
+          padding: 0.3rem 0.8rem;
+          border-radius: 4px;
+          font-size: 0.85rem;
+          font-weight: 600;
+
+          &.status-active {
+            background: #d4edda;
+            color: #155724;
+          }
+
+          &.status-suspended {
+            background: #fff3cd;
+            color: #856404;
+          }
+
+          &.status-completed {
+            background: #d1ecf1;
+            color: #0c5460;
+          }
+
+          &.status-default {
+            background: #e2e3e5;
+            color: #383d41;
+          }
+        }
+      }
+
+      .prescription-items {
+        padding: 1.25rem;
+
+        .prescription-item {
+          padding: 1rem;
+          background: white;
+          border-radius: 6px;
+          margin-bottom: 0.75rem;
+
+          &:last-child {
+            margin-bottom: 0;
+          }
+
+          .item-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+
+            i {
+              font-size: 0.5rem;
+              color: #667eea;
+            }
+
+            strong {
+              color: #2c3e50;
+              font-size: 1rem;
+            }
+          }
+
+          .item-posology {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            padding-left: 1rem;
+          }
+
+          .item-observation {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: #fff3cd;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #856404;
+            margin-top: 0.5rem;
+
+            i {
+              margin-top: 0.15rem;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  ::ng-deep .tasy-table {
+    .p-datatable-thead > tr > th {
+      background: #f8f9fa;
+      color: #495057;
+      font-weight: 600;
+      padding: 1rem;
+      border-bottom: 2px solid #e9ecef;
+    }
+
+    .p-datatable-tbody > tr {
+      transition: all 0.2s;
+
+      &:hover {
+        background: #f8f9fa;
+      }
+
+      > td {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+      }
+    }
+
+    .exam-requisition {
+      background: #667eea;
+      color: white;
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .exam-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+
+      .exam-badge {
+        background: #e7f3ff;
+        color: #0066cc;
+        padding: 0.3rem 0.8rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+      }
+    }
+  }
+
+  .data-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+
+    .data-section {
+      h4 {
+        color: #667eea;
+        font-size: 1.2rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+      }
+
+      .data-row {
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f1f3f5;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        label {
+          font-weight: 600;
+          color: #6c757d;
+          font-size: 0.95rem;
+        }
+
+        span {
+          color: #2c3e50;
+          font-size: 0.95rem;
+        }
+      }
+    }
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #6c757d;
+
+    i {
+      font-size: 3rem;
+      color: #dee2e6;
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    p {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+
+    .patient-header {
+      flex-direction: column;
+      gap: 1rem;
+      text-align: center;
+
+      .header-left {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .patient-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+    }
+
+    .prescriptions-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .data-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .data-section .data-row {
+      grid-template-columns: 1fr;
+      gap: 0.25rem;
+    }
+  }
+}

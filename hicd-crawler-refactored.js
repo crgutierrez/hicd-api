@@ -21,10 +21,10 @@ const path = require('path');
  * - ClinicAnalyzer: Análise de clínicas
  */
 class HICDCrawler {
-    constructor() {
+    constructor(username, password) {
         // Inicializar componentes modulares
         this.httpClient = new HICDHttpClient();
-        this.authService = new HICDAuthService(this.httpClient);
+        this.authService = new HICDAuthService(this.httpClient, username, password);
         this.parser = new HICDParser();
         this.patientService = new PatientService(this.httpClient, this.parser);
         this.evolutionService = new EvolutionService(this.httpClient, this.parser);
@@ -134,6 +134,7 @@ class HICDCrawler {
      * Busca evoluções do paciente
      */
     async getEvolucoes(pacienteId, filtros = {}) {
+        console.log(`\n🩺 Buscando evoluções do paciente: ${pacienteId} com filtros:`, filtros);
         this.verificarAutenticacao();
         return await this.evolutionService.getEvolucoes(pacienteId, filtros);
     }
@@ -142,6 +143,7 @@ class HICDCrawler {
      */
     async getExames(pacienteId, filtros = {}) {
         this.verificarAutenticacao();
+        
         return await this.evolutionService.getResultadosExames(pacienteId, filtros);
     }
 
@@ -477,6 +479,7 @@ class HICDCrawler {
      * Verifica se está autenticado
      */
     verificarAutenticacao() {
+        console.log('\n🔐 Verificando autenticação...');
         if (!this.authService.isAuthenticated()) {
             throw new Error('É necessário fazer login antes de usar esta funcionalidade');
         }
@@ -556,34 +559,31 @@ class HICDCrawler {
             console.log(`[PRESCRICOES] Resposta recebida - tamanho: ${response.data.length} caracteres`);
          //   console.log(response.data.substring(0, 200)); // Log dos primeiros 200 caracteres
             // Passo 4: Extrair lista de prescrições
-            const prescricoes = this.parser.parsePrescricoesList(response.data, prontuario);
+            const prescricoes = this.parser.parsePrescricoes(response.data, prontuario);
             console.log(`✅ ${prescricoes.length} prescrições encontradas para o paciente ${prontuario}`);
             
-            // Passo 5: Buscar detalhes de cada prescrição
+            // Passo 5: Buscar detalhes de cada prescrição em batches paralelos
             console.log('[PRESCRICOES] Buscando detalhes das prescrições...');
+            const BATCH_SIZE = 3;
             const prescricoesCompletas = [];
-            
-            for (let i = 0; i < prescricoes.length; i++) {
-                const prescricao = prescricoes[i];
-                console.log(`[PRESCRICOES] Processando prescrição ${i + 1}/${prescricoes.length} - ID: ${prescricao.id}`);
-                
-                try {
-                    const detalhes = await this.getPrescricaoDetalhes(prescricao.id);
-                   
-                    prescricoesCompletas.push({
-                        ...prescricao,
-                        detalhes: detalhes
-                    });
-                } catch (error) {
-                    console.warn(`[PRESCRICOES] Erro ao buscar detalhes da prescrição ${prescricao.id}:`, error.message);
-                    prescricoesCompletas.push({
-                        ...prescricao,
-                        detalhes: null,
-                        erro: error.message
-                    });
-                }
+
+            for (let i = 0; i < prescricoes.length; i += BATCH_SIZE) {
+                const batch = prescricoes.slice(i, i + BATCH_SIZE);
+                console.log(`[PRESCRICOES] Processando prescrições ${i + 1}-${Math.min(i + BATCH_SIZE, prescricoes.length)}/${prescricoes.length}`);
+
+                const batchResults = await Promise.all(batch.map(async (prescricao) => {
+                    try {
+                        const detalhes = await this.getPrescricaoDetalhes(prescricao.id);
+                        return { ...prescricao, detalhes };
+                    } catch (error) {
+                        console.warn(`[PRESCRICOES] Erro ao buscar detalhes da prescrição ${prescricao.id}:`, error.message);
+                        return { ...prescricao, detalhes: null, erro: error.message };
+                    }
+                }));
+
+                prescricoesCompletas.push(...batchResults);
             }
-            
+
             console.log(`✅ Processamento concluído: ${prescricoesCompletas.length} prescrições processadas`);
             return prescricoesCompletas;
             

@@ -1,0 +1,86 @@
+<p-card *ngIf="prontuario">
+    <ng-template pTemplate="title">
+        Detalhes do Paciente
+    </ng-template>
+    <ng-template pTemplate="subtitle">
+        Prontuário: {{ prontuario }}
+    </ng-template>
+
+    <div *ngIf="loading; else dataLoaded" class="p-text-center">
+        <p-progressSpinner></p-progressSpinner>
+        <p>Carregando dados do paciente...</p>
+    </div>
+
+    <ng-template #dataLoaded>
+        <p-tabView *ngIf="patientDetails">
+            <p-tabPanel header="Dados Cadastrais">
+                <div class="p-grid">
+                    <div class="p-col-12 p-md-6"><strong>Nome:</strong> {{ patientDetails.dadosBasicos.nome }}</div>
+                    <div class="p-col-12 p-md-6"><strong>Prontuário:</strong> {{ patientDetails.dadosBasicos.prontuario }}</div>
+                    <div class="p-col-12 p-md-6"><strong>Data de Nascimento:</strong> {{ patientDetails.dadosBasicos.dataNascimento }}</div>
+                    <div class="p-col-12 p-md-6"><strong>Nome da Mãe:</strong> {{ patientDetails.dadosBasicos.nomeMae }}</div>
+                    <div class="p-col-12 p-md-6"><strong>Endereço:</strong> {{ patientDetails.dadosDemograficos?.endereco || "Não informado" }}</div>
+                    <div class="p-col-12 p-md-6"><strong>Cidade:</strong> {{ patientDetails.dadosDemograficos?.cidade || "Não informado" }}</div>
+                </div>
+            </p-tabPanel>
+
+            <p-tabPanel header="Evoluções">
+                <p-accordion [multiple]="true">
+                    <p-accordionTab *ngFor="let evo of evolutions" [header]="evo.dataEvolucao + ' - ' + evo.profissional">
+                        <p>{{ evo.conteudo.textoCompleto }}</p>
+                    </p-accordionTab>
+                </p-accordion>
+            </p-tabPanel>
+
+            <p-tabPanel header="Exames">
+                <p-table [value]="exams">
+                    <ng-template pTemplate="header">
+                        <tr>
+                            <th>Requisição</th>
+                            <th>Data</th>
+                            <th>Exames</th>
+                        </tr>
+                    </ng-template>
+                    <ng-template pTemplate="body" let-exam>
+                        <tr>
+                            <td>{{ exam.requisicao }}</td>
+                            <td>{{ exam.data }}</td>
+                            <td>
+                                <ul>
+                                    <li *ngFor="let e of exam.exames">{{ e.nome }}</li>
+                                </ul>
+                            </td>
+                        </tr>
+                    </ng-template>
+                </p-table>
+            </p-tabPanel>
+
+            <p-tabPanel header="Prescrições">
+                <p-table [value]="prescriptions">
+                    <ng-template pTemplate="header">
+                        <tr>
+                            <th>Data</th>
+                            <th>Status</th>
+                            <th>Itens</th>
+                        </tr>
+                    </ng-template>
+                    <ng-template pTemplate="body" let-presc>
+                        <tr>
+                            <td>{{ presc.dataPrescricao }}</td>
+                            <td>{{ presc.status }}</td>
+                            <td>
+                                <ul>
+                                    <li *ngFor="let item of presc.itens">
+                                        <strong>{{ item.medicamento }}</strong> ({{ item.posologia }})
+                                        <p *ngIf="item.observacao" class="p-text-italic">{{ item.observacao }}</p>
+                                    </li>
+                                </ul>
+                            </td>
+                        </tr>
+                    </ng-template>
+                </p-table>
+            </p-tabPanel>
+        </p-tabView>
+    </ng-template>
+</p-card>
+

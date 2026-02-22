@@ -1,0 +1,224 @@
+<div class="evolution-viewer-container" *ngIf="prontuario">
+  <!-- Header com Título e Ações -->
+  <div class="viewer-header">
+    <div class="header-content">
+      <div class="header-left">
+        <i class="pi pi-file-edit header-icon"></i>
+        <div class="header-info">
+          <h2>Histórico de Evoluções</h2>
+          <p class="header-subtitle">
+            <span *ngIf="patientName"><strong>{{ patientName }}</strong> - </span>
+            Prontuário: <strong>{{ prontuario }}</strong>
+          </p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <p-button
+          icon="pi pi-refresh"
+          (onClick)="loadEvolutions()"
+          [loading]="loading"
+          pTooltip="Atualizar"
+          tooltipPosition="bottom"
+          styleClass="p-button-rounded p-button-text">
+        </p-button>
+        <p-button
+          [icon]="viewMode === 'timeline' ? 'pi pi-th-large' : 'pi pi-list'"
+          (onClick)="toggleViewMode()"
+          pTooltip="Alternar visualização"
+          tooltipPosition="bottom"
+          styleClass="p-button-rounded p-button-text">
+        </p-button>
+        <p-button
+          icon="pi pi-print"
+          (onClick)="printEvolutions()"
+          pTooltip="Imprimir"
+          tooltipPosition="bottom"
+          styleClass="p-button-rounded p-button-text">
+        </p-button>
+        <p-button
+          icon="pi pi-file-pdf"
+          (onClick)="exportToPDF()"
+          pTooltip="Exportar PDF"
+          tooltipPosition="bottom"
+          styleClass="p-button-rounded p-button-text">
+        </p-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters-panel">
+    <div class="filters-grid">
+      <div class="filter-item filter-search">
+        <span class="p-input-icon-left w-full">
+          <i class="pi pi-search"></i>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="searchTerm"
+            (input)="applyFilters()"
+            placeholder="Buscar nas evoluções..."
+            class="w-full">
+        </span>
+      </div>
+
+      <div class="filter-item">
+        <p-dropdown
+          [(ngModel)]="selectedProfessional"
+          [options]="professionals"
+          (onChange)="applyFilters()"
+          placeholder="Todos os profissionais"
+          [showClear]="true"
+          styleClass="w-full">
+        </p-dropdown>
+      </div>
+
+      <div class="filter-item">
+        <p-dropdown
+          [(ngModel)]="selectedActivity"
+          [options]="activities"
+          (onChange)="applyFilters()"
+          placeholder="Todas as atividades"
+          [showClear]="true"
+          styleClass="w-full">
+        </p-dropdown>
+      </div>
+
+      <div class="filter-item">
+        <p-button
+          label="Limpar Filtros"
+          icon="pi pi-filter-slash"
+          (onClick)="clearFilters()"
+          styleClass="p-button-outlined w-full">
+        </p-button>
+      </div>
+    </div>
+
+    <div class="results-count">
+      <span class="count-badge">
+        {{ filteredEvolutions.length }} registro(s) encontrado(s)
+      </span>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading-container">
+    <p-progressSpinner></p-progressSpinner>
+    <p>Carregando evoluções...</p>
+  </div>
+
+  <!-- Conteúdo -->
+  <div *ngIf="!loading && filteredEvolutions.length > 0" class="evolutions-content">
+
+    <!-- Visualização Timeline -->
+    <div *ngIf="viewMode === 'timeline'" class="timeline-view">
+      <div class="timeline-item" *ngFor="let evolution of filteredEvolutions; let i = index">
+        <div class="timeline-marker" [style.background]="getActivityColor(evolution.atividade)">
+          <i class="pi" [ngClass]="getActivityIcon(evolution.atividade)"></i>
+        </div>
+        <div class="timeline-content">
+          <div class="evolution-card">
+            <div class="evolution-header" (click)="toggleEvolution(evolution.id)">
+              <div class="evolution-meta">
+                <div class="meta-row">
+                  <span class="evolution-date">
+                    <i class="pi pi-calendar"></i>
+                    {{ evolution.dataEvolucao }}
+                  </span>
+                  <span class="evolution-activity" [style.color]="getActivityColor(evolution.atividade)">
+                    <i class="pi" [ngClass]="getActivityIcon(evolution.atividade)"></i>
+                    {{ evolution.atividade }}
+                  </span>
+                </div>
+                <div class="evolution-professional">
+                  <i class="pi pi-user"></i>
+                  {{ evolution.profissional }}
+                </div>
+              </div>
+              <div class="evolution-toggle">
+                <i class="pi" [ngClass]="isExpanded(evolution.id) ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
+              </div>
+            </div>
+
+            <div class="evolution-tags" *ngIf="evolution.indicadores">
+              <span class="tag tag-diagnostic" *ngIf="evolution.indicadores.temDiagnostico">
+                <i class="pi pi-check-circle"></i> Diagnóstico
+              </span>
+              <span class="tag tag-medication" *ngIf="evolution.indicadores.temMedicamentos">
+                <i class="pi pi-check-circle"></i> Medicamentos
+              </span>
+              <span class="tag tag-vitals" *ngIf="evolution.indicadores.temSinaisVitais">
+                <i class="pi pi-check-circle"></i> Sinais Vitais
+              </span>
+            </div>
+
+            <div class="evolution-body" *ngIf="isExpanded(evolution.id)">
+              <div class="evolution-text">
+                <pre>{{ evolution.conteudo?.textoCompleto }}</pre>
+              </div>
+            </div>
+
+            <div class="evolution-footer" *ngIf="!isExpanded(evolution.id)">
+              <p class="evolution-summary">{{ evolution.resumo }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visualização Cards -->
+    <div *ngIf="viewMode === 'card'" class="cards-view">
+      <div class="evolution-card-item" *ngFor="let evolution of filteredEvolutions">
+        <div class="card-header" [style.border-left-color]="getActivityColor(evolution.atividade)">
+          <div class="card-icon" [style.background]="getActivityColor(evolution.atividade)">
+            <i class="pi" [ngClass]="getActivityIcon(evolution.atividade)"></i>
+          </div>
+          <div class="card-info">
+            <h4>{{ evolution.atividade }}</h4>
+            <p class="card-professional">{{ evolution.profissional }}</p>
+            <p class="card-date">{{ evolution.dataEvolucao }}</p>
+          </div>
+          <div class="card-toggle" (click)="toggleEvolution(evolution.id)">
+            <i class="pi" [ngClass]="isExpanded(evolution.id) ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
+          </div>
+        </div>
+
+        <div class="card-tags" *ngIf="evolution.indicadores">
+          <span class="tag tag-diagnostic" *ngIf="evolution.indicadores.temDiagnostico">
+            <i class="pi pi-check-circle"></i> Diagnóstico
+          </span>
+          <span class="tag tag-medication" *ngIf="evolution.indicadores.temMedicamentos">
+            <i class="pi pi-check-circle"></i> Medicamentos
+          </span>
+          <span class="tag tag-vitals" *ngIf="evolution.indicadores.temSinaisVitais">
+            <i class="pi pi-check-circle"></i> Sinais Vitais
+          </span>
+        </div>
+
+        <div class="card-body" *ngIf="isExpanded(evolution.id)">
+          <pre>{{ evolution.conteudo?.textoCompleto }}</pre>
+        </div>
+
+        <div class="card-summary" *ngIf="!isExpanded(evolution.id)">
+          <p>{{ evolution.resumo }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!loading && filteredEvolutions.length === 0" class="empty-state">
+    <i class="pi pi-inbox"></i>
+    <h3>Nenhuma evolução encontrada</h3>
+    <p *ngIf="evolutions.length === 0">Não há evoluções registradas para este paciente.</p>
+    <p *ngIf="evolutions.length > 0">Tente ajustar os filtros de busca.</p>
+    <p-button
+      *ngIf="evolutions.length > 0"
+      label="Limpar Filtros"
+      icon="pi pi-filter-slash"
+      (onClick)="clearFilters()"
+      styleClass="p-button-outlined">
+    </p-button>
+  </div>
+</div>
+

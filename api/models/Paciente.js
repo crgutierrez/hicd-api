@@ -105,8 +105,7 @@ class Paciente {
             idade: listData.idade,
             sexo: listData.sexo,
             numeroLeito: listData.leito,
-            clinicaLeito: listData.clinicaLeito,
-            codigoClinica: listData.codigoClinica,
+            nomeClinica: listData.clinica,
             diasInternacao: listData.diasInternacao
         });
     }

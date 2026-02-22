@@ -2,9 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const path = require('path');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swagger');
 
 // Importar rotas
+const authRoutes = require('./routes/auth');
 const clinicasRoutes = require('./routes/clinicas');
 const pacientesRoutes = require('./routes/pacientes');
 const cacheRoutes = require('./routes/cache');
@@ -12,8 +14,16 @@ const cacheRoutes = require('./routes/cache');
 // Criar instância do Express
 const app = express();
 
-// Configurar middlewares de segurança e logging
-app.use(helmet());
+// Helmet com CSP relaxado para o Swagger UI
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+            'script-src': ["'self'", "'unsafe-inline'"],
+            'img-src': ["'self'", 'data:', 'https:']
+        }
+    }
+}));
 app.use(cors());
 app.use(morgan('combined'));
 
@@ -27,7 +37,15 @@ app.use((req, res, next) => {
     next();
 });
 
+// Swagger UI
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customSiteTitle: 'API HICD - Docs',
+    swaggerOptions: { persistAuthorization: true }
+}));
+app.get('/api/docs.json', (req, res) => res.json(swaggerSpec));
+
 // Rotas da API
+app.use('/api/auth', authRoutes);
 app.use('/api/clinicas', clinicasRoutes);
 app.use('/api/pacientes', pacientesRoutes);
 app.use('/api/cache', cacheRoutes);
@@ -42,126 +60,45 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Rota principal com documentação
+// Rota principal
 app.get('/', (req, res) => {
+    const base = `${req.protocol}://${req.get('host')}`;
     res.json({
         message: 'API HICD - Sistema de Prontuário Eletrônico',
         version: '1.0.0',
+        swagger: `${base}/api/docs`,
         endpoints: {
-            health: 'GET /api/health',
+            auth: {
+                login:  'POST /api/auth/login',
+                status: 'GET  /api/auth/status'
+            },
             clinicas: {
-                listar: 'GET /api/clinicas',
-                buscar: 'GET /api/clinicas/search?nome=<nome>',
-                pacientes: 'GET /api/clinicas/:id/pacientes'
+                listar:    'GET /api/clinicas',
+                buscar:    'GET /api/clinicas/search?nome=<nome>',
+                pacientes: 'GET /api/clinicas/:id/pacientes',
+                stats:     'GET /api/clinicas/:id/stats',
+                pareceres: 'GET /api/clinicas/:id/pareceres'
             },
             pacientes: {
-                buscar: 'GET /api/pacientes/search?prontuario=<numero>',
-                detalhes: 'GET /api/pacientes/:prontuario',
-                evolucoes: 'GET /api/pacientes/:prontuario/evolucoes',
-                analise: 'GET /api/pacientes/:prontuario/analise',
-                exames: 'GET /api/pacientes/:prontuario/exames',
-                prescricoes: 'GET /api/pacientes/:prontuario/prescricoes'
+                buscar:     'GET /api/pacientes/search?prontuario=<numero>',
+                porLeito:   'GET /api/pacientes/search-leito?leito=<leito>',
+                detalhes:   'GET /api/pacientes/:prontuario',
+                evolucoes:  'GET /api/pacientes/:prontuario/evolucoes',
+                analise:    'GET /api/pacientes/:prontuario/analise',
+                exames:     'GET /api/pacientes/:prontuario/exames',
+                prescricoes:'GET /api/pacientes/:prontuario/prescricoes'
             },
             cache: {
-                stats: 'GET /api/cache/stats',
-                clear: 'DELETE /api/cache/clear',
+                stats:             'GET    /api/cache/stats',
+                clear:             'DELETE /api/cache/clear',
                 invalidatePatient: 'DELETE /api/cache/invalidate/patient/:prontuario',
-                invalidateType: 'DELETE /api/cache/invalidate/type/:type',
-                clean: 'POST /api/cache/clean'
+                invalidateType:    'DELETE /api/cache/invalidate/type/:type',
+                clean:             'POST   /api/cache/clean'
             }
-        },
-        documentation: 'Acesse /api/docs para documentação completa'
+        }
     });
 });
 
-// Rota de documentação
-app.get('/api/docs', (req, res) => {
-    res.json({  
-        title: 'API HICD - Documentação',
-        description: 'API REST para acessar dados do sistema HICD (Sistema de Prontuário Eletrônico)',
-        version: '1.0.0',
-        baseUrl: `${req.protocol}://${req.get('host')}/api`,
-        endpoints: [
-            {
-                path: '/clinicas',
-                method: 'GET',
-                description: 'Lista todas as clínicas disponíveis',
-                response: {
-                    type: 'array',
-                    items: {
-                        id: 'string',
-                        nome: 'string',
-                        totalPacientes: 'number'
-                    }
-                }
-            },
-            {
-                path: '/clinicas/search',
-                method: 'GET',
-                description: 'Busca clínicas por nome',
-                parameters: [
-                    { name: 'nome', type: 'string', required: true, description: 'Nome da clínica para buscar' }
-                ]
-            },
-            {
-                path: '/clinicas/:id/pacientes',
-                method: 'GET',
-                description: 'Lista pacientes de uma clínica específica',
-                parameters: [
-                    { name: 'id', type: 'string', required: true, description: 'ID da clínica' }
-                ]
-            },
-            {
-                path: '/pacientes/search',
-                method: 'GET',
-                description: 'Busca paciente por prontuário',
-                parameters: [
-                    { name: 'prontuario', type: 'string', required: true, description: 'Número do prontuário' }
-                ]
-            },
-            {
-                path: '/pacientes/:prontuario',
-                method: 'GET',
-                description: 'Obtém detalhes completos de um paciente',
-                parameters: [
-                    { name: 'prontuario', type: 'string', required: true, description: 'Número do prontuário' }
-                ]
-            },
-            {
-                path: '/pacientes/:prontuario/evolucoes',
-                method: 'GET',
-                description: 'Lista evoluções médicas de um paciente',
-                parameters: [
-                    { name: 'prontuario', type: 'string', required: true, description: 'Número do prontuário' }
-                ]
-            },
-            {
-                path: '/pacientes/:prontuario/analise',
-                method: 'GET',
-                description: 'Obtém análise clínica completa de um paciente',
-                parameters: [
-                    { name: 'prontuario', type: 'string', required: true, description: 'Número do prontuário' }
-                ]
-            },
-            {   
-                path: '/pacientes/:prontuario/exames',
-                  method: 'GET',
-                description: 'Obtém Exames  de um paciente',
-                parameters: [
-                    { name: 'prontuario', type: 'string', required: true, description: 'Número do prontuário' }
-                ]
-            },
-            {
-                path: '/pacientes/:prontuario/prescricoes',
-                method: 'GET',
-                description: 'Obtém prescrições de um paciente',
-                parameters: [
-                    { name: 'prontuario', type: 'string', required: true, description: 'Número do prontuário' }
-                ]
-            }
-        ]
-    });
-});
 
 // Middleware para tratar rotas não encontradas
 app.use('*', (req, res) => {
@@ -169,18 +106,29 @@ app.use('*', (req, res) => {
         error: 'Endpoint não encontrado',
         message: 'A rota solicitada não existe',
         availableEndpoints: [
-            'GET /',
-            'GET /api/health',
-            'GET /api/docs',
-            'GET /api/clinicas',
-            'GET /api/clinicas/search',
-            'GET /api/clinicas/:id/pacientes',
-            'GET /api/pacientes/search',
-            'GET /api/pacientes/:prontuario',
-            'GET /api/pacientes/:prontuario/evolucoes',
-            'GET /api/pacientes/:prontuario/analise',
-            'GET /api/pacientes/:prontuario/exames',
-            'GET /api/pacientes/:prontuario/prescricoes'
+            'GET  /',
+            'GET  /api/health',
+            'GET  /api/docs',
+            'GET  /api/docs.json',
+            'POST /api/auth/login',
+            'GET  /api/auth/status',
+            'GET  /api/clinicas',
+            'GET  /api/clinicas/search',
+            'GET  /api/clinicas/:id/pacientes',
+            'GET  /api/clinicas/:id/stats',
+            'GET  /api/clinicas/:id/pareceres',
+            'GET  /api/pacientes/search',
+            'GET  /api/pacientes/search-leito',
+            'GET  /api/pacientes/:prontuario',
+            'GET  /api/pacientes/:prontuario/evolucoes',
+            'GET  /api/pacientes/:prontuario/analise',
+            'GET  /api/pacientes/:prontuario/exames',
+            'GET  /api/pacientes/:prontuario/prescricoes',
+            'GET  /api/cache/stats',
+            'DELETE /api/cache/clear',
+            'DELETE /api/cache/invalidate/patient/:prontuario',
+            'DELETE /api/cache/invalidate/type/:type',
+            'POST /api/cache/clean'
         ]
     });
 });

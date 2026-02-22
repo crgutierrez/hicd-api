@@ -1,0 +1,89 @@
+<p-card>
+  <p-toolbar>
+    <div class="p-toolbar-group-start">
+      <h2>Pesquisa de Clínicas</h2>
+    </div>
+  </p-toolbar>
+
+  <div class="p-fluid p-formgrid p-grid p-mt-4">
+    <div class="p-field p-col-12 p-md-10">
+      <input id="search" type="text" pInputText [(ngModel)]="searchTerm" (input)="searchClinics()" placeholder="Digite o nome da clínica para filtrar">
+    </div>
+  </div>
+
+  <p-table [value]="filteredClinics" [loading]="clinicsLoading" styleClass="p-datatable-striped p-mt-4">
+    <ng-template pTemplate="header">
+      <tr>
+        <th>Nome</th>
+        <th>Endereço</th>
+        <th style="width: 10rem">Ações</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-clinic>
+      <tr>
+        <td>{{clinic.nome}}</td>
+        <td>{{clinic.endereco}}</td>
+        <td>
+          <p-button
+            label="Ver Pacientes"
+            icon="pi pi-users"
+            (onClick)="loadPatientsByClinic(clinic.codigo)"
+            [disabled]="patientsLoading && selectedClinic?.codigo === clinic.codigo"
+            styleClass="p-button-sm">
+          </p-button>
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="3">Nenhuma clínica encontrada.</td>
+      </tr>
+    </ng-template>
+  </p-table>
+</p-card>
+
+<p-card *ngIf="selectedClinic" class="p-mt-4">
+    <p-toolbar>
+        <div class="p-toolbar-group-start">
+          <h4>Pacientes da Clínica: {{selectedClinic.nome}}</h4>
+        </div>
+        <div class="p-toolbar-group-end">
+          <p-button
+            label="Atualizar"
+            icon="pi pi-refresh"
+            (onClick)="loadPatientsByClinic(selectedClinic.codigo)"
+            [loading]="patientsLoading"
+            styleClass="p-button-sm p-button-outlined">
+          </p-button>
+        </div>
+    </p-toolbar>
+
+    <p-table [value]="patients" [loading]="patientsLoading" styleClass="p-datatable-striped p-mt-4"
+      selectionMode="single" [(selection)]="selectedPatient" (onRowSelect)="onPatientSelect($event.data)">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Prontuário</th>
+            <th>Nome</th>
+            <th>Leito</th>
+            <th>Data de Nascimento</th>
+            <th style="width: 10rem">Ações</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-patient>
+          <tr [pSelectableRow]="patient">
+            <td>{{patient.prontuario}}</td>
+            <td>{{patient.nome}}</td>
+            <td>{{patient.leito}}</td>
+            <td>{{patient.dataNascimento}}</td>
+            <td>
+              <button pButton type="button" icon="pi pi-eye" [routerLink]="['/patient', patient.prontuario]" class="p-button-rounded p-button-text"></button>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="4">Nenhum paciente encontrado para esta clínica.</td>
+          </tr>
+        </ng-template>
+      </p-table>
+</p-card>

@@ -6,8 +6,9 @@
 class MemoryCache {
     constructor() {
         this.cache = new Map();
+        this.pending = new Map(); // evita execução duplicada em cache miss simultâneo
         this.defaultTTL = 10 * 60 * 1000; // 10 minutos em milissegundos
-        
+
         // Limpar cache expirado a cada 5 minutos
         setInterval(() => {
             this.cleanExpired();
@@ -191,25 +192,30 @@ class MemoryCache {
      */
     async getOrSet(cacheKey, asyncFunction, ttl = this.defaultTTL) {
         // Tentar buscar no cache primeiro
-        console.log(`🔍 Buscando no cache: ${cacheKey}`)    ;
-        let data = this.get(cacheKey);
-        
-        if (data !== null) {
-            return data;
+        const cached = this.get(cacheKey);
+        if (cached !== null) {
+            return cached;
         }
 
-        // Se não encontrado, executar função e armazenar resultado
-        try {
-            console.log(`🔄 Executando função para cache: ${cacheKey}`);
-            data = await asyncFunction();
-            console.log(`✅ Função executada com sucesso para cache: ${cacheKey}`);
-            console.log(data);
-            this.set(cacheKey, data, ttl);
-            return data;
-        } catch (error) {
-            console.error(`❌ Erro ao executar função para cache ${cacheKey}:`, error.message);
-            throw error;
+        // Se já há uma busca em andamento para esta chave, aguardar o resultado dela
+        if (this.pending.has(cacheKey)) {
+            return this.pending.get(cacheKey);
         }
+
+        // Registrar a promise pendente antes de executar para bloquear chamadas concorrentes
+        const promise = asyncFunction()
+            .then(data => {
+                this.set(cacheKey, data, ttl);
+                this.pending.delete(cacheKey);
+                return data;
+            })
+            .catch(error => {
+                this.pending.delete(cacheKey);
+                throw error;
+            });
+
+        this.pending.set(cacheKey, promise);
+        return promise;
     }
 }
 

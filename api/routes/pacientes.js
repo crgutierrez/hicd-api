@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const pacientesController = require('../controllers/pacientes');
+const { requireCrawler } = require('../middleware/require-auth');
+
+router.use(requireCrawler);
 
 // Middleware para validação de prontuário
 const validateProntuario = (req, res, next) => {

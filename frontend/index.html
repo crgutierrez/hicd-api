@@ -75,8 +75,18 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" id="nav-exames" href="#exames" data-section="exames">
+                            <i class="bi bi-clipboard2-pulse me-1"></i>Exames
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" id="nav-busca" href="#busca" data-section="busca">
                             <i class="bi bi-search me-1"></i>Busca Avançada
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="passagem-plantao.html">
+                            <i class="bi bi-clock-history me-1"></i>Passagem de Plantão
                         </a>
                     </li>
                 </ul>
@@ -224,6 +234,9 @@
                                                 <button class="btn btn-outline-success btn-sm quick-nav" data-target="pacientes">
                                                     <i class="bi bi-people me-1"></i>Lista Pacientes
                                                 </button>
+                                                <a href="passagem-plantao.html" class="btn btn-outline-warning btn-sm">
+                                                    <i class="bi bi-clock-history me-1"></i>Passagem Plantão
+                                                </a>
                                                 <button class="btn btn-outline-info btn-sm" id="refreshDashboard">
                                                     <i class="bi bi-arrow-clockwise me-1"></i>Atualizar
                                                 </button>
@@ -398,6 +411,127 @@
                 </div>
             </section>
 
+            <!-- Exames Section -->
+            <section id="exames" class="content-section">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="page-header mb-4">
+                            <h2 class="page-title">
+                                <i class="bi bi-clipboard2-pulse text-primary me-2"></i>
+                                Exames Estruturados
+                            </h2>
+                            <p class="page-subtitle text-muted">
+                                Visualização e análise de exames laboratoriais estruturados
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filtros de Exames -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-funnel text-info me-2"></i>
+                                    Filtros de Exames
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-lg-4 mb-3">
+                                        <label for="exameProntuarioInput" class="form-label">Prontuário do Paciente</label>
+                                        <input type="text" class="form-control" id="exameProntuarioInput" 
+                                               placeholder="Ex: 40562">
+                                    </div>
+                                    <div class="col-lg-4 mb-3">
+                                        <label for="exameTipoFilter" class="form-label">Tipo de Exame</label>
+                                        <select class="form-select" id="exameTipoFilter">
+                                            <option value="">Todos os tipos</option>
+                                            <option value="laboratorial">Laboratoriais</option>
+                                            <option value="imagem">Exames de Imagem</option>
+                                            <option value="microbiologia">Microbiologia</option>
+                                            <option value="gasometria">Gasometrias</option>
+                                            <option value="solicitacao">Solicitações</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-lg-4 mb-3">
+                                        <label for="exameFormatoFilter" class="form-label">Formato</label>
+                                        <select class="form-select" id="exameFormatoFilter">
+                                            <option value="">Todos os formatos</option>
+                                            <option value="numerico">Numéricos</option>
+                                            <option value="descritivo">Descritivos</option>
+                                            <option value="pedido">Solicitações</option>
+                                            <option value="cultura">Culturas</option>
+                                            <option value="diagnostico">Diagnósticos</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-lg-6 mb-3">
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-primary" id="buscarExamesBtn">
+                                                <i class="bi bi-search me-1"></i>Buscar Exames
+                                            </button>
+                                            <button class="btn btn-outline-secondary" id="limparFiltrosExamesBtn">
+                                                <i class="bi bi-x-circle me-1"></i>Limpar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-6 mb-3 text-lg-end">
+                                        <button class="btn btn-success" id="exportarExamesBtn">
+                                            <i class="bi bi-download me-1"></i>Exportar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estatísticas de Exames -->
+                <div class="row mb-4" id="examesStatsRow" style="display: none;">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-graph-up text-success me-2"></i>
+                                    Estatísticas dos Exames
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row" id="examesStatsContent">
+                                    <!-- Estatísticas serão inseridas aqui -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Exames -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-list-ul text-info me-2"></i>
+                                    Exames Estruturados
+                                </h5>
+                                <div class="badge bg-primary" id="examesCount">0 exames</div>
+                            </div>
+                            <div class="card-body">
+                                <div id="examesTable">
+                                    <div class="text-center py-5 text-muted">
+                                        <i class="bi bi-clipboard2-pulse display-6 mb-3"></i>
+                                        <p>Digite um prontuário para visualizar os exames estruturados</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Busca Avançada Section -->
             <section id="busca" class="content-section">
                 <div class="row">
@@ -505,9 +639,133 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-info" id="viewExamesBtn">
+                        <i class="bi bi-clipboard2-pulse me-1"></i>Ver Exames
+                    </button>
                     <button type="button" class="btn btn-primary" id="viewEvolucoeBtn">
                         <i class="bi bi-file-medical me-1"></i>Ver Evoluções
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Exames -->
+    <div class="modal fade" id="examesModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-clipboard2-pulse me-2"></i>Exames Estruturados
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Filtros -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <label for="examDataInicio" class="form-label">Data Início:</label>
+                            <input type="date" class="form-control" id="examDataInicio">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="examDataFim" class="form-label">Data Fim:</label>
+                            <input type="date" class="form-control" id="examDataFim">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="examTipoFilter" class="form-label">Tipo:</label>
+                            <select class="form-select" id="examTipoFilter">
+                                <option value="">Todos</option>
+                                <option value="laboratorial">Laboratorial</option>
+                                <option value="microbiologia">Microbiologia</option>
+                                <option value="imagem">Imagem</option>
+                                <option value="gasometria">Gasometria</option>
+                                <option value="solicitacao">Solicitação</option>
+                                <option value="geral">Geral</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button class="btn btn-primary me-2" onclick="filterExamesPaciente()">
+                                <i class="bi bi-search me-1"></i>Filtrar
+                            </button>
+                            <button class="btn btn-outline-success" onclick="exportExamesPaciente()">
+                                <i class="bi bi-download me-1"></i>Exportar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Estatísticas -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-graph-up me-1"></i>Estatísticas dos Exames
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row text-center">
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-0 text-primary" id="statTotalExames">0</div>
+                                                <small class="text-muted">Total</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-0 text-success" id="statLaboratorial">0</div>
+                                                <small class="text-muted">Laboratorial</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-0 text-info" id="statMicrobiologia">0</div>
+                                                <small class="text-muted">Microbiologia</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-0 text-warning" id="statImagem">0</div>
+                                                <small class="text-muted">Imagem</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-0 text-danger" id="statGasometria">0</div>
+                                                <small class="text-muted">Gasometria</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="border rounded p-2">
+                                                <div class="h5 mb-0 text-secondary" id="statOutros">0</div>
+                                                <small class="text-muted">Outros</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Exames -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="bi bi-list-ul me-1"></i>Exames do Paciente
+                                <span class="badge bg-primary ms-2" id="examesPacienteCount">0</span>
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="examesPacienteContainer">
+                                <div class="text-center text-muted py-4">
+                                    <i class="bi bi-clipboard2-pulse display-4"></i>
+                                    <p class="mt-2">Nenhum exame encontrado</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                 </div>
             </div>
         </div>
