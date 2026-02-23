@@ -14,6 +14,7 @@ const HTML_ENTITY   = /&[a-z]+;|&#\d+;/gi; // entidades básicas
 const TABLE_RE   = /<table\b[^>]*>([\s\S]*?)<\/table>/i;
 const TR_RE      = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
 const TD_RE      = /<td\b[^>]*>([\s\S]*?)<\/td>/gi;
+const COMMENT_RE = /<!--[\s\S]*?-->/g;   // remove <td> dentro de comentários HTML
 const ONCLICK_RE = /onclick=["']([^"']+)["']/i;
 const HREF_RE    = /href=["']([^"']+)["']/i;
 
@@ -63,9 +64,12 @@ function nodeText(el) {
     return out.replace(WS_RE, ' ').trim();
 }
 
-/** Remove tags HTML e normaliza espaços de uma string bruta. */
+/** Remove tags HTML, decodifica entidades (&nbsp; etc.) e normaliza espaços. */
 function stripHtml(s) {
-    return s.replace(HTML_TAG, ' ').replace(WS_RE, ' ').trim();
+    return s.replace(HTML_TAG, ' ')
+            .replace(/&[a-z#\d]+;/gi, ' ')   // &nbsp;, &amp;, &#160; → espaço
+            .replace(WS_RE, ' ')
+            .trim();
 }
 
 /**
@@ -248,7 +252,9 @@ class PacienteParser extends BaseParser {
         TR_RE.lastIndex = 0;
         let trMatch;
         while ((trMatch = TR_RE.exec(tableContent)) !== null) {
-            const trContent = trMatch[1];
+            // Remove comentários HTML antes de extrair TDs — o HICD comenta
+            // colunas opcionais com <!-- <td>...</td> --> dentro das linhas
+            const trContent = trMatch[1].replace(COMMENT_RE, '');
 
             // Pula linhas de cabeçalho
             if (trContent.includes('<th')) { firstRow = false; continue; }
