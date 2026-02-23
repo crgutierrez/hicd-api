@@ -36,22 +36,13 @@ class BaseParser {
      * Carrega HTML com cheerio e trata erros
      */
     loadHTML(html) {
-        console.log('Carregando HTML para parsing...');
-        console.log(cheerio)
         try {
             if (!html || typeof html !== 'string') {
-                console.log('HTML inválido ou vazio recebido para parsing.');
                 throw new Error('HTML inválido ou vazio');
             }
-            // console.log('HTML recebido para parsing:', html); // Log dos primeiros 500 caracteres do HTML
             return cheerio.load(html);
         } catch (error) {
-            console.log('erro......');
-            console.log('Erro ao carregar HTML:', error);
-            console.log('HTML recebido:', html);
-
             this.error('Erro ao carregar HTML:', error);
-            this.error('HTML recebido:', html);
             throw error;
         }
     }

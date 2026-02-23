@@ -1,4 +1,4 @@
-const { Paciente } = require('../models');
+const { Paciente, Clinica } = require('../models');
 const sharedCrawler = require('../shared-crawler');
 
 class ClinicasController {
@@ -24,14 +24,12 @@ class ClinicasController {
         try {
             const crawler = await this.initCrawler();
             const clinicas = await crawler.getClinicas();
-            
-            this.clinicasCache = clinicas.map(clinica => ({
-                id: clinica.id || clinica.codigo,
-                nome: clinica.nome,
-                codigo: clinica.codigo,
-                totalPacientes: 0 // Será atualizado quando necessário
-            }));
-            
+
+            this.clinicasCache = clinicas
+                .map(clinica => Clinica.fromCrawlerData(clinica))
+                .filter(c => c.isValid())
+                .map(c => c.toResumo());
+
             this.lastCacheUpdate = Date.now();
             return this.clinicasCache;
         } catch (error) {

@@ -38,6 +38,9 @@ router.get('/:id/stats', validateClinicaId, async (req, res) => {
     await clinicasController.obterEstatisticasClinica(req, res);
 });
 
+// GET /api/clinicas/:idClinica/pareceres - Buscar pareceres de uma clínica
+router.get('/:idClinica/pareceres', (req, res) => clinicasController.buscarPareceres(req, res));
+
 // GET /api/clinicas/:id - Obter detalhes de uma clínica específica (deve ser a última rota com parâmetro)
 router.get('/:id', validateClinicaId, async (req, res) => {
     try {
@@ -84,8 +87,5 @@ router.get('/:id', validateClinicaId, async (req, res) => {
         });
     }
 });
-
-// Nova rota para buscar pareceres
-router.get('/:idClinica/pareceres', (req, res) => clinicasController.buscarPareceres(req, res));
 
 module.exports = router;

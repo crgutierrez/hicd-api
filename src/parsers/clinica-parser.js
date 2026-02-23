@@ -10,35 +10,51 @@ class ClinicaParser extends BaseParser {
     }
 
     /**
-     * Parse principal para extrair dados de clínicas - baseado no parser original
-     * Extrai lista de clínicas do HTML do select #clinica
+     * Parse principal para extrair dados de clínicas.
+     * Tenta múltiplos seletores para localizar o select de clínicas.
      */
     parse(html) {
         this.debug('Iniciando parse de clínicas');
-        
+
         try {
             const $ = this.loadHTML(html);
             const clinicas = [];
 
-            // Parse específico do select de clínicas conforme parser original
-            $('#clinica option').each((i, element) => {
-                const codigo = $(element).val();
-                const nome = $(element).text().trim();
+            // Tenta seletores em ordem de prioridade
+            const selectores = [
+                '#clinica option',
+                'select[name="clinica"] option',
+                'select[name="idClinica"] option',
+                'select[id*="clinica" i] option',
+                'select[name*="clinica" i] option'
+            ];
 
-                if (codigo && nome && codigo !== '0') {
-                    console.log(`   - Clínica encontrada: [${codigo}] ${nome}`);
-                    clinicas.push({
-                        codigo: codigo,
-                        nome: nome,
-                        endereco: '',
-                        telefone: '',
-                        email: '',
-                        responsavel: '',
-                        status: 'ativo',
-                        dataUltimaAtualizacao: this.getCurrentTimestamp()
+            let encontrou = false;
+            for (const seletor of selectores) {
+                const options = $(seletor);
+                if (options.length > 0) {
+                    this.debug(`Seletor "${seletor}" encontrou ${options.length} opções`);
+                    options.each((_, element) => {
+                        const codigo = $(element).val()?.trim();
+                        const nome = $(element).text().trim();
+                        if (codigo && codigo !== '0' && nome) {
+                            this.debug(`Clínica encontrada: [${codigo}] ${nome}`);
+                            clinicas.push({
+                                codigo,
+                                nome: this.normalizarNome(nome),
+                                status: 'ativo',
+                                dataUltimaAtualizacao: this.getCurrentTimestamp()
+                            });
+                        }
                     });
+                    encontrou = true;
+                    break;
                 }
-            });
+            }
+
+            if (!encontrou) {
+                this.debug('Nenhum seletor de clínicas encontrou dados no HTML');
+            }
 
             this.debug(`Parse concluído. ${clinicas.length} clínicas encontradas`);
             return clinicas;
@@ -47,6 +63,13 @@ class ClinicaParser extends BaseParser {
             this.error('Erro no parse de clínicas:', error);
             return [];
         }
+    }
+
+    /**
+     * Normaliza o nome da clínica (remove espaços extras, padroniza maiúsculas)
+     */
+    normalizarNome(nome) {
+        return nome.replace(/\s+/g, ' ').trim();
     }
 
     /**

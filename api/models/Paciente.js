@@ -41,7 +41,8 @@ class Paciente {
             nomeClinica: data.nomeClinica || null,
             numeroLeito: data.numeroLeito || null,
             clinicaLeito: data.clinicaLeito || null,
-            diasInternacao: data.diasInternacao || null
+            diasInternacao: data.diasInternacao || null,
+            dataInternacao: data.dataInternacao || null
         };
         
         // Metadados
@@ -88,7 +89,8 @@ class Paciente {
             nomeClinica: internacao.nomeClinica,
             numeroLeito: internacao.numeroLeito,
             clinicaLeito: internacao.clinicaLeito,
-            diasInternacao: internacao.diasInternacao
+            diasInternacao: internacao.diasInternacao,
+            dataInternacao: internacao.dataInternacao
         });
     }
 
@@ -104,9 +106,11 @@ class Paciente {
             nome: listData.nome,
             idade: listData.idade,
             sexo: listData.sexo,
-            numeroLeito: listData.leito,
-            nomeClinica: listData.clinica,
-            diasInternacao: listData.diasInternacao
+            numeroLeito: listData.leito || listData.clinicaLeito,
+            nomeClinica: listData.clinica || listData.clinicaNome,
+            clinicaLeito: listData.clinicaLeito || listData.leito,
+            diasInternacao: listData.diasInternacao,
+            dataInternacao: listData.dataInternacao
         });
     }
 
@@ -121,7 +125,10 @@ class Paciente {
             idade: this.idade,
             sexo: this.sexo,
             leito: this.internacao.numeroLeito,
+            clinicaLeito: this.internacao.clinicaLeito,
             clinica: this.internacao.nomeClinica,
+            diasInternacao: this.internacao.diasInternacao,
+            dataInternacao: this.internacao.dataInternacao,
             metadata: this.metadata
         };
     }

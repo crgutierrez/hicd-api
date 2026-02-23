@@ -16,9 +16,7 @@ class PacienteParser extends BaseParser {
             try {
                 const $ = cheerio.load(html);
     
-                console.log(`[PARSER] Extraindo cadastro do paciente ${pacienteId}...`);
-                console.log('=====================================');
-                // console.log('html:', html); // Log inicial do HTML para debug
+                this.debug(`Extraindo cadastro do paciente ${pacienteId}`);
                 const cadastro = {
                     pacienteId: pacienteId,
                     dadosBasicos: {},
@@ -136,14 +134,17 @@ class PacienteParser extends BaseParser {
                         textos.each((i, elemento) => {
                             const texto = $(elemento).text().trim();
     
-                            // Clínica/Leito
-                            if (texto.includes('Clinica / Leito:')) {
-                                const clinicaLeitoMatch = texto.match(/Clinica \/ Leito:\s*(.+)/);
+                            // Clínica/Leito — suporta variações de acento e formatos:
+                            // "NNN-NOME LEITO" e "NNN-NOME / LEITO NNN"
+                            if (texto.includes('Clinica / Leito:') || texto.includes('Clínica / Leito:')) {
+                                const clinicaLeitoMatch = texto.match(/Cl[ií]nica \/ Leito:\s*(.+)/);
                                 if (clinicaLeitoMatch) {
-                                    cadastro.internacao.clinicaLeito = clinicaLeitoMatch[1].trim();
-    
-                                    // Extrair código da clínica e leito separadamente
-                                    const leitoMatch = clinicaLeitoMatch[1].match(/(\d{3})-(.+?)\s+(\d+)/);
+                                    const clinicaLeitoStr = clinicaLeitoMatch[1].trim();
+                                    cadastro.internacao.clinicaLeito = clinicaLeitoStr;
+
+                                    // Formato: "NNN-NOME_CLINICA LEITO"
+                                    // Ex: "012-ENFERMARIA G 0007" ou "010-UTI ADULTO 03"
+                                    const leitoMatch = clinicaLeitoStr.match(/^(\d{3})-(.+?)\s+(\S+)$/);
                                     if (leitoMatch) {
                                         cadastro.internacao.codigoClinica = leitoMatch[1];
                                         cadastro.internacao.nomeClinica = leitoMatch[2].trim();
@@ -151,24 +152,27 @@ class PacienteParser extends BaseParser {
                                     }
                                 }
                             }
-    
-                            // Nascimento e Idade
+
+                            // Nascimento e Idade — podem estar na mesma linha:
+                            // "Nascimento: 01/01/1980   Idade: 44 anos"
                             if (texto.includes('Nascimento:')) {
                                 const nascimentoMatch = texto.match(/Nascimento:\s*(\d{2}\/\d{2}\/\d{4})/);
                                 if (nascimentoMatch) {
-                                    cadastro.dadosBasicos.dataNascimento = nascimentoMatch[1];
+                                    cadastro.dadosBasicos.dataNascimento = this.parseDate(nascimentoMatch[1]);
                                 }
-    
-                                const idadeMatch = texto.match(/Idade:\s*(.+?)(?:\s|$)/);
+
+                                const idadeMatch = texto.match(/Idade:\s*(.+?)(?:\s{2,}|$)/);
                                 if (idadeMatch) {
                                     cadastro.dadosBasicos.idade = idadeMatch[1].trim();
                                 }
                             }
-    
+
                             // Sexo
                             if (texto.includes('Sexo:')) {
-                                const sexo = texto.replace('Sexo:', '').trim();
-                                cadastro.dadosBasicos.sexo = sexo;
+                                const sexoMatch = texto.match(/Sexo:\s*(\S+)/);
+                                if (sexoMatch) {
+                                    cadastro.dadosBasicos.sexo = sexoMatch[1].trim();
+                                }
                             }
     
                             // Complemento (endereço)
@@ -205,22 +209,12 @@ class PacienteParser extends BaseParser {
                     cadastro.dadosBasicos.prontuario = inputProntuario.trim();
                 }
     
-                // Log dos dados extraídos para debug
-                if (this.debugMode) {
-                    console.log(`[PARSER] Cadastro extraído para paciente ${pacienteId}:`);
-                    console.log('- Nome:', cadastro.dadosBasicos.nome);
-                    console.log('- Prontuário:', cadastro.dadosBasicos.prontuario);
-                    console.log('- Clínica/Leito:', cadastro.internacao.clinicaLeito);
-                    console.log('- Telefone:', cadastro.contatos.telefone);
-                    console.log('- Município:', cadastro.endereco.municipio);
-                }
-    
-    
-    
+                this.debug(`Cadastro extraído: nome=${cadastro.dadosBasicos.nome}, leito=${cadastro.internacao.clinicaLeito}`);
+
                 return cadastro;
-    
+
             } catch (error) {
-                console.error(`[PARSER] Erro ao parsear cadastro do paciente ${pacienteId}:`, error.message);
+                this.error(`Erro ao parsear cadastro do paciente ${pacienteId}:`, error);
                 return null;
             }
         }
@@ -352,6 +346,7 @@ class PacienteParser extends BaseParser {
             let leito = '';
             let telefone = '';
             let diasInternacao = '';
+            let nascimento = '';
 
             // Estratégia baseada no número de colunas
             if (cells.length >= 2) {
@@ -409,16 +404,18 @@ class PacienteParser extends BaseParser {
                     }
                 }
             }
-            console.log("Prontuario:", prontuario, "Nome:", nome, "Internacao:", internacao, "Sexo:", sexo, "Leito:", leito, "Dias Internacao:", diasInternacao);
+            this.debug(`parsePacienteRow: prontuario=${prontuario}, nome=${nome}, leito=${leito}`);
 
             if (prontuario && nome) {
                 return {
                     prontuario: String(prontuario),
                     nome: nome,
+                    dataNascimento: this.parseDate(nascimento),
                     dataInternacao: this.parseDate(internacao),
                     sexo: this.normalizeSexo(sexo),
                     diasInternacao: diasInternacao,
-                    clinica: leito,
+                    leito: leito,
+                    clinicaLeito: leito,
                     status: 'ativo',
                     dataUltimaAtualizacao: this.getCurrentTimestamp()
                 };
