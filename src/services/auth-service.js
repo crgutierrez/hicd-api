@@ -66,22 +66,24 @@ class HICDAuthService {
             try {
                 console.log(`[LOGIN] Tentativa ${attempt + 1} de login...`);
                 const result = await this.attemptLogin();
-                
+                console.log(`[LOGIN] Resultado da tentativa ${attempt + 1}:`, JSON.stringify(result));
+
                 if (result.success) {
                     // Verificar se o login foi bem-sucedido
                     const verifyResult = await this.verifyLogin();
+                    console.log('[LOGIN] Resultado da verificação:', JSON.stringify(verifyResult));
                     if (verifyResult.success) {
                         this.isLoggedIn = true;
                         return { success: true, message: 'Login realizado com sucesso' };
                     }
                 }
-                
+
                 if (attempt < this.httpClient.maxRetries) {
                     await this.httpClient.delay(3000);
                 }
-                
+
             } catch (error) {
-                console.error(`[LOGIN] Erro na tentativa ${attempt + 1}:`, error.message);
+                console.error(`[LOGIN] Erro na tentativa ${attempt + 1}:`, error.code || error.message);
                 if (attempt < this.httpClient.maxRetries) {
                     await this.httpClient.delay(3000);
                 }
@@ -97,17 +99,32 @@ class HICDAuthService {
     async attemptLogin() {
         try {
             const urls = this.httpClient.getUrls();
-            
+
             // Primeiro, acessar a página inicial para obter cookies de sessão
             console.log('[LOGIN] Obtendo cookies de sessão...');
-            const initialResponse = await this.httpClient.get(urls.index);
-            
+            console.log('[LOGIN] URL index:', urls.index);
+            let initialResponse;
+            try {
+                initialResponse = await this.httpClient.get(urls.index);
+                console.log('[LOGIN] Status GET index:', initialResponse.status);
+            } catch (err) {
+                console.error('[LOGIN] Falha no GET index:', err.code || err.message);
+                if (err.response) {
+                    console.error('[LOGIN] Response status:', err.response.status);
+                    console.error('[LOGIN] Response data:', String(err.response.data).substring(0, 200));
+                }
+                throw err;
+            }
+
             // Extrair cookies da resposta
             if (initialResponse.headers['set-cookie']) {
                 const cookies = initialResponse.headers['set-cookie']
                     .map(cookie => cookie.split(';')[0])
                     .join('; ');
                 this.httpClient.updateCookies(cookies);
+                console.log('[LOGIN] Cookies obtidos:', cookies.substring(0, 100));
+            } else {
+                console.log('[LOGIN] Nenhum cookie recebido no GET index');
             }
 
             // Preparar dados do login
@@ -118,20 +135,31 @@ class HICDAuthService {
                 'session': 'undefined'
             });
 
-            console.log('[LOGIN] Enviando credenciais...');
-            
+            console.log('[LOGIN] Enviando credenciais para:', urls.login);
+
             // Enviar requisição de login
-            const loginResponse = await this.httpClient.post(urls.login, loginData, {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Referer': urls.index,
-                    'Origin': 'https://hicd-hospub.sesau.ro.gov.br'
+            let loginResponse;
+            try {
+                loginResponse = await this.httpClient.post(urls.login, loginData, {
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Referer': urls.index,
+                        'Origin': 'https://hicd-hospub.sesau.ro.gov.br'
+                    }
+                });
+                console.log('[LOGIN] Status POST login:', loginResponse.status);
+            } catch (err) {
+                console.error('[LOGIN] Falha no POST login:', err.code || err.message);
+                if (err.response) {
+                    console.error('[LOGIN] Response status:', err.response.status);
+                    console.error('[LOGIN] Response data:', String(err.response.data).substring(0, 200));
                 }
-            });
+                throw err;
+            }
 
             // Verificar resposta do login
-            const responseText = loginResponse.data;
-            console.log('[LOGIN] Resposta do servidor:', responseText.substring(0, 100));
+            const responseText = String(loginResponse.data);
+            console.log('[LOGIN] Resposta do servidor (300 chars):', responseText.substring(0, 300));
 
             // Verificar se o login foi bem-sucedido
             if (responseText.includes('OK') || responseText.includes('sucesso') || loginResponse.status === 200) {
@@ -142,15 +170,15 @@ class HICDAuthService {
                         .join('; ');
                     this.httpClient.updateCookies(newCookies);
                 }
-                
+
                 return { success: true, message: 'Login realizado' };
             }
 
             return { success: false, message: 'Resposta do servidor não indica sucesso no login' };
 
         } catch (error) {
-            console.error('[LOGIN] Erro durante tentativa de login:', error.message);
-            return { success: false, message: `Erro durante login: ${error.message}` };
+            console.error('[LOGIN] Erro durante tentativa de login:', error.code || error.message);
+            return { success: false, message: `Erro durante login: ${error.code || error.message}` };
         }
     }
 

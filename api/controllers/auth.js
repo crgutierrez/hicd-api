@@ -97,6 +97,7 @@ class AuthController {
             console.log(`[AUTH] Iniciando crawler para o usuário: ${username}`);
 
             const result = await sharedCrawler.initCrawler(username, password);
+            console.log('[AUTH] Resultado do initCrawler:', JSON.stringify(result));
 
             if (result.success) {
                 return res.json({
