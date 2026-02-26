@@ -49,7 +49,9 @@ class HICDAuthService {
      */
     async login() {
         console.log('[LOGIN] Iniciando processo de autenticação...');
-        
+
+        const errors = [];
+
         // Primeira tentativa (que sempre falha devido ao bug do sistema)
         try {
             console.log('[LOGIN] Primeira tentativa (esperada falha devido ao bug do sistema)...');
@@ -76,6 +78,9 @@ class HICDAuthService {
                         this.isLoggedIn = true;
                         return { success: true, message: 'Login realizado com sucesso' };
                     }
+                    errors.push(`tentativa ${attempt + 1}: login OK mas verificação falhou - ${verifyResult.message}`);
+                } else {
+                    errors.push(`tentativa ${attempt + 1}: ${result.message}`);
                 }
 
                 if (attempt < this.httpClient.maxRetries) {
@@ -83,14 +88,16 @@ class HICDAuthService {
                 }
 
             } catch (error) {
-                console.error(`[LOGIN] Erro na tentativa ${attempt + 1}:`, error.code || error.message);
+                const detail = error.code || error.message;
+                console.error(`[LOGIN] Erro na tentativa ${attempt + 1}:`, detail);
+                errors.push(`tentativa ${attempt + 1}: ${detail}`);
                 if (attempt < this.httpClient.maxRetries) {
                     await this.httpClient.delay(3000);
                 }
             }
         }
 
-        return { success: false, message: 'Falha no login após todas as tentativas' };
+        return { success: false, message: 'Falha no login após todas as tentativas', errors };
     }
 
     /**

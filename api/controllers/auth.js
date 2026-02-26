@@ -109,7 +109,8 @@ class AuthController {
             return res.status(401).json({
                 success: false,
                 error: 'Falha na autenticação',
-                message: result.message || 'Credenciais inválidas ou sistema HICD indisponível'
+                message: result.message || 'Credenciais inválidas ou sistema HICD indisponível',
+                debug: result.errors || []
             });
 
         } catch (error) {
