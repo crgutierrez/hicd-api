@@ -289,11 +289,28 @@ class PacienteParser extends BaseParser {
 
             if (!prontuario || !nome) continue;
 
-            const leito        = cells.length >= 3 ? stripHtml(cells[2]) : '';
-            const c3           = cells.length >= 4 ? stripHtml(cells[3]) : '';
-            const internacao   = cells.length >= 5 ? stripHtml(cells[4]) : '';
-            const diasInternacao = cells.length >= 6 ? stripHtml(cells[5]) : '';
-            const sexo         = this.isSexoValue(c3) ? c3 : '';
+            const leito = cells.length >= 3 ? stripHtml(cells[2]) : '';
+
+            // Detecta automaticamente se a tabela tem coluna de sexo.
+            // Estrutura com sexo:    [pront, nome, leito, sexo, dataInt, dias]
+            // Estrutura sem sexo:    [pront, nome, leito, dataInt, dias]
+            const c3raw = cells.length >= 4 ? stripHtml(cells[3]) : '';
+            let sexo = '', internacao = '', diasInternacao = '';
+
+            if (this.isSexoValue(c3raw)) {
+                // Coluna 3 é sexo → data e dias nas posições 4 e 5
+                sexo          = c3raw;
+                internacao    = cells.length >= 5 ? stripHtml(cells[4]) : '';
+                diasInternacao = cells.length >= 6 ? stripHtml(cells[5]) : '';
+            } else if (DATE_LIKE.test(c3raw)) {
+                // Coluna 3 é a data de internação (sem coluna de sexo)
+                internacao    = c3raw;
+                diasInternacao = cells.length >= 5 ? stripHtml(cells[4]) : '';
+            } else {
+                // Estrutura desconhecida: mantém mapeamento padrão
+                internacao    = cells.length >= 5 ? stripHtml(cells[4]) : '';
+                diasInternacao = cells.length >= 6 ? stripHtml(cells[5]) : '';
+            }
 
             pacientes.push({
                 prontuario: String(prontuario),
@@ -371,17 +388,28 @@ class PacienteParser extends BaseParser {
             }
             if (!prontuario || !nome) return;
 
-            const leito        = tds[2] ? nodeText(tds[2]) : '';
-            const c3t          = tds[3] ? nodeText(tds[3]) : '';
-            const internacao   = tds[4] ? nodeText(tds[4]) : '';
-            const diasInternacao = tds[5] ? nodeText(tds[5]) : '';
+            const leito = tds[2] ? nodeText(tds[2]) : '';
+            const c3raw = tds[3] ? nodeText(tds[3]) : '';
+            let sexo = '', internacao = '', diasInternacao = '';
+
+            if (this.isSexoValue(c3raw)) {
+                sexo           = c3raw;
+                internacao     = tds[4] ? nodeText(tds[4]) : '';
+                diasInternacao = tds[5] ? nodeText(tds[5]) : '';
+            } else if (DATE_LIKE.test(c3raw)) {
+                internacao     = c3raw;
+                diasInternacao = tds[4] ? nodeText(tds[4]) : '';
+            } else {
+                internacao     = tds[4] ? nodeText(tds[4]) : '';
+                diasInternacao = tds[5] ? nodeText(tds[5]) : '';
+            }
 
             pacientes.push({
                 prontuario: String(prontuario),
                 nome,
                 dataNascimento:  null,
                 dataInternacao:  this.parseDate(internacao),
-                sexo:            this.normalizeSexo(this.isSexoValue(c3t) ? c3t : ''),
+                sexo:            this.normalizeSexo(sexo),
                 diasInternacao,
                 leito,
                 clinicaLeito:    leito,
