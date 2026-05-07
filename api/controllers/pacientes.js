@@ -362,7 +362,8 @@ class PacientesController {
     async obterExamesPaciente(req, res) {
         try {
             const { prontuario } = req.params;
-            const { formato = 'detalhado', incluirResultados = 'true' } = req.query;
+            const { formato = 'detalhado', incluirResultados = 'false' } = req.query;
+            const incluir = incluirResultados === 'true';
 
             if (!prontuario) {
                 return res.status(400).json({
@@ -372,95 +373,77 @@ class PacientesController {
                 });
             }
 
+            const crawler = await this.initCrawler();
 
-            console.log(`Obtendo exames do paciente: ${prontuario}`);
-
-           const crawler = await this.initCrawler();
-
-
-            // Gerar chave do cache
-            const cacheKey = cache.generateKey('exames', prontuario, { formato, incluirResultados });
-
-            // Tentar buscar no cache primeiro
-            const resultadoCache = await cache.getOrSet(cacheKey, async () => {
-                console.log(`Obtendo exames do paciente: ${prontuario}`);
-
-                // Buscar exames básicos
-                   const examesRaw = await crawler.getExames(prontuario);
-                
-
-                if (!examesRaw || examesRaw.length === 0) {
+            // Cache 1: lista bruta de requisições — compartilhada entre todos os formatos
+            const rawKey = cache.generateKey('exames-raw', prontuario);
+            const examesRaw = await cache.getOrSet(rawKey, async () => {
+                console.log(`Buscando exames brutos do paciente: ${prontuario}`);
+                const raw = await crawler.getExames(prontuario);
+                if (!raw || raw.length === 0) {
                     throw new Error(`EXAMES_NAO_ENCONTRADOS:Nenhum exame encontrado para o prontuário "${prontuario}"`);
                 }
-
-                // Converter para o modelo Exame
-                let exames = examesRaw
-                    .map(exameRaw => Exame.fromParserData(exameRaw));
-
-                if (exames.length === 0) {
-                    throw new Error(`EXAMES_INVALIDOS:Os exames encontrados não puderam ser processados corretamente`);
-                }
-
-                // Se solicitado, buscar resultados completos
-                if (incluirResultados === 'true') {
-                    try {
-                        console.log(`Buscando resultados completos dos exames para paciente: ${prontuario}`);
-                        const resultadosCompletos = await crawler.evolutionService.getResultadosExames(prontuario, {}, examesRaw);
-
-                        if (resultadosCompletos && resultadosCompletos.length > 0) {
-                            // Atualizar exames com resultados
-                            exames = resultadosCompletos.map(resultado =>
-                                Exame.fromResultadosCompletos(resultado)
-                            )
-                            //.filter(exame => exame && exame.isValid());
-                        }
-                    } catch (error) {
-                        console.warn(`Erro ao buscar resultados completos: ${error.message}`);
-                        // Continuar com exames básicos mesmo se os resultados falharem
-                    }
-                }
-
-                // Formatar resultado baseado no parâmetro formato
-                let resultado;
-                let estatisticas = {};
-
-                if (formato === 'resultados' && incluirResultados === 'true') {
-                    resultado = exames.map(exame => exame.toResultados());
-                    estatisticas = {
-                        totalExames: exames.length,
-                        examesComResultados: exames.filter(e => e.status.temResultados).length,
-                        totalResultados: exames.reduce((sum, e) => sum + e.metadata.totalResultados, 0),
-                        siglasUnicas: [...new Set(exames.flatMap(e => e.obterSiglasResultados()))],
-                        agrupamentoPorTipo: Exame.agruparPorTipo(exames)
-                    };
-                } else if (formato === 'detalhado') {
-                    resultado = exames.map(exame => exame.toCompleto());
-                    estatisticas = {
-                        totalExames: exames.length,
-                        examesComResultados: exames.filter(e => e.status.temResultados).length
-                    };
-                } else {
-                    // formato === 'resumido' (padrão)
-                    resultado = exames.map(exame => exame.toResumo());
-                    estatisticas = {
-                        totalExames: exames.length,
-                        examesComResultados: exames.filter(e => e.status.temResultados).length
-                    };
-                }
-                return {
-                    data: resultado,
-                    estatisticas: estatisticas
-                };
-
+                return raw;
             });
+
+            // Cache 2: resultados completos (N+1) — compartilhado entre formatos quando incluirResultados=true
+            let exames;
+            if (incluir) {
+                const resultadosKey = cache.generateKey('exames-resultados', prontuario);
+                const resultadosCompletos = await cache.getOrSet(resultadosKey, async () => {
+                    console.log(`Buscando resultados dos exames do paciente: ${prontuario}`);
+                    return crawler.evolutionService.getResultadosExames(prontuario, {}, examesRaw);
+                });
+
+                exames = (resultadosCompletos && resultadosCompletos.length > 0)
+                    ? resultadosCompletos.map(r => Exame.fromResultadosCompletos(r)).filter(Boolean)
+                    : examesRaw.map(r => Exame.fromParserData(r)).filter(Boolean);
+            } else {
+                exames = examesRaw.map(r => Exame.fromParserData(r)).filter(Boolean);
+            }
+
+            if (exames.length === 0) {
+                return res.status(422).json({
+                    success: false,
+                    error: 'Dados inválidos',
+                    message: 'Os exames encontrados não puderam ser processados corretamente'
+                });
+            }
+
+            // Formatação aplicada fora do cache — operação barata, sem I/O
+            let resultado;
+            let estatisticas = {};
+
+            if (formato === 'resultados' && incluir) {
+                resultado = exames.map(exame => exame.toResultados());
+                estatisticas = {
+                    totalExames: exames.length,
+                    examesComResultados: exames.filter(e => e.status.temResultados).length,
+                    totalResultados: exames.reduce((sum, e) => sum + e.metadata.totalResultados, 0),
+                    siglasUnicas: [...new Set(exames.flatMap(e => e.obterSiglasResultados()))],
+                    agrupamentoPorTipo: Exame.agruparPorTipo(exames)
+                };
+            } else if (formato === 'detalhado') {
+                resultado = exames.map(exame => exame.toCompleto());
+                estatisticas = {
+                    totalExames: exames.length,
+                    examesComResultados: exames.filter(e => e.status.temResultados).length
+                };
+            } else {
+                resultado = exames.map(exame => exame.toResumo());
+                estatisticas = {
+                    totalExames: exames.length,
+                    examesComResultados: exames.filter(e => e.status.temResultados).length
+                };
+            }
 
             res.json({
                 success: true,
-                prontuario: prontuario,
-                data: resultadoCache.data,
-                formato: formato,
-                incluirResultados: incluirResultados === 'true',
-                estatisticas: resultadoCache.estatisticas
+                prontuario,
+                data: resultado,
+                formato,
+                incluirResultados: incluir,
+                estatisticas
             });
         } catch (error) {
             console.error('Erro ao obter exames do paciente:', error);
@@ -484,6 +467,69 @@ class PacientesController {
             res.status(500).json({
                 success: false,
                 error: 'Erro ao obter exames do paciente',
+                message: error.message
+            });
+        }
+    }
+
+    async obterEvolucoesDiaAtual(req, res) {
+        try {
+            const { prontuario } = req.params;
+            const { formato = 'detalhado' } = req.query;
+
+            const crawler = await this.initCrawler();
+
+            const cacheKey = cache.generateKey('evolucoes-raw', prontuario);
+            const evolucoesRaw = await cache.getOrSet(cacheKey, async () => {
+                const raw = await crawler.getEvolucoes(prontuario);
+                if (!raw || raw.length === 0) {
+                    throw new Error(`Nenhuma evolução encontrada para o prontuário "${prontuario}"`);
+                }
+                return raw;
+            });
+
+            const evolucoes = evolucoesRaw.map(r => Evolucao.fromParserData(r)).filter(Boolean);
+
+            // Encontra a data mais recente (apenas parte DD/MM/YYYY, ignora horário)
+            const extrairData = (str) => str ? str.trim().substring(0, 10) : null;
+            const datas = evolucoes.map(e => extrairData(e.dataEvolucao)).filter(Boolean);
+
+            if (datas.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Sem evoluções',
+                    message: 'Nenhuma evolução com data válida encontrada'
+                });
+            }
+
+            // Converte DD/MM/YYYY para comparação lexicográfica YYYY/MM/DD
+            const toComparavel = (d) => d.split('/').reverse().join('/');
+            const dataAtual = datas.reduce((max, d) => toComparavel(d) > toComparavel(max) ? d : max);
+
+            const doUltimoDia = evolucoes.filter(e => extrairData(e.dataEvolucao) === dataAtual);
+
+            let resultado;
+            if (formato === 'clinico') {
+                resultado = doUltimoDia.map(e => e.toDadosClinicos());
+            } else if (formato === 'resumido') {
+                resultado = doUltimoDia.map(e => e.toResumo());
+            } else {
+                resultado = doUltimoDia.map(e => e.toCompleto());
+            }
+
+            res.json({
+                success: true,
+                prontuario,
+                data: resultado,
+                dataReferencia: dataAtual,
+                total: resultado.length,
+                formato
+            });
+        } catch (error) {
+            console.error('Erro ao obter evoluções do último dia:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Erro ao obter evoluções do último dia',
                 message: error.message
             });
         }

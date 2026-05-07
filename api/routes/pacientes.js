@@ -33,6 +33,11 @@ router.get('/:prontuario', validateProntuario, async (req, res) => {
     await pacientesController.obterDetalhesPaciente(req, res);
 });
 
+// GET /api/pacientes/:prontuario/evolucoes/ultimo-dia - Evoluções do último dia registrado
+router.get('/:prontuario/evolucoes/ultimo-dia', validateProntuario, async (req, res) => {
+    await pacientesController.obterEvolucoesDiaAtual(req, res);
+});
+
 // GET /api/pacientes/:prontuario/evolucoes - Listar evoluções médicas de um paciente
 router.get('/:prontuario/evolucoes', validateProntuario, async (req, res) => {
     await pacientesController.obterEvolucoesPaciente(req, res);
