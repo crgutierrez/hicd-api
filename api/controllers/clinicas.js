@@ -19,17 +19,31 @@ class ClinicasController {
                (Date.now() - this.lastCacheUpdate) < this.cacheTimeout;
     }
 
-    // Atualizar cache de clínicas
+    // Atualizar cache de clínicas (inclui contagem de pacientes por clínica)
     async updateClinicasCache() {
         try {
             const crawler = await this.initCrawler();
             const clinicas = await crawler.getClinicas();
 
-            this.clinicasCache = clinicas
-                .map(clinica => Clinica.fromCrawlerData(clinica))
-                .filter(c => c.isValid())
-                .map(c => c.toResumo());
+            const clinicasValidas = clinicas
+                .map(c => Clinica.fromCrawlerData(c))
+                .filter(c => c.isValid());
 
+            // Busca contagem de pacientes em paralelo (batches de 5)
+            const BATCH_SIZE = 5;
+            for (let i = 0; i < clinicasValidas.length; i += BATCH_SIZE) {
+                const batch = clinicasValidas.slice(i, i + BATCH_SIZE);
+                await Promise.all(batch.map(async (clinica) => {
+                    try {
+                        const pacientes = await crawler.getPacientesClinica(clinica.codigo);
+                        clinica.totalPacientes = pacientes.length;
+                    } catch {
+                        clinica.totalPacientes = 0;
+                    }
+                }));
+            }
+
+            this.clinicasCache = clinicasValidas.map(c => c.toResumo());
             this.lastCacheUpdate = Date.now();
             return this.clinicasCache;
         } catch (error) {
@@ -136,14 +150,19 @@ class ClinicasController {
                 clinicas = await this.updateClinicasCache();
             }
 
-            const clinica = clinicas.find(c => c.id === id || c.codigo === id || c.nome === id);
-            
-            if (!clinica) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Clínica não encontrada',
-                    message: `Clínica com ID "${id}" não foi encontrada`
-                });
+            // ID "0" é o endpoint "todos os pacientes" do HICD — não precisa de validação
+            let clinica;
+            if (id === '0') {
+                clinica = { id: '0', codigo: '0', nome: 'TODOS' };
+            } else {
+                clinica = clinicas.find(c => c.id === id || c.codigo === id || c.nome === id);
+                if (!clinica) {
+                    return res.status(404).json({
+                        success: false,
+                        error: 'Clínica não encontrada',
+                        message: `Clínica com ID "${id}" não foi encontrada`
+                    });
+                }
             }
 
             // Buscar pacientes da clínica

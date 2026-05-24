@@ -21,7 +21,6 @@ class EvolucaoParser extends BaseParser {
         this.debug(`Iniciando parse de evoluções para prontuário: ${prontuario}`);
         try {
             const $ = cheerio.load(html);
-            console.log('Carregado o HTML com cheerio');
             const evolucoes = [];
 
             // const cabecalho = this.extrairCabecalhoEvolucao($);
@@ -79,27 +78,25 @@ class EvolucaoParser extends BaseParser {
                 // As linhas i+3 e i+4 são geralmente divisores ou em branco no layout original.
 
                 // Extrai todos os campos da primeira linha do bloco
-                console.log('Extraindo campos da linha de cabeçalho da evolução...');
-                evolucao.profissional = this.extrairCampoDaLinha($, cabecalhoRow, 'Profissional:');
-                evolucao.atividade = this.extrairCampoDaLinha($, rowDois, 'Atividade:');
-
-                evolucao.dataEvolucao = this.extrairCampoDaLinha($, cabecalhoRow, 'Data Evolução:');
-                evolucao.dataAtualizacao = this.extrairCampoDaLinha($, rowDois, 'Data de Atualização:');
-                evolucao.clinicaLeito = this.extrairCampoDaLinha($, rowTres, 'Clínica/Leito:');
-                evolucao.descricao = this.extrairCampoDaLinha($, rowQuatro, 'Descrição:');
-                evolucao.textoCompleto = evolucao.descricao;
-                evolucao.dadosEstruturados = this.retornaEvolucaoDetalhada($, rowQuatro);
-                console.log('Dados  extraídos:', evolucao);
-                console.log(evolucao);
+                evolucao.profissional    = this.extrairCampoDaLinha($, cabecalhoRow, 'Profissional:');
+                evolucao.dataEvolucao   = this.extrairCampoDaLinha($, cabecalhoRow, 'Data Evolução:');
+                evolucao.atividade      = this.extrairCampoDaLinha($, rowDois, 'Atividade:');
+                evolucao.dataAtualizacao= this.extrairCampoDaLinha($, rowDois, 'Data de Atualização:');
+                evolucao.clinicaLeito   = this.extrairCampoDaLinha($, rowTres, 'Clínica/Leito:');
+                evolucao.descricao      = this.extrairCampoDaLinha($, rowQuatro, 'Descrição:');
+                evolucao.textoCompleto  = evolucao.descricao;
 
                 // Se não encontrou data, provavelmente não é um registro válido, então pulamos.
                 if (!evolucao.dataEvolucao) {
                     continue;
                 }
 
-                // Gera textoLimpo e resumo a partir do textoCompleto já extraído
-                evolucao.textoLimpo = this.originalParser.limparTextoEvolucao(evolucao.textoCompleto);
-                evolucao.resumo = this.originalParser.extrairResumoEvolucao(evolucao.textoLimpo);
+                // textoLimpo: o texto já vem limpo de extrairCampoDaLinha; apenas copiar.
+                evolucao.textoLimpo = evolucao.descricao;
+                evolucao.resumo     = this.extrairResumoEvolucao(evolucao.descricao);
+
+                // dadosEstruturados: extrair diretamente do texto da descrição.
+                evolucao.dadosEstruturados = this.extrairDadosEstruturadosEvolucao(evolucao.descricao);
                 // dadosEstruturados já foi extraído do HTML por retornaEvolucaoDetalhada (linha 91)
 
                
@@ -109,7 +106,6 @@ class EvolucaoParser extends BaseParser {
             return evolucoes;
 
         } catch (error) {
-            console.log('erro aqui tbm');
             this.error(`Erro ao processar evolução detalhada ${index}:`, error);
             return [];
         }
@@ -140,36 +136,43 @@ class EvolucaoParser extends BaseParser {
     }
 
     /**
+     * Normaliza string para comparação flexível: remove acentos, colapsa espaços/barras.
+     * Permite casar "Clinica / Leito:" com "Clínica/Leito:" e vice-versa.
+     */
+    _normalizarLabel(s) {
+        return s
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // remove acentos
+            .replace(/\s*\/\s*/g, '/')                          // "a / b" → "a/b"
+            .replace(/\s+/g, ' ')
+            .replace(/\bde\s+/g, '')                            // "data de atualizacao" → "data atualizacao"
+            .trim();
+    }
+
+    /**
      * Helper para extrair o valor de um campo em uma linha de dados.
-     * Lógica baseada em `retornaCampo` de `hicd-parser-original.js`.
+     * A comparação é normalizada (sem acentos, sem espaços extras, sem "de" articular)
+     * para resistir a variações de grafia no HTML do HICD.
      */
     extrairCampoDaLinha($, row, textoPesquisa) {
+        const buscaNorm = this._normalizarLabel(textoPesquisa);
+        const isDescricao = this._normalizarLabel(textoPesquisa).includes('descricao');
 
-        var retorno = '';
+        let retorno = '';
         const cols = row.find('[class*="col-lg-"]');
         if (cols.length >= 2) {
             cols.each((j, colElement) => {
                 const col = $(colElement);
-                const texto = col.text().trim();
+                const textoNorm = this._normalizarLabel(col.text().trim());
 
-                if (texto.includes(textoPesquisa)) {
+                if (textoNorm.includes(buscaNorm)) {
                     const nextCol = cols.eq(j + 1);
-
                     if (nextCol.length) {
-                        if (textoPesquisa === 'Descrição:') {
-                            const textoHtml = nextCol.html();
-                            const textoLimpo = this.limparTextoEvolucao(textoHtml);
-
-
-                            retorno = textoLimpo;
-                            //this.extrairResumoEvolucao(textoLimpo);
-
-                            // Extrair dados estruturados da evolução
-                            const dadosEstruturados = this.extrairDadosEstruturadosEvolucao(textoLimpo);
+                        if (isDescricao) {
+                            retorno = this.limparTextoEvolucao(nextCol.html());
                         } else {
                             retorno = this.limparTextoSimples(nextCol.text());
                         }
-
                     }
                 }
             });
@@ -260,7 +263,7 @@ class EvolucaoParser extends BaseParser {
     }
 
     /**
-     * Limpa e formata texto de evolução
+     * Limpa e formata texto de evolução preservando quebras de linha.
      */
     limparTextoEvolucao(textoHtml) {
         if (!textoHtml) return '';
@@ -279,7 +282,9 @@ class EvolucaoParser extends BaseParser {
             .replace(/&lt;/g, '<')
             .replace(/&gt;/g, '>')
             .replace(/&amp;/g, '&')
-            .replace(/\s+/g, ' ')
+            .replace(/[^\S\n]+/g, ' ')      // colapsa espaços/tabs mas preserva \n
+            .replace(/^ +/gm, '')           // remove espaços no início de cada linha
+            .replace(/\n{3,}/g, '\n\n')     // limita linhas em branco consecutivas a uma
             .trim();
     }
 
@@ -305,32 +310,31 @@ class EvolucaoParser extends BaseParser {
 
         const dados = {
             identificacao: this.parseSecaoIdentificacao(texto),
-            hipotesesDiagnosticas: this.parseSecaoSimples(texto, 'Hipóteses Diagnósticas'),
+            hipotesesDiagnosticas: this.parseHipotesesDiagnosticas(texto),
             diagnosticosAnteriores: this.parseSecaoSimples(texto, 'Diagnósticos anteriores'),
-            medicamentosEmUso: this.parseSecaoSimples(texto, 'Em uso'),
+            medicamentosEmUso: this.parseMedicamentosEmUso(texto),
             medicamentosAnteriores: this.parseSecaoSimples(texto, 'Fez uso'),
             dispositivos: this.parseSecaoSimples(texto, 'Dispositivos'),
             examesComplementares: this.parseSecaoExames(texto),
             gasometrias: this.parseSecaoGasometria(texto),
             historico: {
-                queixaPrincipal: this.extrairValor(texto, /QP:\s*“([^”]+)”/),
+                queixaPrincipal: this.extrairValor(texto, /QP:\s*”([^”]+)”/),
                 hda: this.extrairValor(texto, /HDA:\s*([\s\S]*?)(?=HPP:|Admissão emergência:)/),
                 hpp: this.extrairValor(texto, /HPP:\s*([\s\S]*?)(?=HO:|Admissão emergência:)/),
                 historiaObstetrica: this.extrairValor(texto, /HO:\s*([\s\S]*?)(?=HF:)/),
                 historiaFamiliar: this.extrairValor(texto, /HF:\s*([\s\S]*?)(?=HSE:)/),
                 historiaSocioeconomica: this.extrairValor(texto, /HSE:\s*([\s\S]*?)(?=Admissão emergência:)/),
             },
-            admissaoEmergencia: this.extrairValor(texto, /Admissão emergência:\s*([\s\S]*?)(?=Admissão UTIP:)/),
-            admissaoUTIP: this.extrairValor(texto, /Admissão UTIP:\s*([\s\S]*?)(?=Evolução médica:)/),
-            evolucaoMedica: this.extrairValor(texto, /Evolução médica:\s*([\s\S]*?)(?=Controle 24 h:)/),
-            controle24h: this.extrairValor(texto, /Controle 24 h:\s*([\s\S]*?)(?=Exame Físico:)/),
-            exameFisico: this.extrairValor(texto, /Exame Físico:\s*([\s\S]*?)(?=Conduta:)/),
+            admissaoEmergencia: this.extrairValor(texto, /Admissão emergência:\s*([\s\S]*?)(?=Admissão UTIP:)/i),
+            admissaoUTIP: this.extrairValor(texto, /Admissão UTIP:\s*([\s\S]*?)(?=Evolução médica:)/i),
+            evolucaoMedica: this.extrairValor(texto, /Evolução médica:\s*([\s\S]*?)(?=Controle 24 h:|Controle 24h:|Exame F[íi]sico:|AO EXAME|Conduta:)/i),
+            controle24h: this.extrairValor(texto, /Controle 24 h?:\s*([\s\S]*?)(?=Exame F[íi]sico:|AO EXAME|Diurese:|BH 24 h?:|Conduta:)/i),
+            diurese: this.extrairValor(texto, /Diurese:\s*([\s\S]*?)(?=BH 24 h?:|Balan[çc]o h[íi]drico:|Exame F[íi]sico:|AO EXAME|Conduta:|$)/i),
+            bh24h: this.extrairValor(texto, /BH 24 h?:\s*([\s\S]*?)(?=Exame F[íi]sico:|AO EXAME|Conduta:|$)/i),
+            exameFisico: this.extrairValor(texto, /(?:Exame F[íi]sico|AO EXAME\s+F[IÍ]SICO):\s*([\s\S]*?)(?=Conduta:|Pend[êe]ncias:|Medicaç|$)/i),
             conduta: this.parseSecaoSimples(texto, 'Conduta'),
             pendencias: this.parseSecaoSimples(texto, 'Pendências'),
         };
-
-        // Limpeza de campos que podem ter ficado com texto extra
-        dados.hipotesesDiagnosticas = dados.hipotesesDiagnosticas.filter(item => !item.startsWith('Diagnósticos anteriores'));
 
         return dados;
     }
@@ -344,18 +348,77 @@ class EvolucaoParser extends BaseParser {
     }
 
     /**
+     * Extrai hipóteses diagnósticas com suporte a variantes sem dois pontos:
+     * "Hipóteses Diagnósticas:", "Hipóteses Diagnósticas Atuais", etc.
+     */
+    parseHipotesesDiagnosticas(texto) {
+        // Regex flexível: aceita colon ou nova linha imediata como delimitador de início
+        const match = texto.match(
+            /Hip[oó]teses?\s+Diagn[oó]stic[ao]s?(?:[^\S\n]+\w+)*:?[^\S\n]*\n([\s\S]*?)(?=Medicaç|Em uso|Fez [Uu]so|Dispositivos|Conduta:|Exame\s+F[íi]sico|AO EXAME|Evolu[çc][aã]o\s+m[eé]dica|Pend[êe]ncias:|$)/i
+        );
+        if (!match || !match[1]) return [];
+        return match[1].trim()
+            .split(/[\n\r]+/)
+            .map(item => item.replace(/^[\d]+\.\s*|^[-•·]\s*/, '').trim())
+            .filter(item => item.length > 3);
+    }
+
+    /**
+     * Extrai medicamentos em uso com suporte a variantes:
+     * "Em uso:", "Medicações em Uso:", "Medicações em uso:"
+     */
+    parseMedicamentosEmUso(texto) {
+        const match = texto.match(
+            /(?:Medica[çc][oõ]es\s+)?[Ee]m\s+[Uu]so:\s*([\s\S]*?)(?=Fez\s+[Uu]so:|Dispositivos:|Conduta:|Exame\s+F[íi]sico|AO EXAME|Pend[êe]ncias:|$)/i
+        );
+        if (!match || !match[1]) return [];
+        return match[1].trim()
+            .split(/[\n\r]+/)
+            .map(item => item.replace(/^[-•·]\s*/, '').trim())
+            .filter(item => item.length > 2);
+    }
+
+    /**
      * Parse de seções que contêm listas simples de itens.
      */
     parseSecaoSimples(texto, tituloSecao) {
-        const regex = new RegExp(`${tituloSecao}:\s*([\s\S]*?)(?=
-[A-ZÀ-Ü][^:]+:|$)`, 'i');
+        // Usa as seções conhecidas do HICD como delimitadores de fim de seção.
+        // Evita falsos positivos de lookahead genérico com textos clínicos.
+        const SECOES_DELIMITADORAS = [
+            'Hipóteses Diagnósticas', 'Hipóteses diagnósticas',
+            'Diagnósticos anteriores',
+            'Em uso', 'Medicações em Uso', 'Medicações em uso',
+            'Fez uso', 'Fez Uso', 'Dispositivos', 'Conduta', 'Pendências',
+            'Exames Complementares', 'Gasometria',
+            'Controle 24h', 'Controle 24 h', 'BH 24h', 'BH 24 h',
+            'Diurese', 'Balanço hídrico',
+            'Evolução médica', 'Exame Físico', 'AO EXAME FISICO',
+            'Nome', 'Identificação',
+            'HDA', 'HPP', 'HF', 'HSE', 'Admissão emergência', 'Admissão UTIP',
+            // Subseções comuns em evoluções cirúrgicas / UTI
+            'Hemoderivados', 'Culturas', 'Procedimentos', 'Pareceres',
+            'Diagnóstico Pré-Operatório', 'Diagnóstico Pós-Operatório',
+        ];
+
+        const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        const lookahead = SECOES_DELIMITADORAS
+            .filter(s => s !== tituloSecao)
+            .map(esc)
+            .join('|');
+
+        const regex = new RegExp(
+            `${esc(tituloSecao)}:\\s*([\\s\\S]*?)(?=(?:${lookahead}):|$)`,
+            'i'
+        );
+
         const match = texto.match(regex);
         if (!match || !match[1]) return [];
 
         return match[1]
             .trim()
-            .split(/\n|\r\n/)
-            .map(item => item.replace(/^-/, '').trim())
+            .split(/[\n\r]+/)
+            .map(item => item.replace(/^[-•]\s*/, '').trim())
             .filter(item => item.length > 0);
     }
 

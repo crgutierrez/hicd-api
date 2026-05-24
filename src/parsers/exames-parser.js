@@ -27,7 +27,7 @@ class ExamesParser extends BaseParser {
                 const legend = fieldset.find('legend').text().trim();
                 
                 // Verificar se é uma seção de informações ou exames
-                if (legend === 'Informações:') {
+                if (/^informa[çc][oõ]e?s?\s*:/i.test(legend)) {
                     const exame = this.parseExameInformacoes($, fieldset, prontuario, index);
                     if (exame) {
                         // Buscar a seção de exames correspondente (próximo fieldset)
@@ -255,66 +255,136 @@ class ExamesParser extends BaseParser {
             const $ = cheerio.load(html);
             const resultados = [];
 
-            // Buscar tabelas que contêm os resultados dos exames
-            $('table').each((tableIndex, tableElement) => {
-                const table = $(tableElement);
-                
-                // Procurar por linhas que contêm resultados de exames
-                table.find('tr').each((rowIndex, rowElement) => {
-                    const row = $(rowElement);
-                    const cells = row.find('td');
-                    
-                    if (cells.length >= 3) {
-                        // Tentar diferentes estruturas de tabela
-                        const possibleStructures = [
-                            // Estrutura 1: Sigla | Descrição | Valor | Referência
-                            {
-                                siglaIndex: 0,
-                                valorIndex: 2,
-                                referenciaIndex: 3
-                            },
-                            // Estrutura 2: Descrição | Valor | Referência
-                            {
-                                siglaIndex: 0,
-                                valorIndex: 1,
-                                referenciaIndex: 2
-                            },
-                            // Estrutura 3: Sigla | Valor
-                            {
-                                siglaIndex: 0,
-                                valorIndex: 1,
-                                referenciaIndex: -1
-                            }
-                        ];
+            // ─── Estratégia 0 (prioritária): <table class="table1"> com <tr id="SIGLA"> ───
+            // Estrutura nativa do exame.php do HICD: sigla no atributo id da linha,
+            // conteúdo do laudo na 2ª célula.  A 3ª célula é sempre um div de gráfico vazio.
+            const tabelaPrincipal = $('table.table1');
+            if (tabelaPrincipal.length > 0) {
+                tabelaPrincipal.find('tr[id]').each((i, row) => {
+                    const $row  = $(row);
+                    const sigla = ($row.attr('id') || '').trim();
+                    if (!sigla) return;
 
-                        for (const structure of possibleStructures) {
-                            const siglaText = cells.eq(structure.siglaIndex).text().trim();
-                            const valorText = cells.eq(structure.valorIndex).text().trim();
-                            const referenciaText = structure.referenciaIndex >= 0 
-                                ? cells.eq(structure.referenciaIndex).text().trim() 
-                                : '';
+                    const cells = $row.find('td');
+                    if (cells.length < 2) return;
 
-                            // Verificar se parece ser um resultado de exame válido
-                            if (this.isValidExameResult(siglaText, valorText)) {
-                                const resultado = {
-                                    requisicaoId: requisicaoId,
-                                    sigla: siglaText,
-                                    valor: valorText,
-                                    referencia: referenciaText,
-                                    unidade: this.extrairUnidade(valorText),
-                                    valorNumerico: this.extrairValorNumerico(valorText),
-                                    status: this.determinarStatusExame(valorText, referenciaText)
-                                };
-                                
-                                resultados.push(resultado);
-                                break; // Sair do loop de estruturas se encontrou uma válida
-                            }
+                    const textoConteudo = cells.eq(1).text();
+                    if (!textoConteudo.trim()) return;
+                    if (/AGUARDANDO\s+RESULTADO\s+DO\s+EXAME/i.test(textoConteudo)) return;
+
+                    // Resultado simples: linha "Resultado---------------> VALOR UNIDADE [VR: REF]"
+                    const matchResultado = textoConteudo.match(
+                        /Resultado-+>\s*([\d,]+)\s+([\w\/%µ.]+)/i
+                    );
+                    if (matchResultado) {
+                        const valor   = matchResultado[1];
+                        const unidade = matchResultado[2].trim();
+
+                        // Referência: inline na mesma linha após "VR:" …
+                        let referencia = '';
+                        const matchVRInline = textoConteudo.match(
+                            /Resultado-+>.*?VR\s*:\s*([^\n]+)/i
+                        );
+                        if (matchVRInline) {
+                            referencia = matchVRInline[1].trim();
+                        } else {
+                            // … ou em linha separada "V.R     : REF" / "VR: REF"
+                            const matchVRLinha = textoConteudo.match(
+                                /V\.?\s*R\.?\s*:\s*([^\n]+)/i
+                            );
+                            if (matchVRLinha) referencia = matchVRLinha[1].trim();
+                        }
+
+                        resultados.push({
+                            requisicaoId,
+                            sigla,
+                            valor,
+                            unidade,
+                            referencia,
+                            valorNumerico: this.extrairValorNumerico(valor),
+                            status: this.determinarStatusExame(valor, referencia)
+                        });
+                    } else {
+                        // Bloco complexo (hemograma, coagulograma...): armazenar texto bruto.
+                        // expandirBlocoTextual o processará na etapa seguinte.
+                        const valorBruto = textoConteudo.trim();
+                        if (valorBruto.includes('\n')) {
+                            resultados.push({
+                                requisicaoId,
+                                sigla,
+                                valor:         valorBruto,
+                                unidade:       '',
+                                referencia:    '',
+                                valorNumerico: null,
+                                status:        'bloco_textual'
+                            });
                         }
                     }
                 });
-            });
+            }
 
-            // Se a tabela não produziu resultados, tentar parse de texto e estrutura alternativa
+            // ─── Estratégias de fallback (somente quando table.table1 não está presente) ───
+            if (resultados.length === 0) {
+                // Buscar tabelas que contêm os resultados dos exames
+                $('table').each((tableIndex, tableElement) => {
+                    const table = $(tableElement);
+
+                    // Procurar por linhas que contêm resultados de exames
+                    table.find('tr').each((rowIndex, rowElement) => {
+                        const row = $(rowElement);
+                        const cells = row.find('td');
+
+                        if (cells.length >= 3) {
+                            // Tentar diferentes estruturas de tabela
+                            const possibleStructures = [
+                                // Estrutura 1: Sigla | Descrição | Valor | Referência
+                                {
+                                    siglaIndex: 0,
+                                    valorIndex: 2,
+                                    referenciaIndex: 3
+                                },
+                                // Estrutura 2: Descrição | Valor | Referência
+                                {
+                                    siglaIndex: 0,
+                                    valorIndex: 1,
+                                    referenciaIndex: 2
+                                },
+                                // Estrutura 3: Sigla | Valor
+                                {
+                                    siglaIndex: 0,
+                                    valorIndex: 1,
+                                    referenciaIndex: -1
+                                }
+                            ];
+
+                            for (const structure of possibleStructures) {
+                                const siglaText = cells.eq(structure.siglaIndex).text().trim();
+                                const valorText = cells.eq(structure.valorIndex).text().trim();
+                                const referenciaText = structure.referenciaIndex >= 0
+                                    ? cells.eq(structure.referenciaIndex).text().trim()
+                                    : '';
+
+                                // Verificar se parece ser um resultado de exame válido
+                                if (this.isValidExameResult(siglaText, valorText)) {
+                                    const resultado = {
+                                        requisicaoId: requisicaoId,
+                                        sigla: siglaText,
+                                        valor: valorText,
+                                        referencia: referenciaText,
+                                        unidade: this.extrairUnidade(valorText),
+                                        valorNumerico: this.extrairValorNumerico(valorText),
+                                        status: this.determinarStatusExame(valorText, referenciaText)
+                                    };
+
+                                    resultados.push(resultado);
+                                    break; // Sair do loop de estruturas se encontrou uma válida
+                                }
+                            }
+                        }
+                    });
+                });
+            }
+
             if (resultados.length === 0) {
                 const resultadosTexto = this.parseResultadosTexto($, requisicaoId);
                 resultados.push(...resultadosTexto);
@@ -324,17 +394,51 @@ class ExamesParser extends BaseParser {
                 resultados.push(...this.parseResultadosExamesAlternativo($, requisicaoId));
             }
 
-            console.log(`[PARSER] ✅ ${resultados.length} resultados de exames extraídos da requisição ${requisicaoId}`);
-            
-            // Log dos primeiros resultados para debug
-            if (resultados.length > 0) {
-                console.log(`[PARSER] Primeiros resultados encontrados:`);
-                resultados.slice(0, 3).forEach((resultado, index) => {
-                    console.log(`  ${index + 1}. ${resultado.sigla}: ${resultado.valor} (${resultado.unidade || 'sem unidade'})`);
-                });
+            // Expandir blocos textuais conhecidos (HPL, PFR, BFR, TAP, TTPA...)
+            // Usa identidade de objeto para distinguir itens expandidos (novos) dos
+            // pré-existentes, permitindo remover duplicatas sem afetar os novos itens.
+            const resultadosFinais  = [];
+            const objetosExpandidos = new Set();   // referências dos itens vindos de expansão
+            const siglasExpandidas  = new Set();   // siglas produzidas pelas expansões
+
+            for (const resultado of resultados) {
+                const expandidos = this.expandirBlocoTextual(resultado);
+                if (expandidos && expandidos.length > 0) {
+                    resultadosFinais.push(...expandidos);
+                    expandidos.forEach(e => {
+                        objetosExpandidos.add(e);
+                        siglasExpandidas.add(e.sigla);
+                    });
+                } else {
+                    resultadosFinais.push(resultado);
+                }
             }
 
-            return resultados;
+            // Mapa de siglas "brutas" extraídas por tabela → sigla canônica do bloco expandido.
+            // Cobre casos onde o parser de tabela usa nomes curtos (TTPA, RATIO) enquanto
+            // o parser de bloco produz nomes com prefixo (TTPA_TEMPO, TTPA_RATIO).
+            const SIGLA_BRUTA_PARA_CANONICA = new Map([
+                ['TTPA',        'TTPA_TEMPO'],
+                ['RATIO',       'TTPA_RATIO'],
+                ['POOL_NORMAL', 'TAP_CTRL'],
+                ['PLASMA_PAC',  'TAP_TEMPO'],
+                ['ATIVIDADE',   'TAP_ATIV'],
+                ['RNI',         'INR'],
+            ]);
+
+            // Remover pré-existentes absorvidos por blocos expandidos.
+            // Itens que VIERAM da expansão são sempre mantidos.
+            const semDuplicatas = resultadosFinais.filter(r => {
+                if (objetosExpandidos.has(r)) return true;         // item produzido por expansão
+                if ((r.valor || '').includes('\n')) return true;   // bloco multi-linha — manter
+                if (siglasExpandidas.has(r.sigla)) return false;   // sigla exata absorvida
+                const canonica = SIGLA_BRUTA_PARA_CANONICA.get(r.sigla);
+                return !(canonica && siglasExpandidas.has(canonica)); // sigla bruta absorvida
+            });
+
+            console.log(`[PARSER] ✅ ${semDuplicatas.length} resultados extraídos da requisição ${requisicaoId}`);
+
+            return semDuplicatas;
 
         } catch (error) {
             console.error(`[PARSER] Erro ao extrair resultados dos exames da requisição ${requisicaoId}:`, error.message);
@@ -343,123 +447,79 @@ class ExamesParser extends BaseParser {
     }
 
     /**
-     * Parse específico para resultados em formato de texto estruturado
+     * Parse de resultados em formato de texto estruturado.
+     * Usa cheerio para percorrer o DOM — não opera sobre texto plano,
+     * pois regex com sintaxe HTML ([^>]*>) nunca casam em texto extraído.
      */
     parseResultadosTexto($, requisicaoId) {
         const resultados = [];
-        
+
         try {
-            // Buscar todo o texto do documento
-            const textoCompleto = $('body').text();
-            
-            // Padrões para extrair resultados específicos
-            const padroes = [
-                // Hematócrito: valor % VR: referência
-                /Hematocrito[^>]*>\s*([0-9.,]+)\s*%\s*VR:\s*([^;\n]+)/gi,
-                // Hemoglobina: valor g/dl VR: referência  
-                /Hemoglobina[^>]*>\s*([0-9.,]+)\s*g\/dl\s*VR:\s*([^;\n]+)/gi,
-                // Hemácias: valor milh/mm3 VR: referência
-                /Hemacia[^>]*>\s*([0-9.,]+)\s*milh\/mm3\s*VR:\s*([^;\n]+)/gi,
-                // Leucócitos: valor /mm3 VR: referência
-                /Leucocitos[^>]*>\s*([0-9.,]+)\s*\/mm3\s*VR:\s*([^;\n]+)/gi,
-                // Plaquetas: valor /mm3 VR: referência
-                /Plaquetas[^>]*>\s*([0-9.,]+)\s*\/mm3\s*VR:\s*([^;\n]+)/gi,
-                // VCM: valor f1 VR: referência
-                /Vol\.\s*Corpusc\.\s*medio[^>]*>\s*([0-9.,]+)\s*f1\s*VR:\s*([^;\n]+)/gi,
-                // HCM: valor pg VR: referência
-                /Hemog\.\s*corp\.\s*media[^>]*>\s*([0-9.,]+)\s*pg\s*VR:\s*([^;\n]+)/gi,
-                // CHCM: valor % VR: referência
-                /Concent\.\s*hemoglob\.[^>]*>\s*([0-9.,]+)\s*%\s*VR:\s*([^;\n]+)/gi,
-                // RDW: valor %
-                /RDW[^>]*>\s*([0-9.,]+)\s*%/gi,
-                // TTPA: valor Seg.
-                /TTPA[^>]*>\s*([0-9.,]+)\s*Seg\./gi,
-                // Ratio: valor
-                /Ratio[^>]*>\s*([0-9.,]+)/gi,
-                // Pool Normal: valor Seg.
-                /Pool\s*Normal[^>]*>\s*([0-9.,]+)\s*Seg\./gi,
-                // Plasma do Paciente: valor Seg.
-                /Plasma\s*do\s*Paciente[^>]*>\s*([0-9.,]+)\s*Seg\./gi,
-                // Atividade: valor %
-                /Atividade[^>]*>\s*([0-9.,]+)\s*%/gi,
-                // RNI: valor
-                /RNI[^>]*>\s*([0-9.,]+)/gi,
-                // Segmentados (VR): valor %
-                /Segmentados[^>]*\(\s*V\s*R\s*\)[^>]*>\s*([0-9.,]+)\s*%\s*VR:\s*([^;\n]+)/gi,
-                // Linfócitos (VR): valor %
-                /Linfocitos[^>]*\(\s*V\s*R\s*\)[^>]*>\s*([0-9.,]+)\s*%\s*VR:\s*([^;\n]+)/gi,
-                // Monócitos (VR): valor %
-                /Monocitos[^>]*\(\s*V\s*R\s*\)[^>]*>\s*([0-9.,]+)\s*%\s*VR:\s*([^;\n]+)/gi,
-                // Bastões (VR): valor %
-                /Bastoes[^>]*\(\s*V\s*R\s*\)[^>]*>\s*([0-9.,]+)\s*%\s*VR:\s*([^;\n]+)/gi,
-            ];
-            
-            // Mapeamento de nomes para siglas
-            const mapeamentoSiglas = {
-                'Hematocrito': 'HTO',
-                'Hemoglobina': 'HGB', 
-                'Hemacia': 'RBC',
-                'Leucocitos': 'WBC',
-                'Plaquetas': 'PLT',
-                'Vol. Corpusc. medio': 'VCM',
-                'Hemog. corp. media': 'HCM',
-                'Concent. hemoglob.': 'CHCM',
-                'RDW': 'RDW',
-                'TTPA': 'TTPA',
-                'Ratio': 'RATIO',
-                'Pool Normal': 'POOL_NORMAL',
-                'Plasma do Paciente': 'PLASMA_PAC',
-                'Atividade': 'ATIVIDADE',
-                'RNI': 'RNI',
-                'Segmentados': 'SEGM_VR',
-                'Linfocitos': 'LINF_VR',
-                'Monocitos': 'MONO_VR',
-                'Bastoes': 'BAST_VR'
-            };
-            
-            padroes.forEach((padrao, index) => {
-                let match;
-                while ((match = padrao.exec(textoCompleto)) !== null) {
-                    const valor = match[1];
-                    const referencia = match[2] || '';
-                    
-                    // Determinar sigla baseada no padrão
-                    let sigla = '';
-                    const textoAnterior = textoCompleto.substring(Math.max(0, match.index - 50), match.index);
-                    
-                    for (const [nome, siglaMap] of Object.entries(mapeamentoSiglas)) {
-                        if (textoAnterior.includes(nome) || match[0].includes(nome)) {
-                            sigla = siglaMap;
-                            break;
-                        }
-                    }
-                    
-                    if (!sigla) {
-                        // Tentar extrair sigla do contexto
-                        const siglaMatch = textoAnterior.match(/([A-Z]{2,5})[^A-Za-z]*$/);
-                        if (siglaMatch) {
-                            sigla = siglaMatch[1];
-                        } else {
-                            sigla = `EX_${index}_${resultados.length}`;
-                        }
-                    }
-                    
-                    resultados.push({
-                        requisicaoId: requisicaoId,
-                        sigla: sigla,
-                        valor: valor,
-                        referencia: referencia.trim(),
-                        unidade: this.extrairUnidade(match[0]),
-                        valorNumerico: this.extrairValorNumerico(valor),
-                        status: this.determinarStatusExame(valor, referencia)
-                    });
-                }
+            // Estratégia 1: linhas de tabela com "VR:" em alguma célula
+            // Estrutura típica do HICD: | Nome do exame | Valor Unidade VR: Ref |
+            $('tr').each((i, row) => {
+                const cells = $(row).find('td');
+                if (cells.length < 2) return;
+
+                const textos = cells.map((j, td) => $(td).text().trim()).get();
+
+                // Localiza a célula que contém "VR:" ou "V.R     :" (valor de referência)
+                const vrIndex = textos.findIndex(t => /\bVR\s*:|V\.?\s*R\.?\s*:/i.test(t));
+                if (vrIndex < 0) return;
+
+                const textoVR = textos[vrIndex];
+
+                // Extrai valor, unidade e referência da célula com VR:
+                const matchVR = textoVR.match(/([0-9.,]+)\s*([^\s]*)\s+VR\s*:\s*(.+)/i);
+                if (!matchVR) return;
+
+                // O nome/sigla vem da primeira célula diferente da célula com VR:
+                const sigla = textos.find((t, idx) => idx !== vrIndex && t.length > 0) || '';
+                if (!sigla || !this.isValidExameResult(sigla, matchVR[1])) return;
+
+                resultados.push({
+                    requisicaoId,
+                    sigla,
+                    valor: matchVR[1],
+                    unidade: matchVR[2] || '',
+                    referencia: matchVR[3].trim(),
+                    valorNumerico: this.extrairValorNumerico(matchVR[1]),
+                    status: this.determinarStatusExame(matchVR[1], matchVR[3])
+                });
             });
-            
+
+            // Estratégia 2: elementos inline com padrão "Nome: Valor Unidade VR: Ref"
+            // Cobre layouts onde os dados ficam em <p>, <div> ou <span> únicos
+            $('p, div, span, td').each((i, el) => {
+                const texto = $(el).text().trim();
+
+                const match = texto.match(/^(.+?)\s*:\s*([0-9.,]+)\s*([^\s]*)\s+VR\s*:\s*(.+)$/i);
+                if (!match) return;
+
+                const sigla = match[1].trim();
+                if (!this.isValidExameResult(sigla, match[2])) return;
+
+                // Evitar duplicatas já capturadas pela estratégia 1
+                const jaExiste = resultados.some(
+                    r => r.sigla === sigla && r.valor === match[2]
+                );
+                if (jaExiste) return;
+
+                resultados.push({
+                    requisicaoId,
+                    sigla,
+                    valor: match[2],
+                    unidade: match[3] || '',
+                    referencia: match[4].trim(),
+                    valorNumerico: this.extrairValorNumerico(match[2]),
+                    status: this.determinarStatusExame(match[2], match[4])
+                });
+            });
+
         } catch (error) {
             console.warn('[PARSER] Erro no parse de resultados texto:', error.message);
         }
-        
+
         return resultados;
     }
 
@@ -514,32 +574,95 @@ class ExamesParser extends BaseParser {
     }
 
     /**
-     * Extrai valor numérico do texto do resultado
+     * Extrai valor numérico do texto, tratando formato brasileiro:
+     *   vírgula = separador decimal, ponto = separador de milhar.
+     * Exemplos: "31,90" → 31.9 | "12.230" → 12230 | "7.963,80" → 7963.8
      */
     extrairValorNumerico(valorTexto) {
         if (!valorTexto) return null;
-        
-        // Remover unidades e caracteres especiais, manter apenas números e vírgulas/pontos
-        const numeroLimpo = valorTexto.replace(/[^0-9.,\-]/g, '');
-        
-        if (numeroLimpo) {
-            // Converter vírgula para ponto e parsear
-            const numero = parseFloat(numeroLimpo.replace(',', '.'));
-            return !isNaN(numero) ? numero : null;
+
+        let s = valorTexto.replace(/[^0-9.,-]/g, '').trim();
+        if (!s) return null;
+
+        if (s.includes(',')) {
+            // Vírgula presente = separador decimal; ponto é milhar → remover pontos
+            s = s.replace(/\./g, '').replace(',', '.');
+        } else if (/\.\d{3}$/.test(s)) {
+            // Ponto seguido de exatamente 3 dígitos no final = separador de milhar
+            s = s.replace(/\./g, '');
         }
-        
+
+        const n = parseFloat(s);
+        return isNaN(n) ? null : n;
+    }
+
+    /**
+     * Extrai intervalo numérico de uma string de referência.
+     * Suporta os formatos usados pelo HICD:
+     *   "12,0 - 16,0"              → { min: 12.0, max: 16.0 }
+     *   "40,00 a 54,00"            → { min: 40.0, max: 54.0 }
+     *   "M 40,00 a 54,00 F 37,..."  → primeiro intervalo encontrado
+     *   "< 5,0" / "Até 5,0"        → { min: null, max: 5.0 }
+     *   "> 60"  / "Acima de 60"    → { min: 60.0, max: null }
+     * Retorna null quando não é possível extrair valores numéricos.
+     */
+    parsearIntervaloReferencia(referencia) {
+        if (!referencia || !referencia.trim()) return null;
+
+        const toNum = (s) => {
+            if (!s) return null;
+            // vírgula = decimal, ponto = milhar
+            let n = s.replace(/\./g, '').replace(',', '.');
+            const v = parseFloat(n);
+            return isNaN(v) ? null : v;
+        };
+
+        // Padrão: dois números separados por " - ", " – " ou " a " (PT)
+        const rangeMatch = referencia.match(
+            /(\d[\d.]*,?\d*)\s*(?:-+|–|a\b)\s*(\d[\d.]*,?\d*)/i
+        );
+        if (rangeMatch) {
+            const min = toNum(rangeMatch[1]);
+            const max = toNum(rangeMatch[2]);
+            if (min !== null && max !== null) return { min, max };
+        }
+
+        // Padrão: "< N" ou "Até N" ou "≤ N"
+        const maxMatch = referencia.match(
+            /(?:[<≤]|[Aa]t[eé]\s+)\s*(\d[\d.]*,?\d*)/
+        );
+        if (maxMatch) {
+            const max = toNum(maxMatch[1]);
+            if (max !== null) return { min: null, max };
+        }
+
+        // Padrão: "> N" ou "Acima de N" ou "≥ N"
+        const minMatch = referencia.match(
+            /(?:[>≥]|[Aa]cima\s+de\s+)\s*(\d[\d.]*,?\d*)/
+        );
+        if (minMatch) {
+            const min = toNum(minMatch[1]);
+            if (min !== null) return { min, max: null };
+        }
+
         return null;
     }
 
     /**
-     * Determina o status do exame baseado no valor e referência
+     * Determina o status do exame comparando o valor com o intervalo de referência.
+     * Retorna: 'normal' | 'alto' | 'baixo' | 'sem_referencia'
      */
-    determinarStatusExame(valor, referencia) {
-        // Por enquanto retorna 'normal', mas pode ser expandido
-        // para comparar com valores de referência
-        if (!referencia) return 'sem_referencia';
-        
-        // TODO: Implementar lógica de comparação com valores de referência
+    determinarStatusExame(valorTexto, referencia) {
+        if (!referencia || !referencia.trim()) return 'sem_referencia';
+
+        const valorNum = this.extrairValorNumerico(valorTexto);
+        if (valorNum === null) return 'sem_referencia';
+
+        const intervalo = this.parsearIntervaloReferencia(referencia);
+        if (!intervalo) return 'sem_referencia';
+
+        if (intervalo.min !== null && valorNum < intervalo.min) return 'baixo';
+        if (intervalo.max !== null && valorNum > intervalo.max) return 'alto';
         return 'normal';
     }
 
@@ -672,6 +795,310 @@ class ExamesParser extends BaseParser {
             }
         }
         return 'Normal';
+    }
+
+    /**
+     * Filtra exames pelo tipo/nome dos itens solicitados ou clínica.
+     */
+    filterByTipo(exames, tipo) {
+        if (!tipo || !Array.isArray(exames)) return exames || [];
+        const termo = tipo.toLowerCase();
+        return exames.filter(exame =>
+            (exame.clinica && exame.clinica.toLowerCase().includes(termo)) ||
+            (exame.exames && exame.exames.some(e => e.nome && e.nome.toLowerCase().includes(termo)))
+        );
+    }
+
+    /**
+     * Filtra exames pelo intervalo de datas (formato DD/MM/YYYY).
+     */
+    filterByPeriodo(exames, dataInicio, dataFim) {
+        if (!Array.isArray(exames)) return [];
+        return exames.filter(exame => {
+            if (!exame.data) return false;
+            const [d, m, y] = exame.data.split('/');
+            const dataExame = new Date(`${y}-${m}-${d}`);
+            if (dataInicio && dataExame < new Date(dataInicio)) return false;
+            if (dataFim && dataExame > new Date(dataFim)) return false;
+            return true;
+        });
+    }
+
+    /**
+     * Agrupa exames por clínica solicitante.
+     */
+    groupByTipo(exames) {
+        if (!Array.isArray(exames)) return {};
+        return exames.reduce((grupos, exame) => {
+            const chave = exame.clinica || 'Outros';
+            if (!grupos[chave]) grupos[chave] = [];
+            grupos[chave].push(exame);
+            return grupos;
+        }, {});
+    }
+
+    /**
+     * Extrai os nomes únicos de exames disponíveis no HTML.
+     */
+    extractAvailableTypes(html) {
+        try {
+            const $ = cheerio.load(html);
+            const tipos = new Set();
+            $('a[onclick*="selecionaEx"]').each((i, el) => {
+                const nome = $(el).text().trim();
+                if (nome) tipos.add(nome);
+            });
+            return [...tipos].sort();
+        } catch (error) {
+            console.warn('[PARSER] Erro ao extrair tipos de exames:', error.message);
+            return [];
+        }
+    }
+
+    /**
+     * Busca exames cujos campos contenham o termo informado.
+     */
+    search(exames, termo) {
+        if (!termo || !Array.isArray(exames)) return exames || [];
+        const t = termo.toLowerCase();
+        return exames.filter(exame =>
+            (exame.medico && exame.medico.toLowerCase().includes(t)) ||
+            (exame.clinica && exame.clinica.toLowerCase().includes(t)) ||
+            (exame.requisicao && exame.requisicao.includes(t)) ||
+            (exame.exames && exame.exames.some(e => e.nome && e.nome.toLowerCase().includes(t)))
+        );
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // PARSE DE LAUDOS TEXTUAIS ESTRUTURADOS (HPL, PFR, ...)
+    // ──────────────────────────────────────────────────────────────
+
+    /**
+     * Tabela de siglas para nomes normalizados de itens de laudo.
+     * Chave: nome em minúsculas após normalização.
+     */
+    _siglaDeLaudo(nomeNormalizado) {
+        const SIGLAS = {
+            // Eritrograma
+            'hematocrito':                   'HTO',
+            'hemoglobina':                   'HGB',
+            'hemacia':                       'RBC',
+            'vol. corpusc. medio (vcm)':     'VCM',
+            'hemog. corp. media (hcm)':      'HCM',
+            'concent. hemoglob. (chcm)':     'CHCM',
+            'rdw':                           'RDW',
+            // Leucograma
+            'leucocitos':                    'WBC',
+            'blastos (vr)':                  'BLAST_VR',
+            'blastos (va)':                  'BLAST_VA',
+            'basofilos (vr)':               'BASO_VR',
+            'basofilos (va)':               'BASO_VA',
+            'eosinofilos (vr)':             'EOSI_VR',
+            'eosinofilos (va)':             'EOSI_VA',
+            'mielocitos (vr)':              'MIEL_VR',
+            'mielocitos (va)':              'MIEL_VA',
+            'metamielocitos (vr)':          'META_VR',
+            'metamielocitos (va)':          'META_VA',
+            'bastoes (vr)':                 'BAST_VR',
+            'bastoes (va)':                 'BAST_VA',
+            'segmentados (vr)':             'SEGM_VR',
+            'segmentados (va)':             'SEGM_VA',
+            'linfocitos (vr)':              'LINF_VR',
+            'linfocitos (va)':              'LINF_VA',
+            'monocitos (vr)':               'MONO_VR',
+            'monocitos (va)':               'MONO_VA',
+            'plaquetas':                    'PLT',
+            // Proteínas Totais e Frações
+            'proteinas totais':             'PROT_TOT',
+            'albumina serica':              'ALBUMINA',
+            'globulinas':                   'GLOB',
+            // Bilirrubinas (inclui typo real do HICD: "BILIRRUTINA")
+            'bilirrubina total':            'BT',
+            'bilirrutina total':            'BT',
+            'bilirrubina direta':           'BD',
+            'bilirrubina indireta':         'BI',
+            // Coagulação — TAP
+            'pool normal':                  'TAP_CTRL',
+            'plasma do paciente':           'TAP_TEMPO',
+            'atividade':                    'TAP_ATIV',
+            'inr':                          'INR',
+            'rni':                          'INR',
+            // Coagulação — TTPA
+            'ttpa':                         'TTPA_TEMPO',
+            'ratio (r)':                    'TTPA_RATIO',
+        };
+        return SIGLAS[nomeNormalizado.toLowerCase()] || null;
+    }
+
+    /**
+     * Normaliza o nome bruto de um item de laudo:
+     * remove dashes/seta no final, normaliza "(V R)"/"(V A)" e espaços.
+     */
+    normalizarNomeLaudo(nomeRaw) {
+        return nomeRaw
+            .replace(/-+>?\s*$/, '')               // remove "------>" no final
+            .replace(/\(\s*V\s*R\s*\)/g, '(VR)')   // "( V R )" → "(VR)"
+            .replace(/\(\s*V\s*A\s*\)/g, '(VA)')   // "( V A )" → "(VA)"
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    /**
+     * Faz o parse de uma única linha de laudo no formato:
+     *   Nome[---]>   VALOR   UNIT   [VR: REF]
+     *   Nome (VR)    VALOR   UNIT   [VR: REF]
+     *
+     * Retorna null se a linha não contiver um valor numérico válido.
+     */
+    parseLinhaDeLaudo(linha, requisicaoId) {
+        const l = linha.trim();
+        if (!l) return null;
+
+        // Exige: nome, >= 2 espaços, valor começando com dígito,
+        // unidade opcional, referência opcional após "VR:" ou "V. referencia:"
+        const match = l.match(
+            /^(.+?)\s{2,}([0-9][\d.,]*)\s*(?:(\S+)\s*)?(?:(?:VR|V\.\s*referencia)\s*:?\s*(.+?))?$/
+        );
+        if (!match) return null;
+
+        const nome = this.normalizarNomeLaudo(match[1]);
+        if (!nome) return null;
+
+        const valorStr    = match[2];
+        const unidade     = (match[3] || '').trim();
+        const referencia  = (match[4] || '').trim();
+        const sigla       = this._siglaDeLaudo(nome) || nome.toUpperCase().replace(/\s+/g, '_').slice(0, 12);
+        const valorNumerico = this.extrairValorNumerico(valorStr);
+
+        return {
+            requisicaoId,
+            sigla,
+            nome,
+            valor: valorStr,
+            unidade,
+            referencia,
+            valorNumerico,
+            status: this.determinarStatusExame(valorStr, referencia)
+        };
+    }
+
+    /**
+     * Parse do Hemograma Completo (HPL) — cada item vira uma entrada individual.
+     */
+    parseHemograma(texto, requisicaoId) {
+        const itens = [];
+        for (const linha of texto.split('\n')) {
+            const item = this.parseLinhaDeLaudo(linha, requisicaoId);
+            if (item) itens.push(item);
+        }
+        return itens;
+    }
+
+    /**
+     * Parse de Proteínas Totais e Frações (PFR) — cada item vira uma entrada individual.
+     */
+    parseProteinasTotais(texto, requisicaoId) {
+        const itens = [];
+        for (const linha of texto.split('\n')) {
+            const item = this.parseLinhaDeLaudo(linha, requisicaoId);
+            if (item) itens.push(item);
+        }
+        return itens;
+    }
+
+    /**
+     * Parse de Bilirrubinas Totais e Frações (BT, BD, BI) — cada item vira uma entrada individual.
+     */
+    parseBilirrubinas(texto, requisicaoId) {
+        const itens = [];
+        for (const linha of texto.split('\n')) {
+            const item = this.parseLinhaDeLaudo(linha, requisicaoId);
+            if (item) itens.push(item);
+        }
+        return itens;
+    }
+
+    /**
+     * Parse do TAP (Tempo de Atividade de Protrombina) — cada item vira uma entrada individual.
+     * Adiciona prefixo TAP_ nas siglas para evitar colisão com campos do TTPA.
+     * Exceção: INR permanece sem prefixo por ser uma sigla universal.
+     */
+    parseTAP(texto, requisicaoId) {
+        // Siglas que já vêm corretas do mapa (prefixo embutido ou universais)
+        const NAO_PREFIXAR = new Set(['INR', 'TAP_CTRL', 'TAP_TEMPO', 'TAP_ATIV']);
+        const itens = [];
+        for (const linha of texto.split('\n')) {
+            const item = this.parseLinhaDeLaudo(linha, requisicaoId);
+            if (!item) continue;
+            if (!NAO_PREFIXAR.has(item.sigla)) {
+                item.sigla = `TAP_${item.sigla}`;
+            }
+            itens.push(item);
+        }
+        return itens;
+    }
+
+    /**
+     * Parse do TTPA (Tempo de Tromboplastina Parcial Ativada) — cada item vira uma entrada individual.
+     * Adiciona prefixo TTPA_ nas siglas para evitar colisão com campos do TAP.
+     */
+    parseTTPA(texto, requisicaoId) {
+        // Siglas que já vêm corretas do mapa (prefixo embutido)
+        const NAO_PREFIXAR = new Set(['TTPA_TEMPO', 'TTPA_RATIO']);
+        const itens = [];
+        for (const linha of texto.split('\n')) {
+            const item = this.parseLinhaDeLaudo(linha, requisicaoId);
+            if (!item) continue;
+            if (!NAO_PREFIXAR.has(item.sigla)) {
+                item.sigla = `TTPA_${item.sigla}`;
+            }
+            itens.push(item);
+        }
+        return itens;
+    }
+
+    /**
+     * Detecta se um resultado é um bloco de texto estruturado (HPL, PFR)
+     * e o expande em itens individuais.
+     * Retorna array expandido ou null se não for um bloco reconhecido.
+     */
+    expandirBlocoTextual(resultado) {
+        const texto = (resultado.valor || '').trim();
+        if (!texto.includes('\n')) return null;
+
+        const titulo = texto.split('\n')[0].trim();
+
+        if (/^HEMOGRAMA\b/i.test(titulo)) {
+            return this.parseHemograma(texto, resultado.requisicaoId);
+        }
+
+        if (/^PROTEINAS\s+TOTAIS\b/i.test(titulo)) {
+            return this.parseProteinasTotais(texto, resultado.requisicaoId);
+        }
+
+        if (/^BILIRRUBINAS?\b/i.test(titulo)) {
+            return this.parseBilirrubinas(texto, resultado.requisicaoId);
+        }
+
+        // "TEMPO DE PROTROMBINA ( TAP )" ou "TEMPO DE ATIVIDADE DE PROTROMBINA" ou início "TAP"
+        if (/^(?:TEMPO\s+DE\s+(?:ATIVIDADE\s+DE\s+)?PROTROMBINA|TAP)\b/i.test(titulo)) {
+            return this.parseTAP(texto, resultado.requisicaoId);
+        }
+
+        // "TEMPO DE TROMBOPLASTINA (TTPA)", "TEMPO TROMBOPLASTINA ATIVADA", "TTPA"
+        if (/^(?:TEMPO\s+(?:DE\s+)?TROMBOPLASTINA|TTPA)\b/i.test(titulo)) {
+            return this.parseTTPA(texto, resultado.requisicaoId);
+        }
+
+        // Fallback genérico: bloco multi-linha não reconhecido —
+        // tenta parsear cada linha individualmente e retorna os itens encontrados.
+        // Se nenhuma linha tiver valor numérico válido, mantém o resultado original (null).
+        const itensFallback = [];
+        for (const linha of texto.split('\n')) {
+            const item = this.parseLinhaDeLaudo(linha, resultado.requisicaoId);
+            if (item) itensFallback.push(item);
+        }
+        return itensFallback.length > 0 ? itensFallback : null;
     }
 
     /**

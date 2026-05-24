@@ -10,6 +10,7 @@ class Paciente {
         this.dataNascimento = data.dataNascimento || null;
         this.idade = data.idade || null;
         this.sexo = data.sexo || null;
+        this.cid = data.cid || null;
         this.documento = data.documento || null;
         this.cns = data.cns || null;
         this.be = data.be || null;
@@ -106,6 +107,7 @@ class Paciente {
             nome: listData.nome,
             idade: listData.idade,
             sexo: listData.sexo,
+            cid: listData.cid,
             numeroLeito: listData.leito || listData.clinicaLeito,
             nomeClinica: listData.clinica || listData.clinicaNome,
             clinicaLeito: listData.clinicaLeito || listData.leito,
@@ -124,6 +126,7 @@ class Paciente {
             nome: this.nome,
             idade: this.idade,
             sexo: this.sexo,
+            cid: this.cid,
             leito: this.internacao.numeroLeito,
             clinicaLeito: this.internacao.clinicaLeito,
             clinica: this.internacao.nomeClinica,
@@ -145,7 +148,8 @@ class Paciente {
                 nomeMae: this.nomeMae,
                 dataNascimento: this.dataNascimento,
                 idade: this.idade,
-                sexo: this.sexo
+                sexo: this.sexo,
+                cid: this.cid
             },
             documentos: {
                 documento: this.documento,

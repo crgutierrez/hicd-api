@@ -238,7 +238,7 @@ class HICDParser {
     parseResultadosExames(html, requisicaoId = '') {
         this.debug('Delegando parse de resultados de exames para ExamesParser', { requisicaoId });
         try {
-            return this.examesParser.parseResultadosExames(html);
+            return this.examesParser.parseResultadosExames(html, requisicaoId);
         } catch (error) {
             this.error('Erro no parse de resultados de exames:', error);
             throw error;

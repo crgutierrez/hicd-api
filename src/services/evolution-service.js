@@ -212,54 +212,55 @@ class EvolutionService {
                 return [];
             }
 
-            console.log(`[RESULTADOS] ${urls.length} URLs de impressão geradas. Buscando resultados em paralelo...`);
+            const BATCH_SIZE = parseInt(process.env.EXAM_BATCH_SIZE) || 5;
+            const DELAY_ENTRE_BATCHES_MS = parseInt(process.env.EXAM_BATCH_DELAY_MS) || 100;
+            const REQUEST_TIMEOUT_MS = parseInt(process.env.EXAM_REQUEST_TIMEOUT_MS) || 15000;
 
-            const BATCH_SIZE = 3;
-            const DELAY_ENTRE_BATCHES_MS = 300;
+            console.log(`[RESULTADOS] ${urls.length} URLs — batches de ${BATCH_SIZE}, delay ${DELAY_ENTRE_BATCHES_MS}ms`);
+
             const resultadosCompletos = [];
 
-            // Processar em batches para paralelizar sem sobrecarregar o servidor
             for (let i = 0; i < urls.length; i += BATCH_SIZE) {
                 const batch = urls.slice(i, i + BATCH_SIZE);
 
-                const batchResults = await Promise.all(batch.map(async (urlInfo, batchIndex) => {
+                const batchSettled = await Promise.allSettled(batch.map(async (urlInfo, batchIndex) => {
                     const globalIndex = i + batchIndex;
-                    try {
-                        console.log(`[RESULTADOS] Processando ${globalIndex + 1}/${urls.length} - Requisição: ${urlInfo.requisicao}`);
+                    console.log(`[RESULTADOS] Processando ${globalIndex + 1}/${urls.length} - Requisição: ${urlInfo.requisicao}`);
 
-                        const response = await this.httpClient.get(urlInfo.url, {
-                            headers: {
-                                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                                'Accept-Language': 'pt-BR,pt;q=0.8,en;q=0.5,en-US;q=0.3',
-                                'Accept-Encoding': 'gzip, deflate, br',
-                                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0'
-                            }
-                        });
-
-                        const resultados = this.parser.parseResultadosExames(response.data, urlInfo.requisicao);
-
-                        if (resultados.length > 0) {
-                            console.log(`[RESULTADOS] ✅ ${resultados.length} resultados extraídos da requisição ${urlInfo.requisicao}`);
-                            return {
-                                ...urlInfo,
-                                resultados,
-                                totalResultados: resultados.length,
-                                dataProcessamento: new Date().toISOString()
-                            };
+                    const response = await this.httpClient.get(urlInfo.url, {
+                        timeout: REQUEST_TIMEOUT_MS,
+                        headers: {
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                            'Accept-Language': 'pt-BR,pt;q=0.8,en;q=0.5,en-US;q=0.3',
+                            'Accept-Encoding': 'gzip, deflate, br',
+                            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0'
                         }
+                    });
 
+                    const resultados = this.parser.parseResultadosExames(response.data, urlInfo.requisicao);
+
+                    if (!resultados.length) {
                         console.log(`[RESULTADOS] ⚠️ Nenhum resultado na requisição ${urlInfo.requisicao}`);
                         return null;
-
-                    } catch (error) {
-                        console.error(`[RESULTADOS] Erro ao processar requisição ${urlInfo.requisicao}:`, error.message);
-                        return null;
                     }
+
+                    console.log(`[RESULTADOS] ✅ ${resultados.length} resultados extraídos da requisição ${urlInfo.requisicao}`);
+                    return {
+                        ...urlInfo,
+                        resultados,
+                        totalResultados: resultados.length,
+                        dataProcessamento: new Date().toISOString()
+                    };
                 }));
 
-                resultadosCompletos.push(...batchResults.filter(Boolean));
+                for (const settled of batchSettled) {
+                    if (settled.status === 'fulfilled' && settled.value !== null) {
+                        resultadosCompletos.push(settled.value);
+                    } else if (settled.status === 'rejected') {
+                        console.error(`[RESULTADOS] Falha em requisição do batch:`, settled.reason?.message);
+                    }
+                }
 
-                // Delay apenas entre batches, não entre cada requisição individual
                 if (i + BATCH_SIZE < urls.length) {
                     await new Promise(resolve => setTimeout(resolve, DELAY_ENTRE_BATCHES_MS));
                 }

@@ -139,12 +139,13 @@ class HICDCrawler {
         return await this.evolutionService.getEvolucoes(pacienteId, filtros);
     }
     /**
-     * Busca exames do Paciente
+     * Busca lista de requisições de exames do paciente (rápido, sem N+1).
+     * Para buscar os resultados completos de cada requisição, use
+     * evolutionService.getResultadosExames(pacienteId, filtros, examesPreCarregados).
      */
     async getExames(pacienteId, filtros = {}) {
         this.verificarAutenticacao();
-        
-        return await this.evolutionService.getResultadosExames(pacienteId, filtros);
+        return await this.evolutionService.getExames(pacienteId, filtros);
     }
 
     // ========================================

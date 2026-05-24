@@ -15,8 +15,10 @@ class Exame {
         // Lista de exames solicitados
         this.examesSolicitados = data.exames || data.examesSolicitados || [];
         
-        // Resultados dos exames (quando disponíveis)
-        this.resultados = data.resultados || [];
+        // Resultados dos exames (quando disponíveis) — sempre instâncias de ResultadoExame
+        this.resultados = (data.resultados || []).map(
+            r => r instanceof ResultadoExame ? r : new ResultadoExame(r)
+        );
         
         // Status da requisição
         this.status = {
@@ -260,8 +262,25 @@ class ResultadoExame {
             valorNumerico: this.valorNumerico,
             referencia: this.referencia,
             status: this.status,
+            analise: this._buildAnalise(),
             observacoes: this.observacoes,
             metadata: this.metadata
+        };
+    }
+
+    /**
+     * Monta objeto de análise com intervalo de referência e indicação visual.
+     * Retorna null quando não há referência numérica parseável.
+     */
+    _buildAnalise() {
+        if (!this.referencia || this.status === 'sem_referencia' || this.status === 'bloco_textual') {
+            return null;
+        }
+        return {
+            valorNumerico: this.valorNumerico,
+            referenciaTexto: this.referencia,
+            resultado: this.status,   // 'normal' | 'alto' | 'baixo'
+            indicador: this.status === 'alto' ? '↑' : this.status === 'baixo' ? '↓' : '✓'
         };
     }
 

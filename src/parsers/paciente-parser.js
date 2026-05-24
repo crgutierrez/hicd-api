@@ -291,30 +291,33 @@ class PacienteParser extends BaseParser {
 
             const leito = cells.length >= 3 ? stripHtml(cells[2]) : '';
 
-            // Detecta automaticamente se a tabela tem coluna de sexo.
+            // Detecta automaticamente a estrutura da tabela:
             // Estrutura com sexo:    [pront, nome, leito, sexo, dataInt, dias]
+            // Estrutura com CID:     [pront, nome, leito, cid,  dataInt, dias]
             // Estrutura sem sexo:    [pront, nome, leito, dataInt, dias]
             const c3raw = cells.length >= 4 ? stripHtml(cells[3]) : '';
-            let sexo = '', internacao = '', diasInternacao = '';
+            let sexo = '', cid = '', internacao = '', diasInternacao = '';
 
             if (this.isSexoValue(c3raw)) {
                 // Coluna 3 é sexo → data e dias nas posições 4 e 5
-                sexo          = c3raw;
-                internacao    = cells.length >= 5 ? stripHtml(cells[4]) : '';
+                sexo           = c3raw;
+                internacao     = cells.length >= 5 ? stripHtml(cells[4]) : '';
                 diasInternacao = cells.length >= 6 ? stripHtml(cells[5]) : '';
             } else if (DATE_LIKE.test(c3raw)) {
-                // Coluna 3 é a data de internação (sem coluna de sexo)
-                internacao    = c3raw;
+                // Coluna 3 é a data de internação (sem coluna de sexo/CID)
+                internacao     = c3raw;
                 diasInternacao = cells.length >= 5 ? stripHtml(cells[4]) : '';
             } else {
-                // Estrutura desconhecida: mantém mapeamento padrão
-                internacao    = cells.length >= 5 ? stripHtml(cells[4]) : '';
+                // Coluna 3 é CID ou campo desconhecido
+                cid            = c3raw;
+                internacao     = cells.length >= 5 ? stripHtml(cells[4]) : '';
                 diasInternacao = cells.length >= 6 ? stripHtml(cells[5]) : '';
             }
 
             pacientes.push({
                 prontuario: String(prontuario),
                 nome,
+                cid:            cid || null,
                 dataNascimento: null,
                 dataInternacao: this.parseDate(internacao),
                 sexo:           this.normalizeSexo(sexo),
@@ -390,7 +393,7 @@ class PacienteParser extends BaseParser {
 
             const leito = tds[2] ? nodeText(tds[2]) : '';
             const c3raw = tds[3] ? nodeText(tds[3]) : '';
-            let sexo = '', internacao = '', diasInternacao = '';
+            let sexo = '', cid = '', internacao = '', diasInternacao = '';
 
             if (this.isSexoValue(c3raw)) {
                 sexo           = c3raw;
@@ -400,6 +403,7 @@ class PacienteParser extends BaseParser {
                 internacao     = c3raw;
                 diasInternacao = tds[4] ? nodeText(tds[4]) : '';
             } else {
+                cid            = c3raw;
                 internacao     = tds[4] ? nodeText(tds[4]) : '';
                 diasInternacao = tds[5] ? nodeText(tds[5]) : '';
             }
@@ -407,6 +411,7 @@ class PacienteParser extends BaseParser {
             pacientes.push({
                 prontuario: String(prontuario),
                 nome,
+                cid:             cid || null,
                 dataNascimento:  null,
                 dataInternacao:  this.parseDate(internacao),
                 sexo:            this.normalizeSexo(sexo),
