@@ -38,6 +38,7 @@ Mapa atual dos leitos 1–8 (16/06/2026):
 | 8 | [[LIAM DAVI DA SILVA BRAGA - 575986]] | 575986 |
 
 Cada paciente tem nota de **Resumo de Evolução** e **Fluxograma de exames** em `Pacientes/`.
+Visão consolidada: [[UTI Neonatal - Indice de Leitos]].
 
 ---
 
