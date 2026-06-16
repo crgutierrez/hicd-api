@@ -37,3 +37,4 @@ Mensagem da API: "Nenhuma evolução médica encontrada para o prontuário 31628
 - 07/05/2026 — Nota criada sem conteúdo clínico — sem evolução disponível no momento do scan.
 - 08/05/2026 — Alerta atualizado: prontuário sem evoluções pelo 2o dia consecutivo.
 - 19/05/2026 — Leito atualizado para UTI-1 (007.007-0001). Continua sem evoluções disponíveis no sistema HICD. Necessário verificar presencialmente.
+- 28/05/2026 — Sem evoluções no sistema HICD. Leito Enf01-3 na lista Gastroped. ⚠️ Verificar presencialmente.

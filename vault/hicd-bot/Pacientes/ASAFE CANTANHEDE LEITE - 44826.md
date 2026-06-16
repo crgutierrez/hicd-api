@@ -9,9 +9,9 @@
 | Leito | Enf03-3 (023.023-0003) |
 | Hipótese diagnóstica principal | Encefalopatia hipóxico-isquêmica grave (fase sequelar) |
 | Data de entrada | 12/02/2026 (UTIP) / 07/05/2026 (readm. enfermaria) |
-| Dias internado | 96 dias (19/05/2026) |
+| Dias internado | ~104 dias (28/05/2026) |
 | Especialidade | Gastropediatria (Dr. Ricardo Torres Negraes) |
-| Última atualização | 19/05/2026 |
+| Última atualização | 28/05/2026 |
 
 ---
 
@@ -125,3 +125,61 @@ Não foram encontradas análises relacionadas no vault.
 
 - 14/05/2026 — Nota atualizada com evolução de 14/05 (WELLITON HENRIQUE RIBEIRO SILVA — Gastropediatria e NAJUA ABDUL RAZZAK DE CASTRO). Leito atualizado para 023-3.
 - 19/05/2026 — Atualizado com evolução de 19/05/2026 (RICARDO TORRES NEGRAES — Pediatria). Dias: 96. Culturas atualizadas. Pendência EXOMA e toxoplasmose. Transferência para crônicos solicitada.
+- 27/05/2026 — Atualizado com evolução de 27/05 (RICARDO TORRES NEGRAES — Pediatria). Exames 23/05 e 27/05. CENE em andamento.
+- 28/05/2026 — Atualizado com pareceres de 28/05: SAMD aprovado, Cardio liberou alta, ECO realizado (aguarda resultado), Fisioterapia estável.
+
+---
+
+## Atualização 27/05/2026 — Pediatria (Dr. Ricardo Torres Negraes)
+
+**Leito:** Enf03-3 (023.023-0003) | **Peso:** 3,54 kg (04/05) | **Idade:** 4 meses (DN 30/12/2025)
+
+**Hipóteses atuais:**
+- Encefalopatia hipóxico-isquêmica grave + Espasticidade secundária à EHI
+- Desnutrição grave crônica
+- Colangiopatia isquêmica
+- PO gastrostomia 03/05 — secreção em óstio de GTT em tratamento
+- Atelectasia pulmonar bilateral — em fisioterapia
+- Em teste com dieta Aptamil
+
+**Exames laboratoriais:**
+- 23/05/26: Hb 8,3; Leuco 10.800; PQT 323.000; INR 0,9; TTPa 1,16; Ca 9,34; K 4,6; Mg 2,1; Na 135; PCR 1,9; Alb 2,8; Cr 0,7; TGO 155; TGP 218; BRF normal; Glicose 122; Ureia 14
+- 27/05/26: Hb 9,5; Leuco 11.290; PQT 381.000; PCR 1,23; Alb 3,1; Cr 0,6; TGO 68; TGP 156; BRF normal; Ureia 9; GGT 1.234; FA 1.378
+
+> ✅ Hb 8,3→9,5. PCR normal (1,23). Alb 2,8→3,1. TGO 155→68.
+> ⚠️ GGT 1.234 e FA 1.378 — colangiopatia isquêmica persistente.
+
+**Conduta:**
+- Cefepime 150 mg/kg/dia (secreção óstio GTT)
+- Dieta: Aptamil 2 (em teste)
+- CENE: AS coletando documentação (laudos, relatório social, docs pessoais)
+
+**Pendências:**
+- EXOMA (recoletado) — aguardando resultado
+- Sorologia toxoplasmose
+- Transferência para crônicos (CENE em andamento)
+- Controle laboratorial GGT/FA/TGP (colangiopatia)
+
+---
+
+## Atualização 28/05/2026 — Pareceres multidisciplinares ⚠️ AGUARDA ALTA
+
+### SAMD (Thatiane Tanaka — 28/05)
+- Critérios de desospitalização **deferidos**
+- Sem pendências do ponto de vista da desospitalização
+- Avó já retirando a dieta no GENE
+- Aguarda apenas decisão da equipe assistente pós-ECO
+
+### Cardiopediatria (28/05)
+- **Liberado para alta**
+- Nova avaliação com exame específico em 1 ano
+
+### Fisioterapia (28/05)
+- Eupneico, TQT, sem RA, sem esforço respiratório
+
+### ECO (28/05)
+- Realizado — **aguarda resultado**
+
+### Pendências 28/05
+- Resultado ECO 28/05 → reavaliação pediátrica para definir alta
+- CENE: laudo nutricional (avó retirando dieta no GENE)

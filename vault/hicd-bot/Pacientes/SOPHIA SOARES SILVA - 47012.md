@@ -9,8 +9,8 @@
 | Leito | Enf05-1 (025.025-0001) |
 | Hipótese diagnóstica principal | Hepatite grave A/E (causa em investigação) + Síndrome ictérica |
 | Data de entrada | 18/05/2026 |
-| Dias internado | 5 dias |
-| Última atualização | 22/05/2026 (Gastroped — Dra. Joana) |
+| Dias internado | 10 dias (28/05/2026) |
+| Última atualização | 28/05/2026 |
 
 ---
 
@@ -132,3 +132,68 @@ Não foram encontradas análises relacionadas no vault.
 ## Histórico de atualizações
 
 - 23/05/2026 — Nota criada com base na evolução de 22/05/2026 (Gastropediatria — Dra. Joana). Hepatite grave A/E com sorologias virais negativas; rastreio hepatopatias solicitado; TC e TORCHS pendentes; coagulograma em melhora.
+- 27/05/2026 — Atualizado com Gastroped Dra. Joana 26/05 e Pediatria 27/05. IgG 2.955 ⚠️ (hepatite autoimune provável). Biópsia hepática solicitada (quinta-feira BC). Leito: Enfermaria L (017).
+- 28/05/2026 — Welliton 28/05: TGP 1482/TGO 821 (exames externos), sorologias virais negativas. Pediatria 28/05 (Julia Portela): HD hepatite autoimune + ITU, estável. Biopsia hepática no bloco com Dr. Elessandro (aguarda compra reagentes).
+
+---
+
+## Atualização 27/05/2026 — Gastropediatria (Dra. Joana, 26/05) + Pediatria (27/05)
+
+**Leito:** Enfermaria L (017) | **Peso:** 50 kg | **DIH:** 18/05/2026
+
+**Exames 24/05:**
+- Hb 12,1; Ht 34,6%; Leuco 5.430; Seg 48; Linf 37; Mon 9; Plaq 344.000
+- TGO 896; **TGP 1.211**; GGT 28; FA 259
+- BT 8,57; BD 6,43; Albumina 4,01
+- **IgG sérico 2.955** ⚠️ (VR <1.600 — muito elevado → hepatite autoimune)
+- INR 1,20; TAP 13s; TTPA 43; PCR 0,47; Na 133; K 4,1; Cr 0,60
+
+**25/05:** EBV IgM neg; EBV IgG positivo
+
+> ⚠️ **IgG 2.955** — fortemente sugestivo de hepatite autoimune.
+
+**Conduta Gastroped (Dra. Joana 26/05):**
+- Dieta branda via oral
+- Ceftriaxona mantida (ITU)
+- **Biópsia hepática guiada por US** solicitada — quinta-feira no BC (confirmar MAPA)
+- Prurido: hidroxizina prescrita
+- Aguarda rastreio hepatopatias: ANA, anti-músculo liso, anti-LKM1, ceruloplasmina
+
+**Tendência exames hepáticos:**
+
+| Exame | Externo | 19/05 | 21/05 | 24/05 | Tendência |
+|---|---|---|---|---|---|
+| TGO | 914 | 821 | 929 | 896 | → elevado |
+| TGP | 1675 | 1482 | 1403 | 1211 | ↘ lento |
+| BT | 7,7 | 8,32 | 9,14 | 8,57 | → |
+| FA | 989 | 403 | 366 | 259 | ↘ |
+| INR | — | ~2,4 | 1,22 | 1,20 | ↘ melhora |
+
+**Pendências:**
+- **Biópsia hepática** (quinta-feira, BC) — confirmar MAPA
+- Rastreio hepatopatias: ANA, anti-músculo liso, IgG ✅, ceruloplasmina, cobre urinário, alfa-1-antitripsina
+- Controle laboratorial TGO/TGP/BT
+
+---
+
+## Atualização 28/05/2026 — Gastropediatria (Dr. Welliton) + Pediatria (Julia Portela)
+
+**Leito:** Enf-L-02 (017) | **DIH:** 18/05/2026 | 10° dia
+
+### Gastropediatria — Dr. Welliton (28/05)
+- TGP **1482** / TGO **821** (exames externos de admissão — referência)
+- Anti-HBc / HBsAg / Anti-HCV — **negativos**
+- Aguarda biopsia hepática e exames autoimunes
+
+### Pediatria — Julia Portela (28/05)
+- HD: 1. Hepatite autoimune 2. ITU
+- **Estável**
+
+### Biópsia hepática
+- Com Dr. Elessandro, no bloco
+- **Aguarda compra dos reagentes** (em processo)
+
+### Pendências 28/05
+- Biopsia hepática com Dr. Elessandro (no bloco — aguarda reagentes)
+- Exames hepatopatias autoimunes: FAN, Anti-ML, Anti-LKM, ANCA
+- Controle laboratorial TGO/TGP/BT/INR

@@ -27,6 +27,8 @@ updated: 2026-05-21
 | 2026-03-01 | [[_aprendizados/2026-03-01-regex-whitespace-newline]] | `(?:\s+\w+)*` consumia `\n\n1` de listas numeradas |
 | 2026-03-01 | [[_aprendizados/2026-03-01-exames-parser-vr]] | Regex VR não capturava formato "V.R     :" |
 | 2026-03-01 | [[_aprendizados/2026-03-01-paciente-parser-html-entities]] | Nomes com `&amp;` não decodificados; `dataInternacao` ausente |
+| 2026-06-16 | [[_aprendizados/2026-06-16-cid-suffix-leito-uti-neonatal]] | Nº do leito vem no sufixo do `cid` (`008.046-00NN`), não no campo `leito` |
+| 2026-06-16 | [[_aprendizados/2026-06-16-fluxograma-exames-planilha-xlsx]] | Fluxograma = planilha (exames×datas); script + mapa sigla→linha + .xlsx |
 
 ---
 

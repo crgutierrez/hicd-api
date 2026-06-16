@@ -1,82 +1,114 @@
 ---
-atualizado: 2026-05-23
-censo: 5 pacientes ativos (1 alta)
+atualizado: 2026-05-28
+censo: 9 pacientes ativos (CELSON intubado na UTI desde 28/05; ASAFE aguarda alta pós-ECO)
 ---
 
-# Pacientes Gastroped — 23/05/2026
+# Pacientes Gastroped — 28/05/2026
 
 | NOME | LEITO | PRONTUÁRIO | DIAS | ESPECIALIDADE | HIPÓTESE PRINCIPAL | STATUS |
 | ---- | ----- | ---------- | ---- | ------------- | ------------------ | ------ |
-| [[ASAFE CANTANHEDE LEITE - 44826\|ASAFE CANTANHEDE LEITE]] | Enf03-3 | 44826 | 100 | Pediatria / Gastroped / CIPE / CCIH | EHI grave (fase sequelar) + TQT + GTT (03/05) + Colangiopatia isquêmica + Atelectasia bilateral | ⚠️ Alta planejada — ainda internado |
-| [[ENDRICK ORO WARAM - 45136\|ENDRICK ORO WARAM]] | M4 | 45136 | ~95¹ | Gastroped / Cardiopediatria / CCIH | Endocardite VCS/AD **em regressão** (ECO 21/05: 2×3mm) + Síndrome colestática multifatorial (TGO 143 / TGP 114 em 21/05) | Em melhora — Anfo B em curso |
-| [[CELSON TOCOROM KAIU MON MIN ORO WARAM - 46798\|CELSON TOCOROM KAIU MON MIN ORO WARAM]] | CIP-1 | 46798 | 16 | Pediatria / Gastroped / Cirurgia Torácica | Estridor laríngeo (estenose subglótica?) + Hepatomegalia com enzimas alteradas | Ativo — aguarda broncoscopia |
-| [[THALES DANIEL JUNIOR BRAS - 31628\|THALES DANIEL JUNIOR BRAS]] | Enf01-3 | 31628 | 103 | ? | Sem evoluções no sistema HICD | ⚠️ Verificar presencialmente |
-| [[LIZ DIAS KER - 46863\|LIZ DIAS KER]] | UTI-4 | 46863 | 12 | Pediatria (UTI) / Gastroped | Síndrome congênita a esclarecer + Sepse Klebsiella CTX-M + Colestase multifatorial (icterícia progressiva) | ⚠️ Grave — UTI — icterícia em progressão |
-
-> ¹ ENDRICK: API retorna 24 dias (contagem da transferência para M4). Data de internação hospitalar real: 19/02/2026 (~95 dias).
-
----
-
-## Alta desde última atualização (21/05/2026)
-
-| NOME | PRONTUÁRIO | SITUAÇÃO |
-| ---- | ---------- | -------- |
-| VALLENTINA SOUSA SANTOS | 46659 | Alta entre 21/05 e 23/05 — ausente do censo. HAI tipo 1 confirmada (anti-ML 1:320+). TFD para IC USP em andamento. |
+| [[ASAFE CANTANHEDE LEITE - 44826\|ASAFE CANTANHEDE LEITE]] | Enf03-3 | 44826 | ~104 | Pediatria / Gastroped / CIPE / CCIH / Neuropediatria | EHI grave (fase sequelar) + TQT + GTT + Colangiopatia isquêmica + Desnutrição grave | ⚠️ AGUARDA ALTA — SAMD aprovado, Cardio liberou; aguarda ECO 28/05 + reavaliação pediátrica |
+| [[ENDRICK ORO WARAM - 45136\|ENDRICK ORO WARAM]] | M4 | 45136 | ~98 | Gastroped / Cardiopediatria / CCIH | Endocardite VCS/AD (em regressão ECO 28/05) + Hepatoesplenomegalia + Colestase multifatorial | ✅ MELHORA — ECO 28/05: vegetação quase sumindo. Aguarda conclusão da ATB |
+| [[CELSON TOCOROM KAIU MON MIN ORO WARAM - 46798\|CELSON TOCOROM KAIU MON MIN ORO WARAM]] | UTI (adm 28/05) | 46798 | 21 | Pediatria / Gastroped / UTI | IRA + Pneumonia nosocomial? + Estridor laríngeo / Estenose subglótica + Hepatomegalia | 🚨 PIORA GRAVE — Intubado 28/05, na UTI. VM FiO2 60%, oligúria. Sem conduta Gastroped urgente |
+| [[LIZ DIAS KER - 46863\|LIZ DIAS KER]] | UTI-4 | 46863 | 17 | Pediatria (UTI) / Gastroped | Síndrome congênita a esclarecer + Sepse Klebsiella ESBL + Colestase multifatorial (BT 8,96 BD 6,59) + Disgenesia corpo caloso | ⚠️ Grave — tentativa de extubação 28/05 frustrada. Múltiplas pendências |
+| [[MARIA ALICE MARQUES DARME DO NASCIMENTO - 44787\|MARIA ALICE MARQUES DARME DO NASCIMENTO]] | Enf01-2 | 44787 | ~111 | Pediatria / Gastroped / Neurocirurgia / Cirurgia Ped | PO abdominal (enterectomia) + Ventriculite E. faecalis + DVE 22/05 + CIA + Vômitos flutuantes | Líquor 26/05 negativo (CCIH → manter ATB 14 dias). Progressão de dieta 60ml SNE 3/3h |
+| [[THALES DANIEL JUNIOR BRAS - 31628\|THALES DANIEL JUNIOR BRAS]] | Enf01-3 | 31628 | ? | ? | Sem evoluções no sistema HICD | ⚠️ Verificar presencialmente |
+| [[MARIA HELENA ANASTACIA SILVA DA ROCHA - 46953\|MARIA HELENA ANASTACIA SILVA DA ROCHA]] | Enf-H-06 | 46953 | 13 | Pediatria / Gastroped / Hematologia | Síndrome de Budd-Chiari provável + Ascite volumosa + PBE 16/05 + Anemia microcítica hipocrômica grave | Dr. Welliton 28/05 — iniciou Furosemida 1mg/kg/dia. Ascite em leve melhora. Aguarda AngioTC e hepatopatias |
+| [[SOPHIA SOARES SILVA - 47012\|SOPHIA SOARES SILVA]] | Enf-L-02 | 47012 | 10 | Pediatria / Gastroped | Hepatite AE (autoimune? viral aguda?) + Síndrome ictérica + ITU | Dr. Welliton 28/05 — biopsia hepática com Dr. Elessandro no bloco. TGP 1482 (exte). Estável |
+| [[ENZO GABRIEL FRANCA BARROS - 36626\|ENZO GABRIEL FRANCA BARROS]] | Enf03-1 | 36626 | 3 | Pediatria / Gastroped | Hipertensão portal + Varizes esofágicas (EDA 01/04) + HDA em 25/05 (melena 2 ep.) | Dr. Welliton 28/05 — Hb 8,1 pós-hemotransfusão 27/05. Segue com melena. EDA pendente |
 
 ---
 
-## Pendências críticas — 23/05/2026
+## Pendências críticas — 28/05/2026
 
 | PACIENTE | PENDÊNCIA |
 | -------- | --------- |
-| ASAFE (44826) | ⚠️ Alta planejada semana de 21/05 → ainda não ocorreu; verificar data atual |
-| ASAFE (44826) | Cirurgia Pediátrica solicitada (21/05) — orientação traqueo para genitora; aguarda resposta |
-| ASAFE (44826) | CCIH: cultura secreção GTT (13/05) com laudo anexado 22/05 → manter precaução de contato |
-| ASAFE (44826) | EXOMA recoletado — aguardando resultado |
-| ASAFE (44826) | Sorologia toxoplasmose solicitada — aguardando |
-| ENDRICK (45136) | Colangio-RNM pendente em regulação (tentativa desde 13/05) |
-| ENDRICK (45136) | K 5,91 em 21/05 — hipercalemia; monitorar |
-| ENDRICK (45136) | Anfotericina B Lipossomal em andamento (DI: 19/03) — verificar duração prevista |
-| CELSON (46798) | Aguarda broncoscopia (processo de compra pelo serviço) |
-| CELSON (46798) | Última evolução Gastroped: 14/05 (Dr. Welliton) — nova avaliação pendente |
-| THALES (31628) | ⚠️ 103 dias sem evoluções no HICD — verificar presencialmente na Enf01-3 |
-| **LIZ (46863)** | ⚠️ Icterícia progressiva — colestase multifatorial — avaliar Gastroped |
-| **LIZ (46863)** | ⚠️ Troca cefepime → meropenem indicada pela CCIH (Klebsiella CTX-M) — confirmar |
-| **LIZ (46863)** | Hemograma pendente (plaquetas 43mil em 20/05 — trombocitopenia grave) |
-| **LIZ (46863)** | EEG: resultado em ~01/06/2026; USG abdome repetir ~29/05 |
+| CELSON (46798) | 🚨 INTUBADO 28/05, na UTI — reavaliação hepática pela Gastroped urgente |
+| CELSON (46798) | Broncoscopia diagnóstica e terapêutica — pedido reformulado 22/05 (processo de compra) |
+| CELSON (46798) | ColangioRNM hepática pendente |
+| ASAFE (44826) | ⚠️ Resultado ECO 28/05 — reavaliação pediátrica para definir alta |
+| ASAFE (44826) | CENE: laudo nutricional (avó retirando dieta no GENE) |
+| ENDRICK (45136) | CCIH: rediscutir tempo de anfotericina após ECO 28/05 (6 semanas) |
+| ENDRICK (45136) | ColangioRNM pendente em regulação |
+| LIZ (46863) | Teste AME (swab oral coletado 09/05 — ~25 dias para resultado) |
+| LIZ (46863) | AngioTC cardio (solicitada 20/04) |
+| LIZ (46863) | Exoma (solicitado 30/04) |
+| LIZ (46863) | Laudo EEG (realizado 21/05 — aguarda laudo) |
+| LIZ (46863) | USG abdome com jejum 6h + Fundo de olho + ColangioRNM |
+| MARIA ALICE (44787) | Programação DVB após líquor negativo (26/05) |
+| MARIA ALICE (44787) | Progressão de dieta elementar (60ml SNE 3/3h — iniciar hoje) |
+| THALES (31628) | ⚠️ Sem evoluções no HICD — verificar presencialmente na Enf01-3 |
+| MARIA HELENA (46953) | AngioTC de abdome (sem data — aguardando agendamento) |
+| MARIA HELENA (46953) | FAN + Anti-músculo liso + Anti-LKM (hepatopatias autoimunes — aguardando coleta) |
+| MARIA HELENA (46953) | Ecocardiograma (solicitado) |
+| SOPHIA (47012) | Biopsia hepática com Dr. Elessandro — no bloco (em processo de compra dos reagentes) |
+| SOPHIA (47012) | Exames hepatopatias autoimunes: FAN, Anti-ML, Anti-LKM, ANCA |
+| ENZO (36626) | EDA (confirmar data — programada pós-estabilização) |
+| ENZO (36626) | Exames para investigação de hepatopatia (solicitados 28/05 por Dr. Welliton) |
 
 ---
 
-## Novidades clínicas — 23/05/2026
+## Novidades clínicas — 28/05/2026
 
-### ASAFE (44826)
-- CCIH 22/05: laudo de cultura de secreção de GTT (coletada 13/05) anexado — manter precaução de contato
-- Gastro (Dr. Welliton 21/05): alta prevista para semana de 21/05; Cirurgia Pediátrica solicitada para orientar genitora sobre trocas de traqueo
-- Tolerando TPO com fórmula de 1° semestre via GTT
+### ASAFE (44826) ⚠️ AGUARDA ALTA
+- **SAMD (Thatiane Tanaka 28/05)**: Critérios deferidos. Do ponto de vista da desospitalização, sem pendências — avó já retirando a dieta no GENE. Aguarda apenas decisão da equipe assistente pós-ECO.
+- **Cardiopediatria 28/05**: Liberado para alta. Nova avaliação com exame específico em 01 ano.
+- **Fisioterapia 28/05**: Eupneico, TQT, sem RA, sem esforço respiratório.
+- **ECO 28/05**: Realizado — aguarda resultado.
 
-### ENDRICK (45136)
-- **Gastro Dr. Cristiano 22/05**: ColangioRNM 09/05 tecnicamente limitada por artefatos de movimento (não avaliou via biliar adequadamente) — nova colangioRNM solicitada, pendente em regulação
-- ECO 21/05: endocardite em regressão (2×3mm); Anfotericina B Lipossomal mantida
-- Exames 21/05: Hb 9,9 | Leuco 12.320 | K 5,91 | PCR 5,33 | TGO 143 | TGP 114
-- Tosse nova iniciada recentemente (sem febre)
+### ENDRICK (45136) ✅ MELHORA
+- **Dr. Welliton 28/05**: Endocardite VCS/AD + Hepatoesplenomegalia + Colestase multifatorial em acompanhamento.
+- **ECO 28/05 (Cardiopediatra)**: Endocardite em REGRESSÃO no AD — vegetação quase sumindo. Pai muito animado.
+- **Em uso**: Vancomicina + Meropenem + Anfotericina B Lipossomal + Ursocol + Omeprazol + Salbutamol.
+- **CCIH**: Aguarda novo ECO para rediscutir tempo de anfotericina.
 
-### CELSON (46798)
-- Evolução pediátrica 22/05: estável no CIP-1, estridor intermitente, sem epinefrina no período
-- Painel viral 20/05: **NEGATIVO**
-- Vômito após dieta das 9h (episódio de tosse intensa)
-- Serviço social 22/05: família veio perguntar sobre TFD — informados que não há pedido de TFD para Celson (confusão com outra criança indígena)
+### CELSON (46798) 🚨 PIORA GRAVE
+- **Psicologia 28/05**: Intubado na enfermaria CIP durante visita. Pais chorosos e fragilizados. Suporte emocional oferecido.
+- **UTI 28/05 (Bruna Moreira)**: Admitido às 16:15h. VM modo PC FiO2 60% PEEP 6, sedado. PAM 57-60. DU 0,1ml/kg/h (oligúria grave). BH +230ml. CD: Furosemida 0,5mg/kg + SRL 1ml.
+- **HD UTI**: IRA + Pneumonia nosocomial? + Estridor laríngeo/Estenose subglótica + Hiponatremia em correção + Hepatomegalia.
+- **Sem evolução Gastroped em 28/05** — necessária avaliação urgente.
 
-### VALLENTINA (46659) — ALTA
-- Saiu do censo em 23/05/2026
-- Última evolução Gastroped: Dr. Welliton 21/05 (#GASTROENTEROLOGIA PEDIATRICA#)
-- HAI tipo 1 confirmada (anti-ML 1:320+) | TFD para IC USP em andamento
+### LIZ (46863) ⚠️ GRAVE
+- **Dr. Welliton 28/05**: HD mantidas. Sepse ativa + Colestase multifatorial. Meropenem + Micafungina em curso.
+- **Pediatria 28/05 (Bruna Moreira)**: Tentativa de extubação frustrada — não tolerou desmame ao tubo T. Continua em VM. Pausado Precedex.
+- **Exames 27/05**: Hb 11,4 / Plaq 128.000 (melhora) / PCR 22,5 / Lactato 14,5.
+
+### MARIA ALICE (44787)
+- **CCIH 28/05 (Antonieta Machado)**: Cultura de líquor 26/05 SEM crescimento → manter ATB vigentes por 14 dias. Recolher líquor se alteração clínica.
+- **Dr. Welliton 28/05**: Progressão de dieta para 60ml de leite elementar via SNE 3/3h. Amanhã progredir conforme tolerância.
+
+### MARIA HELENA (46953)
+- **Dr. Welliton 28/05**: Mãe refere melhora da distensão abdominal e mais diurese. Aceitando bem dieta. Hipocorada ++/4.
+- **Nova conduta**: Furosemida 1mg/kg/dia iniciada 28/05 + Espironolactona 3,5mg/kg/dia + Ceftriaxone (PBE) + dieta hipossódica.
+- **Exames 25/05**: Hb 5,8 / Alb 4,2 / TAP 12s / INR 0,96.
+
+### SOPHIA (47012)
+- **Dr. Welliton 28/05**: TGP 1482 / TGO 821 (exames externos de admissão). Anti-HBc / HBsAg / Anti-HCV — negativos. Aguarda biopsia hepática e exames autoimunes.
+- **Pediatria 28/05 (Julia Portela)**: HD: 1. Hepatite autoimune 2. ITU. Estável.
+- **Biopsia hepática com Dr. Elessandro**: no bloco — aguarda compra dos reagentes.
+
+### ENZO (36626) ⭐ 3° dia
+- **Dr. Welliton 28/05**: Hb 8,1 / TGO 25,5 / TGP 12,9 / GGT 8,7. Abdome distendido. Segue com melena. Hemotransfusão 27/05 sem intercorrências.
+- **EDA prévia (01/04/26)**: Varizes esofágicas distal de médio e fino calibres + Gastrite enantematosa de antro.
+- **Doppler portal (USG 08/04)**: Veia porta tortuosa, 5mm, com fluxo. Fígado de ecotextura heterogênea difusa. Vesícula espessada 5mm.
+- **Conduta Dr. Welliton 28/05**: Dieta líquida 3 dias → pastosa; Ceftriaxone 100mg/kg/dia 12/12h; Exames para investigação de hepatopatia solicitados.
+
+---
+
+## Altas desde última atualização (27/05/2026)
+
+| NOME | PRONTUÁRIO | SITUAÇÃO |
+| ---- | ---------- | -------- |
+| (nenhuma alta Gastroped desde 27/05) | — | — |
 
 ---
 
 ## Histórico de atualizações
 
-- 23/05/2026 — LIZ DIAS KER (46863) incluída: UTI-4, 12 dias, síndrome congênita a esclarecer + sepse Klebsiella CTX-M + colestase multifatorial. Total: 5 pacientes ativos.
-- 23/05/2026 — VALLENTINA com alta (ausente do censo). Endrick: ColangioRNM tecnicamente limitada, nova solicitada; K 5,91. Asafe: CCIH laudo GTT + alta ainda pendente. Celson: painel viral negativo, aguarda broncoscopia. Total: 4 pacientes ativos.
-- 21/05/2026 — 3 altas (ELIZA 43525, SARAH 45147, MURILO 46103). THALES voltou da UTI para Enf01-3. Novas evoluções: ASAFE (CIPE solicitada, previsão de alta), ENDRICK (ECO com regressão da endocardite), VALLENTINA (anti-ML 1:320+ confirma HAI tipo 1), CELSON (dexametasona suspensa, aguarda broncoscopia). Total: 5 pacientes ativos.
-- 19/05/2026 — 3 altas (ESTEVAO 46746, MATTEO 45044, ARTHUR 46919). Mudanças de leito: ENDRICK (Enf03-1→M4), THALES (Enf01-3→UTI-1). Total: 8 pacientes ativos.
+- 28/05/2026 — CELSON: PIORA GRAVE — intubado 28/05, transferido para UTI. ENDRICK: ECO 28/05 → endocardite em REGRESSÃO. ASAFE: SAMD aprovado + Cardio liberou, aguarda ECO + reavaliação pediátrica para alta. LIZ: tentativa de extubação frustrada, permanece em VM. MARIA ALICE: líquor 26/05 negativo (CCIH → manter ATB 14 dias), progressão de dieta 60ml. MARIA HELENA: Furosemida iniciada, melhora da ascite referida. SOPHIA: biopsia hepática no bloco. ENZO: Hb 8,1 pós-hemotransfusão 27/05, segue com melena. Total: 9 pacientes ativos.
+- 27/05/2026 — VALLENTINA (46659) ALTA confirmada. ENZO GABRIEL FRANCA BARROS (36626) adicionado: Enf03-1, HDA? + varizes esofágicas + HTP. CELSON: piora clínica com ATB 26/05. LIZ: Dra. Joana 26/05 (ursacol, aditil, vit E, USG, colangioRNM, fundo de olho). ASAFE: previsão de alta 27/05. Total: 9 pacientes ativos.
+- 26/05/2026 — SOPHIA SOARES SILVA (47012) adicionada: Hepatite AE + icterícia.
+- 26/05/2026 — MARIA HELENA ANASTACIA (46953) adicionada: Budd-Chiari provável + PBE + anemia.
+- 25/05/2026 — MARIA ALICE MARQUES (44787) adicionada (Dr. Welliton 25/05). Total: 7 pacientes.
+- 23/05/2026 — LIZ DIAS KER (46863) incluída. Total: 5 pacientes.
 - 14/05/2026 — Lista criada com 8 pacientes ativos.
