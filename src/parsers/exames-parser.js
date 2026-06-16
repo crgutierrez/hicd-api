@@ -1,5 +1,6 @@
 const BaseParser = require('./base-parser');
 const cheerio = require('cheerio');
+const config = require('../../config');
 
 /**
  * Parser para exames laboratoriais e de imagem do sistema HICD.
@@ -182,7 +183,7 @@ class ExamesParser extends BaseParser {
             const tipoBusca64 = Buffer.from(tipoBusca).toString('base64');
             
             // Gerar URL completa
-            const baseUrl = 'https://hicd-hospub.sesau.ro.gov.br/prontuario/generator/sadt/app/exame.php';
+            const baseUrl = `${config.origin}/prontuario/generator/sadt/app/exame.php`;
             const urlParams = new URLSearchParams({
                 'requisicao': requisicaoId,
                 'param': param,

@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
+const config = require('../../config');
 
 /**
  * Serviço de autenticação para o sistema HICD
@@ -151,7 +152,7 @@ class HICDAuthService {
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                         'Referer': urls.index,
-                        'Origin': 'https://hicd-hospub.sesau.ro.gov.br'
+                        'Origin': config.auth.origin
                     }
                 });
                 console.log('[LOGIN] Status POST login:', loginResponse.status);

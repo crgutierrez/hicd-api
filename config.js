@@ -5,13 +5,27 @@
  * modificadas sem alterar o código principal do crawler.
  */
 
+require('dotenv').config();
+
+// Host do servidor HICD — configurável via .env (HICD_HOST).
+// Default mantém o host de produção atual.
+const HICD_HOST = process.env.HICD_HOST || 'hicd-hospub.sesau.ro.gov.br';
+const HICD_ORIGIN = `https://${HICD_HOST}`;
+
 module.exports = {
+    // Host base do sistema (origin sem caminho). Use para montar URLs absolutas.
+    host: HICD_HOST,
+    origin: HICD_ORIGIN,
+
     // Configurações de autenticação
     auth: {
+        // Origin usado nos headers das requisições
+        origin: HICD_ORIGIN,
+
         // URLs do sistema
-        baseUrl: 'https://hicd-hospub.sesau.ro.gov.br/prontuario/frontend',
-        loginUrl: 'https://hicd-hospub.sesau.ro.gov.br/prontuario/frontend/controller/controller.php',
-        indexUrl: 'https://hicd-hospub.sesau.ro.gov.br/prontuario/frontend/index.php',
+        baseUrl: `${HICD_ORIGIN}/prontuario/frontend`,
+        loginUrl: `${HICD_ORIGIN}/prontuario/frontend/controller/controller.php`,
+        indexUrl: `${HICD_ORIGIN}/prontuario/frontend/index.php`,
         
         // Parâmetros do payload de login
         loginParams: {

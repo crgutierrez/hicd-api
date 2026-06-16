@@ -1,5 +1,6 @@
 const axios = require('axios');
 require('dotenv').config();
+const config = require('../../config');
 
 /**
  * Cliente HTTP responsável pela comunicação com o sistema HICD
@@ -21,10 +22,10 @@ class HICDHttpClient {
             withCredentials: true
         });
 
-        // URLs do sistema
-        this.baseUrl = 'https://hicd-hospub.sesau.ro.gov.br/prontuario/frontend';
-        this.loginUrl = `${this.baseUrl}/controller/controller.php`;
-        this.indexUrl = `${this.baseUrl}/index.php`;
+        // URLs do sistema (host configurável via .env → config.js)
+        this.baseUrl = config.auth.baseUrl;
+        this.loginUrl = config.auth.loginUrl;
+        this.indexUrl = config.auth.indexUrl;
         
         // Controle de sessão
         this.cookies = '';

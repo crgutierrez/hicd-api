@@ -107,9 +107,13 @@ hicd-bot/
 
 ## 4. Variáveis de Ambiente
 
-Arquivo `.env` (não commitado). Copiar `.env.example` se existir.
+Arquivo `.env` (não commitado). Copiar de `.env.example`.
 
 ```env
+# Host do servidor HICD (apenas hostname, sem https:// nem caminho).
+# Default (quando ausente): hicd-hospub.sesau.ro.gov.br
+HICD_HOST=hicd-hospub.sesau.ro.gov.br
+
 # Credenciais HICD
 HICD_USERNAME=seu_usuario
 HICD_PASSWORD=sua_senha
@@ -124,6 +128,8 @@ PORT=3000
 # Auth token da API (AES-256-GCM, 32 bytes hex = 64 chars)
 LOGIN_ENCRYPT_KEY=<hex-64-chars>
 ```
+
+**Host configurável**: o host do HICD vem de `HICD_HOST` e é centralizado em `config.js`, que deriva `origin`, `auth.baseUrl`, `auth.loginUrl` e `auth.indexUrl`. Todos os pontos que precisam do host (`http-client.js`, `auth-service.js`, `patient-service.js`, `exames-parser.js`, `hicd-parser-original.js` e as URLs de prescrição em `hicd-crawler-refactored.js`) leem dali — **não** hardcode o host. Apenas o hostname é configurável; os caminhos (`/prontuario/frontend`, `/prescricao_medica3`, `/prontuario/generator/sadt`) assumem a mesma estrutura entre servidores.
 
 **Gerar token de autorização para a API**:
 ```bash
@@ -199,6 +205,10 @@ node -e "
 ## 6. Instruções Corretivas e Aprendizados
 
 > Registre aqui falhas da IA, alucinações e soluções. **Formato**: data · problema · causa · solução.
+
+### 2026-06-16 — Host do HICD configurável via `.env`
+- **Problema**: o host `hicd-hospub.sesau.ro.gov.br` estava hardcoded em 6+ arquivos, impossibilitando apontar para outro servidor (ex.: `hb-hospub.sesau.ro.gov.br`).
+- **Solução**: centralizado em `config.js` lendo `HICD_HOST` (default = host de produção). `config.js` deriva `origin`/`baseUrl`/`loginUrl`/`indexUrl`; demais arquivos passam a referenciar `config.*`. Login testado com sucesso contra `hb-hospub`. Apenas o hostname é configurável (caminhos fixos).
 
 ### 2026-03-01 — `evolucao-parser.js`: colapso de newlines
 - **Problema**: `limparTextoEvolucao` usava `.replace(/\s+/g, ' ')` — colapsava `\n` em espaço.

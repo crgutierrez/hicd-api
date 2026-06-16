@@ -1,3 +1,5 @@
+const config = require('../../config');
+
 /**
  * Serviço para buscar e gerenciar dados de pacientes
  */
@@ -29,7 +31,7 @@ class PatientService {
                     'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
                     'Connection': 'keep-alive',
                     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'Origin': 'https://hicd-hospub.sesau.ro.gov.br',
+                    'Origin': config.auth.origin,
                     'Referer': urls.index,
                     'Sec-Fetch-Dest': 'empty',
                     'Sec-Fetch-Mode': 'cors',
@@ -144,7 +146,7 @@ class PatientService {
                     'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
                     'Connection': 'keep-alive',
                     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'Origin': 'https://hicd-hospub.sesau.ro.gov.br',
+                    'Origin': config.auth.origin,
                     'Referer': urls.index,
                     'Sec-Fetch-Dest': 'empty',
                     'Sec-Fetch-Mode': 'cors',

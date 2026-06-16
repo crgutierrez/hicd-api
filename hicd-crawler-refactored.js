@@ -5,6 +5,7 @@ const PatientService = require('./src/services/patient-service');
 const EvolutionService = require('./src/services/evolution-service');
 const ClinicalDataExtractor = require('./src/extractors/clinical-data-extractor');
 const ClinicAnalyzer = require('./src/analyzers/clinic-analyzer');
+const config = require('./config');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -512,13 +513,13 @@ class HICDCrawler {
             });
 
             // Fazer requisição para buscar clínicas
-            const resposta = await this.httpClient.post('https://hicd-hospub.sesau.ro.gov.br/prontuario/frontend/controller/controller.php', dados, {
+            const resposta = await this.httpClient.post(config.auth.loginUrl, dados, {
                 headers: {
                     'Accept': '*/*',
                     'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
                     'Connection': 'keep-alive',
                     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'Origin': 'https://hicd-hospub.sesau.ro.gov.br',
+                    'Origin': config.auth.origin,
                     'Referer': urls.index,
                     'Sec-Fetch-Dest': 'empty',
                     'Sec-Fetch-Mode': 'cors',
@@ -534,7 +535,7 @@ class HICDCrawler {
             // Passo 2: Acessar a interface de consulta
             console.log('[PRESCRICOES] Passo 2: Acessando interface de consulta...');
             const xxx= await this.httpClient.post(
-                'https://hicd-hospub.sesau.ro.gov.br/prescricao_medica3/interface/consulta.php'
+                `${config.origin}/prescricao_medica3/interface/consulta.php`
             );
 
             // Passo 3: Buscar todas as prescrições do paciente
@@ -546,7 +547,7 @@ class HICDCrawler {
                         'campo4': 'p'
             });
             const response = await this.httpClient.post(
-                'https://hicd-hospub.sesau.ro.gov.br/prescricao_medica3/scripts/todas_prescricoes.php', parametros,
+                `${config.origin}/prescricao_medica3/scripts/todas_prescricoes.php`, parametros,
                 {
                     params: {
                         campo1: prontuario,
@@ -604,7 +605,7 @@ class HICDCrawler {
             console.log(`[PRESCRICAO] Buscando detalhes da prescrição: ${idPrescricao}`);
             
             const response = await this.httpClient.get(
-                `https://hicd-hospub.sesau.ro.gov.br/prescricao_medica3/interface/imprime.php`,
+                `${config.origin}/prescricao_medica3/interface/imprime.php`,
                 {
                     params: {
                         id_prescricao: idPrescricao
