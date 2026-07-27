@@ -13,6 +13,8 @@ yarn-error.log*
 output/
 *.csv
 *.json
+!package.json
+!package-lock.json
 *.log
 
 # Cache Python (mantido para compatibilidade)
