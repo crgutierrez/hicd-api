@@ -1,0 +1,25 @@
+services:
+  api:
+    # Build local a partir do Dockerfile deste repo.
+    build: .
+    # Alternativa: usar a imagem publicada no GHCR pelo GitHub Actions
+    # (comente "build: ." acima e descomente a linha abaixo, ajustando o owner):
+    # image: ghcr.io/<owner>/hicd-bot:latest
+    image: hicd-bot:latest
+    container_name: hicd-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    # Segredos (credenciais HICD, LOGIN_ENCRYPT_KEY) injetados em runtime.
+    env_file:
+      - .env
+    environment:
+      # Garante bind em todas as interfaces dentro do container.
+      HOST: 0.0.0.0
+      PORT: 3000
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

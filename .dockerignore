@@ -1,0 +1,38 @@
+# Dependências (reinstaladas dentro da imagem via npm ci)
+node_modules/
+npm-debug.log*
+
+# Credenciais — NUNCA copiar pra imagem
+.env
+.env.*
+!.env.example
+
+# Dados extraídos / debug (gerados em runtime)
+output/
+*.csv
+*.log
+
+# Frontend Angular (WIP, não faz parte da imagem da API)
+hicd-frontend/
+
+# Wiki / documentação
+vault/
+
+# Git e CI
+.git/
+.github/
+.gitignore
+
+# Grafo do code-review
+.code-review-graph/
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Docker
+Dockerfile
+.dockerignore
