@@ -1,0 +1,42 @@
+# Compose de USO — roda o container a partir da imagem já publicada no GHCR
+# pelo GitHub Actions (workflow .github/workflows/docker.yml). NÃO compila nada.
+#
+#   docker compose -f docker-compose.prod.yml pull      # baixa a imagem
+#   docker compose -f docker-compose.prod.yml up -d      # sobe em background
+#   docker compose -f docker-compose.prod.yml logs -f    # acompanha logs
+#   docker compose -f docker-compose.prod.yml down       # derruba
+#
+# Selecione a tag com a variável HICD_IMAGE_TAG (default: latest). Ex.:
+#   HICD_IMAGE_TAG=master docker compose -f docker-compose.prod.yml up -d
+#
+# Requer um .env na raiz (copie de .env.example) com credenciais HICD + LOGIN_ENCRYPT_KEY.
+# Para publicar imagens privadas, faça login antes:
+#   echo $GHCR_TOKEN | docker login ghcr.io -u crgutierrez --password-stdin
+
+services:
+  api:
+    image: ghcr.io/crgutierrez/hicd-api:${HICD_IMAGE_TAG:-latest}
+    container_name: hicd-api
+    restart: unless-stopped
+    pull_policy: always
+    ports:
+      # Porta no host via HICD_API_PORT (default 3000); interna fixa em 3000.
+      - "${HICD_API_PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      # Bind em todas as interfaces dentro do container + porta interna fixa.
+      HOST: 0.0.0.0
+      PORT: 3000
+    volumes:
+      # Persiste os arquivos de debug/saída do crawler entre restarts.
+      - hicd-output:/app/output
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  hicd-output:

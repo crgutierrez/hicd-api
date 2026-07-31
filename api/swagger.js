@@ -247,6 +247,22 @@ Gere com: \`node payload.js usuario minhaSenha\``,
             }
         },
 
+        '/api/clinicas/{id}': {
+            get: {
+                tags: ['Clínicas'],
+                summary: 'Detalhes de uma clínica específica',
+                description: 'Busca por `id`, `codigo` ou `nome`. Serve do cache de clínicas quando válido; caso contrário atualiza.',
+                parameters: [
+                    { name: 'id', in: 'path', required: true, schema: { type: 'string' }, example: '007' }
+                ],
+                responses: {
+                    200: { description: 'Clínica encontrada', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Clinica' } } } } } },
+                    404: { description: 'Clínica não encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
+                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                }
+            }
+        },
+
         // ── PACIENTES ─────────────────────────────────────────────────────────
 
         '/api/pacientes/search': {
@@ -312,6 +328,40 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 responses: {
                     200: { description: 'Lista de evoluções' },
                     404: { description: 'Nenhuma evolução encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
+                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                }
+            }
+        },
+
+        '/api/pacientes/{prontuario}/evolucoes/ultimo-dia': {
+            get: {
+                tags: ['Pacientes'],
+                summary: 'Evoluções do último dia registrado',
+                description: 'Filtra apenas as evoluções cuja data (DD/MM/AAAA) é a mais recente encontrada. Cache 10 min.',
+                parameters: [
+                    { name: 'prontuario', in: 'path', required: true, schema: { type: 'string' }, example: '45164' },
+                    { name: 'formato', in: 'query', schema: { type: 'string', enum: ['resumido', 'detalhado', 'clinico'], default: 'detalhado' } }
+                ],
+                responses: {
+                    200: {
+                        description: 'Evoluções do dia mais recente',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        success: { type: 'boolean' },
+                                        prontuario: { type: 'string' },
+                                        data: { type: 'array', items: { type: 'object' } },
+                                        dataReferencia: { type: 'string', example: '30/07/2026' },
+                                        total: { type: 'integer' },
+                                        formato: { type: 'string' }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    404: { description: 'Nenhuma evolução com data válida encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
                     503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }

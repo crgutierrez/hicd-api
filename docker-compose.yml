@@ -1,25 +1,38 @@
+# Compose de BUILD LOCAL — constrói a imagem a partir do Dockerfile deste repo.
+#
+#   docker compose up --build      # constrói e sobe
+#   docker compose build           # apenas constrói
+#   docker compose up -d           # sobe em background
+#
+# Para USAR a imagem já publicada no GHCR (sem compilar), veja docker-compose.prod.yml.
+#
+# Requer um .env na raiz (copie de .env.example) com credenciais HICD + LOGIN_ENCRYPT_KEY.
+# O .env NUNCA é copiado para a imagem (ver .dockerignore); é injetado só em runtime.
+
 services:
   api:
-    # Build local a partir do Dockerfile deste repo.
     build: .
-    # Alternativa: usar a imagem publicada no GHCR pelo GitHub Actions
-    # (comente "build: ." acima e descomente a linha abaixo, ajustando o owner):
-    # image: ghcr.io/<owner>/hicd-bot:latest
-    image: hicd-bot:latest
+    image: hicd-api:local
     container_name: hicd-api
     restart: unless-stopped
     ports:
-      - "3000:3000"
-    # Segredos (credenciais HICD, LOGIN_ENCRYPT_KEY) injetados em runtime.
+      # Porta no host via HICD_API_PORT (default 3000); interna fixa em 3000.
+      - "${HICD_API_PORT:-3000}:3000"
     env_file:
       - .env
     environment:
-      # Garante bind em todas as interfaces dentro do container.
+      # Bind em todas as interfaces dentro do container + porta interna fixa.
       HOST: 0.0.0.0
       PORT: 3000
+    volumes:
+      # Persiste os arquivos de debug/saída do crawler entre restarts.
+      - hicd-output:/app/output
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  hicd-output:

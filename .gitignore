@@ -15,6 +15,7 @@ output/
 *.json
 !package.json
 !package-lock.json
+!openapi.json
 *.log
 
 # Cache Python (mantido para compatibilidade)
