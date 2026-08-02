@@ -12,7 +12,7 @@
 
 const crypto = require('crypto');
 const sharedCrawler = require('../shared-crawler');
-const config = require('../config');
+const config = require('../../config');
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LEN = 12;
