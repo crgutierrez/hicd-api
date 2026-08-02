@@ -126,7 +126,40 @@ class PacientesController {
                     throw new Error(`CADASTRO_INVALIDO:Os dados do paciente não puderam ser processados corretamente`);
                 }
 
-                return paciente.toCompleto();
+                const dados = paciente.toCompleto();
+
+                // A ficha de cadastro não traz CID nem data/dias de internação — esses
+                // campos só existem na lista da clínica. Enriquecemos a partir dela
+                // (busca cacheada por clínica/host para não repetir a chamada ao HICD).
+                const codigoClinica = paciente.internacao && paciente.internacao.codigoClinica;
+                const faltando = dados.dadosBasicos.cid == null
+                    || dados.internacao.dataInternacao == null
+                    || dados.internacao.diasInternacao == null;
+
+                if (codigoClinica && faltando) {
+                    try {
+                        const listaKey = cache.generateKey('pacientes-clinica-raw', codigoClinica, {}, req.hicdHost);
+                        const lista = await cache.getOrSet(listaKey, () => crawler.getPacientesClinica(codigoClinica));
+                        const item = Array.isArray(lista)
+                            ? lista.find(p => String(p.prontuario) === String(prontuario))
+                            : null;
+                        if (item) {
+                            if (dados.dadosBasicos.cid == null && item.cid != null) {
+                                dados.dadosBasicos.cid = item.cid;
+                            }
+                            if (dados.internacao.dataInternacao == null && item.dataInternacao != null) {
+                                dados.internacao.dataInternacao = item.dataInternacao;
+                            }
+                            if (dados.internacao.diasInternacao == null && item.diasInternacao != null) {
+                                dados.internacao.diasInternacao = item.diasInternacao;
+                            }
+                        }
+                    } catch (err) {
+                        console.warn(`[DETALHES] Enriquecimento via lista da clínica ${codigoClinica} falhou: ${err.message}`);
+                    }
+                }
+
+                return dados;
             });
 
             res.json({
