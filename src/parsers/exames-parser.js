@@ -3,6 +3,21 @@ const cheerio = require('cheerio');
 const config = require('../../config');
 
 /**
+ * Agrupamentos (painéis) de exames multi-item. Cada analito expandido de um
+ * bloco recebe o rótulo do painel a que pertence, permitindo ao consumidor
+ * reconstruir o exame original (Hemograma, TAP, TTPA, etc.) a partir da
+ * lista plana de resultados.
+ */
+const AGRUPAMENTOS = {
+    HEMOGRAMA:    { codigo: 'HEMOGRAMA',        descricao: 'Hemograma' },
+    TAP:          { codigo: 'TAP',              descricao: 'TAP (Tempo de Atividade da Protrombina)' },
+    TTPA:         { codigo: 'TTPA',             descricao: 'TTPA (Tempo de Tromboplastina Parcial Ativada)' },
+    PROTEINAS:    { codigo: 'PROTEINAS_TOTAIS', descricao: 'Proteínas Totais e Frações' },
+    BILIRRUBINAS: { codigo: 'BILIRRUBINAS',     descricao: 'Bilirrubinas Totais e Frações' },
+    SOROLOGIA:    { codigo: 'SOROLOGIA',        descricao: 'Sorologia' },
+};
+
+/**
  * Parser para exames laboratoriais e de imagem do sistema HICD.
  * Refatorado a partir da lógica do hicd-parser-original.js.
  */
@@ -441,9 +456,13 @@ class ExamesParser extends BaseParser {
                 return !(canonica && siglasExpandidas.has(canonica)); // sigla bruta absorvida
             });
 
-            console.log(`[PARSER] ✅ ${semDuplicatas.length} resultados extraídos da requisição ${requisicaoId}`);
+            // Normaliza sorologias que vieram como valor simples (fora de bloco),
+            // atribuindo agrupamento Sorologia e limpando unidade-artefato.
+            const normalizados = semDuplicatas.map(r => this._normalizarSorologiaSimples(r));
 
-            return semDuplicatas;
+            console.log(`[PARSER] ✅ ${normalizados.length} resultados extraídos da requisição ${requisicaoId}`);
+
+            return normalizados;
 
         } catch (error) {
             console.error(`[PARSER] Erro ao extrair resultados dos exames da requisição ${requisicaoId}:`, error.message);
@@ -994,7 +1013,10 @@ class ExamesParser extends BaseParser {
         const itens = [];
         for (const linha of texto.split('\n')) {
             const item = this.parseLinhaDeLaudo(linha, requisicaoId);
-            if (item) itens.push(item);
+            if (item) {
+                item.agrupamento = AGRUPAMENTOS.HEMOGRAMA;
+                itens.push(item);
+            }
         }
         return itens;
     }
@@ -1006,7 +1028,10 @@ class ExamesParser extends BaseParser {
         const itens = [];
         for (const linha of texto.split('\n')) {
             const item = this.parseLinhaDeLaudo(linha, requisicaoId);
-            if (item) itens.push(item);
+            if (item) {
+                item.agrupamento = AGRUPAMENTOS.PROTEINAS;
+                itens.push(item);
+            }
         }
         return itens;
     }
@@ -1018,7 +1043,10 @@ class ExamesParser extends BaseParser {
         const itens = [];
         for (const linha of texto.split('\n')) {
             const item = this.parseLinhaDeLaudo(linha, requisicaoId);
-            if (item) itens.push(item);
+            if (item) {
+                item.agrupamento = AGRUPAMENTOS.BILIRRUBINAS;
+                itens.push(item);
+            }
         }
         return itens;
     }
@@ -1038,6 +1066,7 @@ class ExamesParser extends BaseParser {
             if (!NAO_PREFIXAR.has(item.sigla)) {
                 item.sigla = `TAP_${item.sigla}`;
             }
+            item.agrupamento = AGRUPAMENTOS.TAP;
             itens.push(item);
         }
         return itens;
@@ -1057,9 +1086,139 @@ class ExamesParser extends BaseParser {
             if (!NAO_PREFIXAR.has(item.sigla)) {
                 item.sigla = `TTPA_${item.sigla}`;
             }
+            item.agrupamento = AGRUPAMENTOS.TTPA;
             itens.push(item);
         }
         return itens;
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // SOROLOGIAS (HIV, HCV, HBsAg, VDRL...) — resultado qualitativo
+    // ──────────────────────────────────────────────────────────────
+
+    /** Siglas internas do HICD que representam exames sorológicos. */
+    _ehSiglaSorologia(sigla) {
+        const s = (sigla || '').toUpperCase();
+        return ['H1V', 'H-S', 'HVC', 'HBS', 'HBC', 'HAV', 'VDR',
+                'HIV', 'HCV', 'HBSAG', 'ANTI_HBC', 'VDRL'].includes(s);
+    }
+
+    /**
+     * Mapeia a sigla interna / nome bruto de uma sorologia para uma
+     * sigla canônica e um nome legível.
+     */
+    _identificarSorologia(siglaOriginal, nome) {
+        const PORSIGLA = {
+            'H1V': { sigla: 'HIV',      nome: 'Anti-HIV 1/2' },
+            'H-S': { sigla: 'HIV',      nome: 'Anti-HIV (triagem)' },
+            'HVC': { sigla: 'HCV',      nome: 'Anti-HCV' },
+            'HBS': { sigla: 'HBSAG',    nome: 'HBsAg (Antígeno de superfície HBV)' },
+            'HBC': { sigla: 'ANTI_HBC', nome: 'Anti-HBc' },
+            'VDR': { sigla: 'VDRL',     nome: 'VDRL' },
+        };
+        if (PORSIGLA[(siglaOriginal || '').toUpperCase()]) {
+            return PORSIGLA[siglaOriginal.toUpperCase()];
+        }
+        const n = (nome || '').toUpperCase();
+        if (/ANTI[\s-]*HIV|\bHIV\b/.test(n))              return { sigla: 'HIV',      nome: 'Anti-HIV 1/2' };
+        if (/ANTI[\s-]*HCV|HEPATITE\s*C|\bHCV\b/.test(n)) return { sigla: 'HCV',      nome: 'Anti-HCV' };
+        if (/HBSAG|AG\.?\s*HBS|HEPATITE\s*B/.test(n))     return { sigla: 'HBSAG',    nome: 'HBsAg' };
+        if (/ANTI[\s-]*HBC/.test(n))                      return { sigla: 'ANTI_HBC', nome: 'Anti-HBc' };
+        if (/VDRL|S[ÍI]FILIS/.test(n))                    return { sigla: 'VDRL',     nome: 'VDRL' };
+        return { sigla: siglaOriginal || 'SOROLOGIA', nome: nome || 'Sorologia' };
+    }
+
+    /**
+     * Interpreta o resultado qualitativo de uma sorologia a partir de um texto
+     * (bloco completo ou linha de referência). Ordem importa: "NÃO REAGENTE"
+     * contém "REAGENTE" como substring.
+     * Retorna 'NÃO REAGENTE' | 'REAGENTE' | 'INDETERMINADO' | '' (indefinido).
+     */
+    _interpretarSorologia(texto) {
+        const t = (texto || '').toUpperCase();
+        if (/N[ÃA]O\s*REAGENTE|N[ÃA]O\s*REATIV[OA]|NEGATIV[OA]/.test(t)) return 'NÃO REAGENTE';
+        if (/INDETERMINAD[OA]/.test(t)) return 'INDETERMINADO';
+        if (/REAGENTE|REATIV[OA]|POSITIV[OA]/.test(t)) return 'REAGENTE';
+        return '';
+    }
+
+    /** Mapeia o resultado qualitativo para o campo `status`. */
+    _statusSorologia(resultado) {
+        if (resultado === 'NÃO REAGENTE')  return 'nao_reagente';
+        if (resultado === 'REAGENTE')      return 'reagente';
+        if (resultado === 'INDETERMINADO') return 'indeterminado';
+        return 'sem_referencia';
+    }
+
+    /**
+     * Parse de um bloco de sorologia (ex.: laudo Anti-HIV) em um item limpo:
+     * extrai o resultado qualitativo, o índice numérico, a faixa de corte e as
+     * observações do laudo. Retorna array com um único item.
+     */
+    parseSorologia(texto, siglaOriginal, requisicaoId) {
+        const linhas = texto.split('\n')
+            .map(l => l.replace(/\s{2,}/g, ' ').trim())
+            .filter(Boolean);
+
+        const info = this._identificarSorologia(siglaOriginal, linhas[0] || '');
+
+        // Índice numérico + faixa/corte: "Resultado-----> 0,215   < 1,0 NAO REAGENTE"
+        let valorNumerico = null, referencia = '', indiceStr = '';
+        const mIndice = texto.match(/Resultado-+>\s*([\d.,]+)\s+(.+)/i);
+        if (mIndice) {
+            indiceStr     = mIndice[1];
+            valorNumerico = this.extrairValorNumerico(mIndice[1]);
+            referencia    = mIndice[2].replace(/\s{2,}/g, ' ').trim();
+        }
+
+        const resultado = this._interpretarSorologia(texto);
+        const status    = this._statusSorologia(resultado);
+
+        // Observações: notas do laudo (** ...) e liberação
+        const notas = linhas
+            .filter(l => /^\*+/.test(l) || /^Liberado por/i.test(l))
+            .join(' ').replace(/\*+/g, '').replace(/\s{2,}/g, ' ').trim();
+
+        return [{
+            requisicaoId,
+            sigla:         info.sigla,
+            nome:          info.nome,
+            valor:         resultado || indiceStr || '',
+            resultado:     resultado || null,
+            unidade:       '',
+            valorNumerico,
+            referencia,
+            status,
+            observacoes:   notas || null,
+            agrupamento:   AGRUPAMENTOS.SOROLOGIA
+        }];
+    }
+
+    /**
+     * Normaliza itens sorológicos que chegam como valor simples (não-bloco),
+     * onde a unidade veio como artefato ("Resultado", "Cut"). Aplica o
+     * agrupamento Sorologia, adiciona nome legível e o resultado qualitativo
+     * derivado da referência, preservando a sigla original.
+     */
+    _normalizarSorologiaSimples(r) {
+        if (r.agrupamento) return r;   // já classificado (bloco expandido)
+
+        const unidadeArtefato = /^(resultado|cut)$/i.test((r.unidade || '').trim());
+        if (!this._ehSiglaSorologia(r.sigla) && !unidadeArtefato) return r;
+
+        const info      = this._identificarSorologia(r.sigla, r.sigla);
+        const resultado = this._interpretarSorologia(r.referencia || '');
+        const status    = resultado ? this._statusSorologia(resultado) : r.status;
+
+        return {
+            ...r,
+            sigla:       info.sigla,
+            nome:        info.nome,
+            unidade:     unidadeArtefato ? '' : r.unidade,
+            resultado:   resultado || null,
+            status,
+            agrupamento: AGRUPAMENTOS.SOROLOGIA
+        };
     }
 
     /**
@@ -1093,6 +1252,13 @@ class ExamesParser extends BaseParser {
         // "TEMPO DE TROMBOPLASTINA (TTPA)", "TEMPO TROMBOPLASTINA ATIVADA", "TTPA"
         if (/^(?:TEMPO\s+(?:DE\s+)?TROMBOPLASTINA|TTPA)\b/i.test(titulo)) {
             return this.parseTTPA(texto, resultado.requisicaoId);
+        }
+
+        // Sorologias (Anti-HIV, Anti-HCV, HBsAg, VDRL...) — resultado qualitativo.
+        // Detecta pelo título do laudo ou pela sigla interna da linha (H1V, HVC...).
+        if (/^(?:ANTI[\s-]*HIV|ANTI[\s-]*HCV|ANTI[\s-]*HBC|HBSAG|AG\.?\s*HBS|VDRL|HEPATITE|SOROLOGIA)/i.test(titulo)
+            || this._ehSiglaSorologia(resultado.sigla)) {
+            return this.parseSorologia(texto, resultado.sigla, resultado.requisicaoId);
         }
 
         // Fallback genérico: bloco multi-linha não reconhecido —

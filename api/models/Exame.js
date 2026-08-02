@@ -237,13 +237,17 @@ class Exame {
 class ResultadoExame {
     constructor(data = {}) {
         this.sigla = data.sigla || null;
+        this.nome = data.nome || null;              // nome legível (ex.: sorologias)
         this.valor = data.valor || null;
         this.unidade = data.unidade || null;
         this.valorNumerico = data.valorNumerico || null;
         this.referencia = data.referencia || null;
         this.status = data.status || 'normal';
+        this.resultado = data.resultado || null;    // qualitativo (sorologias)
         this.observacoes = data.observacoes || null;
-        
+        // Painel a que o item pertence (Hemograma, TAP, TTPA, Sorologia...)
+        this.agrupamento = data.agrupamento || null;
+
         // Metadados do resultado
         this.metadata = {
             dataExtracao: new Date().toISOString(),
@@ -257,11 +261,14 @@ class ResultadoExame {
     toCompleto() {
         return {
             sigla: this.sigla,
+            nome: this.nome,
             valor: this.valor,
             unidade: this.unidade,
             valorNumerico: this.valorNumerico,
             referencia: this.referencia,
             status: this.status,
+            resultado: this.resultado,
+            agrupamento: this.agrupamento,
             analise: this._buildAnalise(),
             observacoes: this.observacoes,
             metadata: this.metadata
@@ -292,7 +299,8 @@ class ResultadoExame {
             sigla: this.sigla,
             valor: this.valor,
             unidade: this.unidade,
-            status: this.status
+            status: this.status,
+            agrupamento: this.agrupamento
         };
     }
 
