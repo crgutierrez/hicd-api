@@ -143,37 +143,57 @@ class PrescricaoParser extends BaseParser {
      *   NÃO são separadores.
      * - O último segmento é "dia / justificativa" (ex.: "4 /"); dia = parte antes da "/".
      */
+    /**
+     * Heurística: distingue uma diluição/apresentação (ex.: "2G + 20 ML AD",
+     * "40mg+10ml diluente", "meio comprimido + 5ml AD") de uma dose diária
+     * (ex.: "2MG/KG/DIA", "10 MG/KG/DOSE", "(23)"). Usada quando há um único campo
+     * antes da posologia e ele NÃO vem entre parênteses.
+     */
+    _pareceApresentacao(s) {
+        return /diluente|\bAD\b|comprimido/i.test(s) || /\+\s*\d+\s*(ML|MG)\b/i.test(s);
+    }
+
     extrairDadosMedicamento(textoMedicamento) {
         const medicamento = { textoMedicamento };
         const matchNome = textoMedicamento.match(/\[\s*([^\]]+)\]/);
         medicamento.nome = matchNome ? matchNome[1].trim() : '';
 
         // Remove o "[nome]" do início; o restante contém os campos separados por
-        // vírgula + 2+ espaços (o HICD usa `\xa0\xa0`).
+        // vírgula + 2+ espaços (o HICD usa `\xa0\xa0`). Tira vírgula/espaço residual
+        // no fim de cada segmento (algumas prescrições não têm contador de folha).
         const restante = textoMedicamento.replace(/^\s*\[[^\]]*\]/, '').trim();
-        const segs = restante.split(/,\s{2,}/).map(s => s.trim()).filter(s => s !== '');
+        const segs = restante.split(/,\s{2,}/)
+            .map(s => s.replace(/,+\s*$/, '').trim())
+            .filter(s => s !== '');
 
-        // Último segmento = "dia / justificativa" (ex.: "4 /").
+        // dia = último segmento SÓ se for um contador de folha ("N /", "N/", "N").
+        // (Na UTIp há sempre "N /"; algumas enfermarias omitem — aí não engolir o intervalo.)
         let dia = '';
-        if (segs.length) dia = segs.pop().split('/')[0].trim();
+        if (segs.length && /^\d+\s*\/?\s*$/.test(segs[segs.length - 1])) {
+            dia = segs.pop().replace(/[^\d]/g, '');
+        }
 
         let dose = '', apresentacao = '', posologia = '', via = '', intervalo = '', observacao = '';
 
         // Âncora robusta: o intervalo é o campo com "Horas"/"Livre" — a via vem logo
-        // antes; a observação, logo depois; e dose/apresentação/posologia ficam antes
-        // da via (a apresentação nem sempre vem entre parênteses — ver FENOBARBITAL).
+        // antes; a observação, logo depois; posologia é o último campo antes da via; e
+        // dose/apresentação ficam antes dela (a apresentação nem sempre vem entre
+        // parênteses — UTIp usa (), enfermarias escrevem a diluição sem parênteses).
         const intervaloIdx = segs.findIndex(s => /\bHoras\b|Livre/i.test(s));
         if (intervaloIdx >= 1) {
             intervalo   = segs[intervaloIdx];
             via         = segs[intervaloIdx - 1];
             observacao  = segs.slice(intervaloIdx + 1).join(', ').trim();
             const antesVia = segs.slice(0, intervaloIdx - 1);
-            if (antesVia.length === 1) {
-                posologia = antesVia[0];
-            } else if (antesVia.length >= 2) {
-                dose        = antesVia[0];
-                posologia   = antesVia[antesVia.length - 1];
-                apresentacao = antesVia.slice(1, antesVia.length - 1).join(', ');
+            posologia = antesVia.length ? antesVia[antesVia.length - 1] : '';
+            const primeiros = antesVia.slice(0, -1); // candidatos a dose/apresentação
+            if (primeiros.length >= 2) {
+                dose         = primeiros[0];
+                apresentacao = primeiros.slice(1).join(', ');
+            } else if (primeiros.length === 1) {
+                // Um único campo antes da posologia: é dose OU apresentação.
+                if (this._pareceApresentacao(primeiros[0])) apresentacao = primeiros[0];
+                else dose = primeiros[0];
             }
         } else {
             // Fallback posicional (sem "Horas" reconhecível): 1º/2º () = dose/apres.
