@@ -7,8 +7,12 @@ const config = require('../../config');
  * Refatorado a partir da lógica do hicd-parser-original.js.
  */
 class ExamesParser extends BaseParser {
-    constructor() {
+    /**
+     * @param {string} [origin=config.origin] - origin do host (https://host) para montar URLs de exame.
+     */
+    constructor(origin = config.origin) {
         super();
+        this.origin = origin;
         this.debug('ExamesParser (refatorado) inicializado');
     }
 
@@ -183,7 +187,7 @@ class ExamesParser extends BaseParser {
             const tipoBusca64 = Buffer.from(tipoBusca).toString('base64');
             
             // Gerar URL completa
-            const baseUrl = `${config.origin}/prontuario/generator/sadt/app/exame.php`;
+            const baseUrl = `${this.origin}/prontuario/generator/sadt/app/exame.php`;
             const urlParams = new URLSearchParams({
                 'requisicao': requisicaoId,
                 'param': param,

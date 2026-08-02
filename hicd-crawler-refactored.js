@@ -22,20 +22,35 @@ const path = require('path');
  * - ClinicAnalyzer: Análise de clínicas
  */
 class HICDCrawler {
-    constructor(username, password) {
+    constructor(username, password, cfg = config) {
+        // Config resolvida para o host desejado (default = host padrão do .env).
+        this.config = cfg;
+
         // Inicializar componentes modulares
-        this.httpClient = new HICDHttpClient();
+        this.httpClient = new HICDHttpClient(cfg);
         this.authService = new HICDAuthService(this.httpClient, username, password);
-        this.parser = new HICDParser();
+        this.parser = new HICDParser({ origin: cfg.origin });
         this.patientService = new PatientService(this.httpClient, this.parser);
         this.evolutionService = new EvolutionService(this.httpClient, this.parser);
         this.clinicalExtractor = new ClinicalDataExtractor();
         this.clinicAnalyzer = new ClinicAnalyzer(
-            this.patientService, 
-            this.evolutionService, 
+            this.patientService,
+            this.evolutionService,
             this.clinicalExtractor
         );
-        
+
+        // Auto-cura de sessão expirada: quando o http-client detecta a página
+        // anônima do HICD (sessão morta), refaz o login e retenta a requisição.
+        // Sem isto, a sessão expira "depois de um tempo" e a API passa a devolver
+        // 200 com data: [] até o processo reiniciar.
+        this.httpClient.onSessionExpired = async () => {
+            console.warn('[HICDCrawler] Sessão HICD expirada — refazendo login automaticamente...');
+            const result = await this.authService.login();
+            if (!result.success) {
+                console.error('[HICDCrawler] Falha ao renovar a sessão HICD:', result.message);
+            }
+        };
+
         console.log('[HICDCrawler] Sistema modular inicializado com sucesso');
     }
 
@@ -513,13 +528,13 @@ class HICDCrawler {
             });
 
             // Fazer requisição para buscar clínicas
-            const resposta = await this.httpClient.post(config.auth.loginUrl, dados, {
+            const resposta = await this.httpClient.post(this.config.auth.loginUrl, dados, {
                 headers: {
                     'Accept': '*/*',
                     'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
                     'Connection': 'keep-alive',
                     'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'Origin': config.auth.origin,
+                    'Origin': this.config.auth.origin,
                     'Referer': urls.index,
                     'Sec-Fetch-Dest': 'empty',
                     'Sec-Fetch-Mode': 'cors',
@@ -535,7 +550,7 @@ class HICDCrawler {
             // Passo 2: Acessar a interface de consulta
             console.log('[PRESCRICOES] Passo 2: Acessando interface de consulta...');
             const xxx= await this.httpClient.post(
-                `${config.origin}/prescricao_medica3/interface/consulta.php`
+                `${this.config.origin}/prescricao_medica3/interface/consulta.php`
             );
 
             // Passo 3: Buscar todas as prescrições do paciente
@@ -547,7 +562,7 @@ class HICDCrawler {
                         'campo4': 'p'
             });
             const response = await this.httpClient.post(
-                `${config.origin}/prescricao_medica3/scripts/todas_prescricoes.php`, parametros,
+                `${this.config.origin}/prescricao_medica3/scripts/todas_prescricoes.php`, parametros,
                 {
                     params: {
                         campo1: prontuario,
@@ -605,7 +620,7 @@ class HICDCrawler {
             console.log(`[PRESCRICAO] Buscando detalhes da prescrição: ${idPrescricao}`);
             
             const response = await this.httpClient.get(
-                `${config.origin}/prescricao_medica3/interface/imprime.php`,
+                `${this.config.origin}/prescricao_medica3/interface/imprime.php`,
                 {
                     params: {
                         id_prescricao: idPrescricao

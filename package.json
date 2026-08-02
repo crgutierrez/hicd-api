@@ -10,6 +10,7 @@
     "api-example": "node exemplo-api.js",
     "full": "node crawler-completo.js",
     "dev": "nodemon api-server.js",
+    "test:unit": "node --test test/",
     "test": "node test-crawler.js",
     "test-html": "node teste-pacientes-html.js",
     "test-extracao": "node teste-pacientes-html.js --extracao",

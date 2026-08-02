@@ -9,10 +9,12 @@ class MemoryCache {
         this.pending = new Map(); // evita execução duplicada em cache miss simultâneo
         this.defaultTTL = 10 * 60 * 1000; // 10 minutos em milissegundos
 
-        // Limpar cache expirado a cada 5 minutos
-        setInterval(() => {
+        // Limpar cache expirado a cada 5 minutos.
+        // .unref() evita que o timer segure o event loop (ex.: em testes/scripts).
+        const cleanupTimer = setInterval(() => {
             this.cleanExpired();
         }, 5 * 60 * 1000);
+        if (typeof cleanupTimer.unref === 'function') cleanupTimer.unref();
     }
 
     /**
@@ -20,14 +22,18 @@ class MemoryCache {
      * @param {string} type - Tipo de consulta (exames, evolucoes, prontuarios, prescricoes)
      * @param {string} prontuario - Prontuário do paciente
      * @param {object} params - Parâmetros adicionais
+     * @param {string} [host] - Host HICD; namespaceia a chave para não vazar dados entre hosts
      * @returns {string} Chave única
      */
-    generateKey(type, prontuario, params = {}) {
-        const paramsStr = Object.keys(params)
+    generateKey(type, prontuario, params = {}, host = null) {
+        // O host entra como parâmetro ordenado (mantém startsWith(type:) e includes(:prontuario)
+        // funcionando em invalidateType/invalidatePatient).
+        const allParams = host ? { ...params, host } : { ...params };
+        const paramsStr = Object.keys(allParams)
             .sort()
-            .map(key => `${key}:${params[key]}`)
+            .map(key => `${key}:${allParams[key]}`)
             .join('|');
-        
+
         return `${type}:${prontuario}${paramsStr ? ':' + paramsStr : ''}`;
     }
 

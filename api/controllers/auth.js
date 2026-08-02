@@ -19,6 +19,7 @@
 
 const crypto = require('crypto');
 const sharedCrawler = require('../shared-crawler');
+const config = require('../config');
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LEN = 12;
@@ -94,15 +95,28 @@ class AuthController {
                 });
             }
 
-            console.log(`[AUTH] Iniciando crawler para o usuário: ${username}`);
+            // Host opcional via header X-HICD-Host (validado contra allowlist).
+            let host;
+            try {
+                host = config.resolveHost(req.headers['x-hicd-host']);
+            } catch {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Host inválido',
+                    message: `Host não permitido. Hosts aceitos: ${config.HOST_ALLOWLIST.join(', ')}`
+                });
+            }
 
-            const result = await sharedCrawler.initCrawler(username, password);
+            console.log(`[AUTH] Iniciando crawler para o usuário: ${username} (host: ${host})`);
+
+            const result = await sharedCrawler.initCrawler(username, password, host);
             console.log('[AUTH] Resultado do initCrawler:', JSON.stringify(result));
 
             if (result.success) {
                 return res.json({
                     success: true,
-                    message: 'Login realizado com sucesso'
+                    message: 'Login realizado com sucesso',
+                    host
                 });
             }
 
@@ -124,9 +138,20 @@ class AuthController {
     }
 
     status(req, res) {
+        let host;
+        try {
+            host = config.resolveHost(req.headers['x-hicd-host']);
+        } catch {
+            return res.status(400).json({
+                success: false,
+                error: 'Host inválido',
+                message: `Host não permitido. Hosts aceitos: ${config.HOST_ALLOWLIST.join(', ')}`
+            });
+        }
         res.json({
             success: true,
-            authenticated: sharedCrawler.isReady()
+            host,
+            authenticated: sharedCrawler.isReady(host)
         });
     }
 }

@@ -9,10 +9,27 @@ require('dotenv').config();
 
 // Host do servidor HICD — configurável via .env (HICD_HOST).
 // Default mantém o host de produção atual.
-const HICD_HOST = process.env.HICD_HOST || 'hicd-hospub.sesau.ro.gov.br';
-const HICD_ORIGIN = `https://${HICD_HOST}`;
+const DEFAULT_HOST = process.env.HICD_HOST || 'hicd-hospub.sesau.ro.gov.br';
 
-module.exports = {
+// Allowlist de hosts aceitos no override por header (anti-SSRF).
+// Sempre inclui o host padrão; hosts extras vêm de HICD_HOST_ALLOWLIST (CSV).
+const HOST_ALLOWLIST = Array.from(new Set(
+    [DEFAULT_HOST, 'hb-hospub.sesau.ro.gov.br']
+        .concat((process.env.HICD_HOST_ALLOWLIST || '').split(','))
+        .map(h => String(h).trim().toLowerCase())
+        .filter(Boolean)
+));
+
+/**
+ * Monta o objeto de configuração para um host específico.
+ * Apenas o hostname varia; os caminhos são fixos entre servidores.
+ * @param {string} [host] - hostname (sem protocolo/caminho). Vazio = host padrão.
+ */
+function buildConfig(host = DEFAULT_HOST) {
+    const HICD_HOST = host || DEFAULT_HOST;
+    const HICD_ORIGIN = `https://${HICD_HOST}`;
+
+    return {
     // Host base do sistema (origin sem caminho). Use para montar URLs absolutas.
     host: HICD_HOST,
     origin: HICD_ORIGIN,
@@ -26,7 +43,7 @@ module.exports = {
         baseUrl: `${HICD_ORIGIN}/prontuario/frontend`,
         loginUrl: `${HICD_ORIGIN}/prontuario/frontend/controller/controller.php`,
         indexUrl: `${HICD_ORIGIN}/prontuario/frontend/index.php`,
-        
+
         // Parâmetros do payload de login
         loginParams: {
             paramField: 'Param',
@@ -218,4 +235,44 @@ module.exports = {
             '!ANONYMOUS'
         ]
     }
-};
+    };
+}
+
+/**
+ * Valida e normaliza um host recebido (ex.: header X-HICD-Host).
+ * - vazio/undefined → host padrão
+ * - normaliza trim/lowercase
+ * - rejeita hosts fora da allowlist (proteção contra SSRF)
+ * @param {string} [host]
+ * @returns {string} host canônico (lowercased)
+ * @throws {Error} code 'INVALID_HOST' se não permitido
+ */
+function resolveHost(host) {
+    if (host === undefined || host === null || String(host).trim() === '') {
+        return DEFAULT_HOST;
+    }
+    const normalized = String(host).trim().toLowerCase();
+    if (!HOST_ALLOWLIST.includes(normalized)) {
+        const err = new Error(`Host "${host}" não permitido (fora da allowlist)`);
+        err.code = 'INVALID_HOST';
+        throw err;
+    }
+    return normalized;
+}
+
+/**
+ * Retorna a config para um host específico (validado contra a allowlist).
+ * @param {string} [host]
+ */
+function forHost(host) {
+    return buildConfig(resolveHost(host));
+}
+
+// Export padrão: config do host padrão (retrocompatível) + helpers de host.
+module.exports = Object.assign(buildConfig(DEFAULT_HOST), {
+    defaultHost: DEFAULT_HOST,
+    HOST_ALLOWLIST,
+    buildConfig,
+    resolveHost,
+    forHost
+});

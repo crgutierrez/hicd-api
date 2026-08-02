@@ -51,6 +51,11 @@ class HICDAuthService {
     async login() {
         console.log('[LOGIN] Iniciando processo de autenticação...');
 
+        // Durante o login, desliga a detecção de expiração no http-client
+        // (as requisições de login retornam a página anônima por natureza).
+        this.httpClient.authPhase = true;
+        try {
+
         const errors = [];
 
         // Primeira tentativa (que sempre falha devido ao bug do sistema)
@@ -99,6 +104,10 @@ class HICDAuthService {
         }
 
         return { success: false, message: 'Falha no login após todas as tentativas', errors };
+
+        } finally {
+            this.httpClient.authPhase = false;
+        }
     }
 
     /**
@@ -152,7 +161,7 @@ class HICDAuthService {
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                         'Referer': urls.index,
-                        'Origin': config.auth.origin
+                        'Origin': this.httpClient.origin
                     }
                 });
                 console.log('[LOGIN] Status POST login:', loginResponse.status);
@@ -230,6 +239,7 @@ class HICDAuthService {
      * Faz logout do sistema
      */
     async logout() {
+        this.httpClient.authPhase = true;
         try {
             console.log('[LOGOUT] Fazendo logout...');
             
@@ -250,6 +260,8 @@ class HICDAuthService {
             
         } catch (error) {
             console.error('[LOGOUT] Erro durante logout:', error.message);
+        } finally {
+            this.httpClient.authPhase = false;
         }
     }
 

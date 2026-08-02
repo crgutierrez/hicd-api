@@ -3,26 +3,43 @@ const sharedCrawler = require('../shared-crawler');
 
 class ClinicasController {
     constructor() {
-        this.clinicasCache = null;
+        // Cache da lista de clínicas namespaced por host: host -> { data, at }
+        this.clinicasCacheByHost = new Map();
         this.cacheTimeout = 10 * 60 * 1000; // 10 minutos
-        this.lastCacheUpdate = null;
     }
 
-    initCrawler() {
-        return sharedCrawler.getCrawler();
+    initCrawler(host) {
+        return sharedCrawler.getCrawler(host);
     }
 
-    // Verificar se o cache é válido
-    isCacheValid() {
-        return this.clinicasCache && 
-               this.lastCacheUpdate && 
-               (Date.now() - this.lastCacheUpdate) < this.cacheTimeout;
+    // Verificar se o cache do host é válido
+    isCacheValid(host) {
+        const entry = this.clinicasCacheByHost.get(host);
+        return !!entry && (Date.now() - entry.at) < this.cacheTimeout;
     }
 
-    // Atualizar cache de clínicas (inclui contagem de pacientes por clínica)
-    async updateClinicasCache() {
+    // Retorna a lista de clínicas do host (do cache ou atualiza)
+    async getClinicasCache(host) {
+        if (this.isCacheValid(host)) {
+            return this.clinicasCacheByHost.get(host).data;
+        }
+        return this.updateClinicasCache(host);
+    }
+
+    // Retorna metadados de cache do host (para o payload de resposta)
+    cacheMeta(host) {
+        const entry = this.clinicasCacheByHost.get(host);
+        const at = entry ? entry.at : Date.now();
+        return {
+            lastUpdate: new Date(at).toISOString(),
+            nextUpdate: new Date(at + this.cacheTimeout).toISOString()
+        };
+    }
+
+    // Atualizar cache de clínicas do host (inclui contagem de pacientes por clínica)
+    async updateClinicasCache(host) {
         try {
-            const crawler = await this.initCrawler();
+            const crawler = await this.initCrawler(host);
             const clinicas = await crawler.getClinicas();
 
             const clinicasValidas = clinicas
@@ -43,9 +60,9 @@ class ClinicasController {
                 }));
             }
 
-            this.clinicasCache = clinicasValidas.map(c => c.toResumo());
-            this.lastCacheUpdate = Date.now();
-            return this.clinicasCache;
+            const data = clinicasValidas.map(c => c.toResumo());
+            this.clinicasCacheByHost.set(host, { data, at: Date.now() });
+            return data;
         } catch (error) {
             console.error('Erro ao atualizar cache de clínicas:', error);
             throw error;
@@ -55,22 +72,14 @@ class ClinicasController {
     // Listar todas as clínicas
     async listarClinicas(req, res) {
         try {
-            let clinicas;
-            
-            if (this.isCacheValid()) {
-                clinicas = this.clinicasCache;
-            } else {
-                clinicas = await this.updateClinicasCache();
-            }
+            const host = req.hicdHost;
+            const clinicas = await this.getClinicasCache(host);
 
             res.json({
                 success: true,
                 data: clinicas,
                 total: clinicas.length,
-                cache: {
-                    lastUpdate: new Date(this.lastCacheUpdate).toISOString(),
-                    nextUpdate: new Date(this.lastCacheUpdate + this.cacheTimeout).toISOString()
-                }
+                cache: this.cacheMeta(host)
             });
         } catch (error) {
             console.error('Erro ao listar clínicas:', error);
@@ -95,13 +104,7 @@ class ClinicasController {
                 });
             }
 
-            let clinicas;
-            
-            if (this.isCacheValid()) {
-                clinicas = this.clinicasCache;
-            } else {
-                clinicas = await this.updateClinicasCache();
-            }
+            const clinicas = await this.getClinicasCache(req.hicdHost);
 
             // Filtrar clínicas pelo nome
             const termoBusca = nome.toLowerCase();
@@ -140,15 +143,11 @@ class ClinicasController {
                 });
             }
 
-            const crawler = await this.initCrawler();
-            
+            const host = req.hicdHost;
+            const crawler = await this.initCrawler(host);
+
             // Buscar clínica para verificar se existe
-            let clinicas;
-            if (this.isCacheValid()) {
-                clinicas = this.clinicasCache;
-            } else {
-                clinicas = await this.updateClinicasCache();
-            }
+            const clinicas = await this.getClinicasCache(host);
 
             // ID "0" é o endpoint "todos os pacientes" do HICD — não precisa de validação
             let clinica;
@@ -249,15 +248,11 @@ class ClinicasController {
                 });
             }
 
-            const crawler = await this.initCrawler();
-            
+            const host = req.hicdHost;
+            const crawler = await this.initCrawler(host);
+
             // Buscar clínica
-            let clinicas;
-            if (this.isCacheValid()) {
-                clinicas = this.clinicasCache;
-            } else {
-                clinicas = await this.updateClinicasCache();
-            }
+            const clinicas = await this.getClinicasCache(host);
 
             const clinica = clinicas.find(c => c.id === id || c.codigo === id || c.nome === id);
             
@@ -312,7 +307,7 @@ class ClinicasController {
             //     return res.json({ success: true, source: 'cache', data: cachedData });
             // }
 
-            const crawler = await this.initCrawler();
+            const crawler = await this.initCrawler(req.hicdHost);
             const pacientes = await crawler.getPacientesClinica(idClinica);
             if (!pacientes || pacientes.length === 0) {
                 return res.json({ success: true, data: [] });

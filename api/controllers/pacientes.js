@@ -3,8 +3,8 @@ const cache = require('../utils/cache');
 const sharedCrawler = require('../shared-crawler');
 
 class PacientesController {
-    initCrawler() {
-        return sharedCrawler.getCrawler();
+    initCrawler(host) {
+        return sharedCrawler.getCrawler(host);
     }
 
     // Buscar paciente por prontuário
@@ -21,7 +21,7 @@ class PacientesController {
                 });
             }
 
-            const crawler = await this.initCrawler();
+            const crawler = await this.initCrawler(req.hicdHost);
 
             console.log(`Buscando paciente por prontuário: ${prontuario} / ${nome}`);
 
@@ -107,9 +107,9 @@ class PacientesController {
                 });
             }
 
-            const crawler = await this.initCrawler();
+            const crawler = await this.initCrawler(req.hicdHost);
 
-            const cacheKey = cache.generateKey('cadastro', prontuario);
+            const cacheKey = cache.generateKey('cadastro', prontuario, {}, req.hicdHost);
 
             const dadosCompletos = await cache.getOrSet(cacheKey, async () => {
                 console.log(`Obtendo detalhes do paciente: ${prontuario}`);
@@ -173,10 +173,10 @@ class PacientesController {
                 });
             }
 
-            const crawler = await this.initCrawler();
+            const crawler = await this.initCrawler(req.hicdHost);
 
             // Gerar chave do cache
-            const cacheKey = cache.generateKey('evolucoes', prontuario, { limite, formato });
+            const cacheKey = cache.generateKey('evolucoes', prontuario, { limite, formato }, req.hicdHost);
 
             // Tentar buscar no cache primeiro
             const resultadoCache = await cache.getOrSet(cacheKey, async () => {
@@ -268,9 +268,9 @@ class PacientesController {
                 });
             }
 
-            const crawler = await this.initCrawler();
+            const crawler = await this.initCrawler(req.hicdHost);
 
-            const cacheKey = cache.generateKey('analise', prontuario);
+            const cacheKey = cache.generateKey('analise', prontuario, {}, req.hicdHost);
 
             const analise = await cache.getOrSet(cacheKey, async () => {
                 console.log(`Analisando clinicamente o paciente: ${prontuario}`);
@@ -373,10 +373,10 @@ class PacientesController {
                 });
             }
 
-            const crawler = await this.initCrawler();
+            const crawler = await this.initCrawler(req.hicdHost);
 
             // Cache 1: lista bruta de requisições — compartilhada entre todos os formatos
-            const rawKey = cache.generateKey('exames-raw', prontuario);
+            const rawKey = cache.generateKey('exames-raw', prontuario, {}, req.hicdHost);
             const examesRaw = await cache.getOrSet(rawKey, async () => {
                 console.log(`Buscando exames brutos do paciente: ${prontuario}`);
                 const raw = await crawler.getExames(prontuario);
@@ -389,7 +389,7 @@ class PacientesController {
             // Cache 2: resultados completos (N+1) — compartilhado entre formatos quando incluirResultados=true
             let exames;
             if (incluir) {
-                const resultadosKey = cache.generateKey('exames-resultados', prontuario);
+                const resultadosKey = cache.generateKey('exames-resultados', prontuario, {}, req.hicdHost);
                 const resultadosCompletos = await cache.getOrSet(resultadosKey, async () => {
                     console.log(`Buscando resultados dos exames do paciente: ${prontuario}`);
                     return crawler.evolutionService.getResultadosExames(prontuario, {}, examesRaw);
@@ -477,9 +477,9 @@ class PacientesController {
             const { prontuario } = req.params;
             const { formato = 'detalhado' } = req.query;
 
-            const crawler = await this.initCrawler();
+            const crawler = await this.initCrawler(req.hicdHost);
 
-            const cacheKey = cache.generateKey('evolucoes-raw', prontuario);
+            const cacheKey = cache.generateKey('evolucoes-raw', prontuario, {}, req.hicdHost);
             const evolucoesRaw = await cache.getOrSet(cacheKey, async () => {
                 const raw = await crawler.getEvolucoes(prontuario);
                 if (!raw || raw.length === 0) {
@@ -547,9 +547,9 @@ class PacientesController {
                 });
             }
 
-            const crawler = await this.initCrawler();
+            const crawler = await this.initCrawler(req.hicdHost);
 
-            const cacheKey = cache.generateKey('prescricoes', prontuario);
+            const cacheKey = cache.generateKey('prescricoes', prontuario, {}, req.hicdHost);
 
             const prescricoes = await cache.getOrSet(cacheKey, async () => {
                 console.log(`Obtendo prescrição do paciente: ${prontuario}`);
@@ -599,7 +599,7 @@ class PacientesController {
                 });
             }
 
-            const crawler = await this.initCrawler();
+            const crawler = await this.initCrawler(req.hicdHost);
 
             console.log(`Buscando paciente por leito: ${leito}`);
             const pacienteRaw = await crawler.buscarPacientePorLeito(leito);

@@ -10,14 +10,17 @@ const PrescricaoParser = require('./prescricao-parser');
  * Mantém compatibilidade com a interface original
  */
 class HICDParser {
-    constructor() {
+    /**
+     * @param {object} [options] - { origin } do host, para montar URLs (exames) por host.
+     */
+    constructor(options = {}) {
         this.debugMode = true;
         // process.env.NODE_ENV === 'development';
-        
+
         // Inicializa parsers especializados
         this.clinicaParser = new ClinicaParser();
         this.pacienteParser = new PacienteParser();
-        this.examesParser = new ExamesParser();
+        this.examesParser = new ExamesParser(options.origin);
         this.evolucaoParser = new EvolucaoParser();
         this.prontuarioParser = new ProntuarioParser();
         this.prescricaoParser = new PrescricaoParser();
