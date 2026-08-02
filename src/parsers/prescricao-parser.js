@@ -130,38 +130,100 @@ class PrescricaoParser extends BaseParser {
         });
     }
 
+    /**
+     * Extrai os campos de um medicamento padronizado a partir do texto do HICD.
+     *
+     * Formato (após o "[nome]"):
+     *   (dose),  (apresentação),  posologia,  via,  intervalo,  observação,  dia /
+     *
+     * - Os DOIS primeiros campos, quando presentes, vêm entre parênteses:
+     *   1º () = dose (dose diária), 2º () = apresentação. Podem faltar (0, 1 ou 2 ().
+     * - O delimitador entre campos é vírgula + 2+ espaços (o HICD usa `\xa0\xa0`).
+     *   Vírgula decimal ("2,5") e vírgula interna ("Manha, tarde") usam 1 espaço e
+     *   NÃO são separadores.
+     * - O último segmento é "dia / justificativa" (ex.: "4 /"); dia = parte antes da "/".
+     */
     extrairDadosMedicamento(textoMedicamento) {
         const medicamento = { textoMedicamento };
         const matchNome = textoMedicamento.match(/\[\s*([^\]]+)\]/);
         medicamento.nome = matchNome ? matchNome[1].trim() : '';
-        
-        const restante = textoMedicamento.replace(/\[[^\]]+\]/, '').trim();
-        const segmentos = restante.split(',').map(s => s.trim());
 
-        medicamento.dose = (segmentos[0] || '').replace(/[()]/g, '');
-        medicamento.apresentacao = (segmentos[1] || '').replace(/[()]/g, '');
-        medicamento.via = segmentos[2] || '';
-        medicamento.intervalo = segmentos[3] || '';
-        medicamento.observacao = segmentos[4] || '';
-        medicamento.dias = segmentos[5] || '';
+        // Remove o "[nome]" do início; o restante contém os campos separados por
+        // vírgula + 2+ espaços (o HICD usa `\xa0\xa0`).
+        const restante = textoMedicamento.replace(/^\s*\[[^\]]*\]/, '').trim();
+        const segs = restante.split(/,\s{2,}/).map(s => s.trim()).filter(s => s !== '');
 
-        Object.keys(medicamento).forEach(key => {
-            if (medicamento[key] === '.') medicamento[key] = '';
-        });
+        // Último segmento = "dia / justificativa" (ex.: "4 /").
+        let dia = '';
+        if (segs.length) dia = segs.pop().split('/')[0].trim();
+
+        let dose = '', apresentacao = '', posologia = '', via = '', intervalo = '', observacao = '';
+
+        // Âncora robusta: o intervalo é o campo com "Horas"/"Livre" — a via vem logo
+        // antes; a observação, logo depois; e dose/apresentação/posologia ficam antes
+        // da via (a apresentação nem sempre vem entre parênteses — ver FENOBARBITAL).
+        const intervaloIdx = segs.findIndex(s => /\bHoras\b|Livre/i.test(s));
+        if (intervaloIdx >= 1) {
+            intervalo   = segs[intervaloIdx];
+            via         = segs[intervaloIdx - 1];
+            observacao  = segs.slice(intervaloIdx + 1).join(', ').trim();
+            const antesVia = segs.slice(0, intervaloIdx - 1);
+            if (antesVia.length === 1) {
+                posologia = antesVia[0];
+            } else if (antesVia.length >= 2) {
+                dose        = antesVia[0];
+                posologia   = antesVia[antesVia.length - 1];
+                apresentacao = antesVia.slice(1, antesVia.length - 1).join(', ');
+            }
+        } else {
+            // Fallback posicional (sem "Horas" reconhecível): 1º/2º () = dose/apres.
+            const arr = [...segs];
+            if (arr[0] && /^\(.*\)$/.test(arr[0])) dose = arr.shift();
+            if (arr[0] && /^\(.*\)$/.test(arr[0])) apresentacao = arr.shift();
+            posologia  = arr.shift() || '';
+            via        = arr.shift() || '';
+            intervalo  = arr.shift() || '';
+            observacao = arr.join(', ');
+        }
+
+        // Remove os parênteses envolventes de dose/apresentação, quando houver.
+        dose         = dose.replace(/^\((.*)\)$/, '$1').trim();
+        apresentacao = apresentacao.replace(/^\((.*)\)$/, '$1').trim();
+
+        Object.assign(medicamento, { dose, apresentacao, posologia, via, intervalo, observacao, dia });
+
+        // Normaliza espaços não-quebráveis internos e limpa placeholders ".".
+        for (const k of ['dose', 'apresentacao', 'posologia', 'via', 'intervalo', 'observacao', 'dia']) {
+            medicamento[k] = String(medicamento[k]).replace(/\s+/g, ' ').trim();
+            if (medicamento[k] === '.') medicamento[k] = '';
+        }
         return medicamento;
     }
 
+    /**
+     * Medicamento NÃO padronizado (texto livre, sem os parênteses de dose/apresentação).
+     * Estrutura best-effort: nome | posologia | via | intervalo | dia | "."
+     * Mantém o mesmo conjunto de campos do padronizado (dose/apresentação ficam vazios).
+     * O campo `textoMedicamento` continua sendo a fonte de verdade.
+     */
     extrairDadosMedicamentoNaoPadronizado(textoMedicamento) {
-        const partes = textoMedicamento.split(/\s{2,}/).filter(p => p.trim());
-        return {
-            nome: partes[0] || '',
-            dose: partes[1] || '',
-            posologia: partes[2] || '',
-            via: partes[3] || '',
-            intervalo: partes[4] || '',
-            observacao: partes.slice(5).join(' ') || '',
-            textoMedicamento: textoMedicamento
+        const partes = textoMedicamento.split(/\s{2,}/).map(s => s.trim()).filter(s => s !== '');
+        const medicamento = {
+            textoMedicamento,
+            nome:        partes[0] || '',
+            dose:        '',
+            apresentacao: '',
+            posologia:   partes[1] || '',
+            via:         partes[2] || '',
+            intervalo:   partes[3] || '',
+            dia:         partes[4] || '',
+            observacao:  partes.slice(5).join(' ') || '',
         };
+        for (const k of ['posologia', 'via', 'intervalo', 'observacao', 'dia']) {
+            medicamento[k] = medicamento[k].replace(/\s+/g, ' ').trim();
+            if (medicamento[k] === '.') medicamento[k] = '';
+        }
+        return medicamento;
     }
 
     extrairDietas($, detalhes) {
