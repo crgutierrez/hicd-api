@@ -72,7 +72,7 @@ class EvolucaoParser extends BaseParser {
                 const cabecalhoRow = rows.eq(i);
                 const rowDois = rows.eq(i + 1)
                 const rowTres = rows.eq(i + 2);
-                const rowQuatro = rows.eq(i + 3);U
+                const rowQuatro = rows.eq(i + 3);
                 const textoRow = rows.eq(i + 1);
                 const assinaturaRow = rows.eq(i + 2);
                 // As linhas i+3 e i+4 são geralmente divisores ou em branco no layout original.
