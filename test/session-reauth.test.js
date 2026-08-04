@@ -23,10 +23,28 @@ const HICDHttpClient = require('../src/core/http-client');
 const ANON = '<html><body>Sessão: ANONYMOUS</body></html>';
 const DADOS = '<select id="clinica"><option value="007">U T I</option></select>';
 
+// Página real servida pelo controller.php quando o PHPSESSID expira (HTTP 200).
+// Capturada em produção: NÃO contém "ANONYMOUS" nem form "Param=LOGIN" — só o
+// aviso "Sessão Expirada!" / "Login expirado!" (com o ã como entidade HTML).
+const SESSAO_EXPIRADA = `<html lang="en"><head><title>TITLE_APP</title></head>
+<body style="text-align:center;">
+  <div class="alert alert-danger">
+    <h2>Sess&atilde;o Expirada!</h2>
+    <a href="http://hicd-hospub.sesau.ro.gov.br/index.php" class="alert-link">Clique aqui para Reiniciar</a>
+    <div id="show_erro" style="display:none;">Login expirado!</div>
+  </div>
+</body></html>`;
+
 // ============ Item 1: detector ============
 
 test('isSessionExpiredHtml reconhece a página anônima', () => {
     assert.strictEqual(isSessionExpiredHtml(ANON), true);
+});
+
+test('isSessionExpiredHtml reconhece a página "Sessão Expirada!" (PHPSESSID morto)', () => {
+    // Regressão: essa página não tem "ANONYMOUS" nem "Param=LOGIN", então antes
+    // passava batido e o endpoint de clínicas devolvia 0 resultados sem re-login.
+    assert.strictEqual(isSessionExpiredHtml(SESSAO_EXPIRADA), true);
 });
 
 test('isSessionExpiredHtml ignora página de dados e entradas não-string', () => {
