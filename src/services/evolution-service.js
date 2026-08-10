@@ -212,59 +212,72 @@ class EvolutionService {
                 return [];
             }
 
-            const BATCH_SIZE = parseInt(process.env.EXAM_BATCH_SIZE) || 5;
-            const DELAY_ENTRE_BATCHES_MS = parseInt(process.env.EXAM_BATCH_DELAY_MS) || 100;
+            const CONCURRENCIA = parseInt(process.env.EXAM_BATCH_SIZE) || 5;
+            const STAGGER_MS = parseInt(process.env.EXAM_BATCH_DELAY_MS) || 100;
             const REQUEST_TIMEOUT_MS = parseInt(process.env.EXAM_REQUEST_TIMEOUT_MS) || 15000;
 
-            console.log(`[RESULTADOS] ${urls.length} URLs — batches de ${BATCH_SIZE}, delay ${DELAY_ENTRE_BATCHES_MS}ms`);
+            console.log(`[RESULTADOS] ${urls.length} URLs — pool de ${CONCURRENCIA} conexões, stagger ${STAGGER_MS}ms`);
 
             const resultadosCompletos = [];
 
-            for (let i = 0; i < urls.length; i += BATCH_SIZE) {
-                const batch = urls.slice(i, i + BATCH_SIZE);
+            // Busca+parse de UMA requisição de exame. Retorna o objeto de
+            // resultado ou null (sem laudos / aguardando).
+            const processarUrl = async (urlInfo, globalIndex) => {
+                console.log(`[RESULTADOS] Processando ${globalIndex + 1}/${urls.length} - Requisição: ${urlInfo.requisicao}`);
 
-                const batchSettled = await Promise.allSettled(batch.map(async (urlInfo, batchIndex) => {
-                    const globalIndex = i + batchIndex;
-                    console.log(`[RESULTADOS] Processando ${globalIndex + 1}/${urls.length} - Requisição: ${urlInfo.requisicao}`);
-
-                    const response = await this.httpClient.get(urlInfo.url, {
-                        timeout: REQUEST_TIMEOUT_MS,
-                        headers: {
-                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                            'Accept-Language': 'pt-BR,pt;q=0.8,en;q=0.5,en-US;q=0.3',
-                            'Accept-Encoding': 'gzip, deflate, br',
-                            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0'
-                        }
-                    });
-
-                    const resultados = this.parser.parseResultadosExames(response.data, urlInfo.requisicao);
-
-                    if (!resultados.length) {
-                        console.log(`[RESULTADOS] ⚠️ Nenhum resultado na requisição ${urlInfo.requisicao}`);
-                        return null;
+                const response = await this.httpClient.get(urlInfo.url, {
+                    timeout: REQUEST_TIMEOUT_MS,
+                    headers: {
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'Accept-Language': 'pt-BR,pt;q=0.8,en;q=0.5,en-US;q=0.3',
+                        'Accept-Encoding': 'gzip, deflate, br',
+                        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0'
                     }
+                });
 
-                    console.log(`[RESULTADOS] ✅ ${resultados.length} resultados extraídos da requisição ${urlInfo.requisicao}`);
-                    return {
-                        ...urlInfo,
-                        resultados,
-                        totalResultados: resultados.length,
-                        dataProcessamento: new Date().toISOString()
-                    };
-                }));
+                const resultados = this.parser.parseResultadosExames(response.data, urlInfo.requisicao);
 
-                for (const settled of batchSettled) {
-                    if (settled.status === 'fulfilled' && settled.value !== null) {
-                        resultadosCompletos.push(settled.value);
-                    } else if (settled.status === 'rejected') {
-                        console.error(`[RESULTADOS] Falha em requisição do batch:`, settled.reason?.message);
-                    }
+                if (!resultados.length) {
+                    console.log(`[RESULTADOS] ⚠️ Nenhum resultado na requisição ${urlInfo.requisicao}`);
+                    return null;
                 }
 
-                if (i + BATCH_SIZE < urls.length) {
-                    await new Promise(resolve => setTimeout(resolve, DELAY_ENTRE_BATCHES_MS));
+                console.log(`[RESULTADOS] ✅ ${resultados.length} resultados extraídos da requisição ${urlInfo.requisicao}`);
+                return {
+                    ...urlInfo,
+                    resultados,
+                    totalResultados: resultados.length,
+                    dataProcessamento: new Date().toISOString()
+                };
+            };
+
+            // Pool deslizante: em vez de batches com barreira (onde a request mais
+            // lenta do lote ociosa os demais slots), mantém sempre CONCURRENCIA
+            // requisições em voo — cada worker puxa o próximo índice ao terminar.
+            let cursor = 0;
+            const worker = async () => {
+                while (true) {
+                    const index = cursor++;
+                    if (index >= urls.length) break;
+
+                    // Stagger só no arranque: espalha a rajada inicial sem
+                    // penalizar o restante do processamento.
+                    if (STAGGER_MS > 0 && index < CONCURRENCIA && index > 0) {
+                        await new Promise(resolve => setTimeout(resolve, STAGGER_MS * index));
+                    }
+
+                    try {
+                        const value = await processarUrl(urls[index], index);
+                        if (value !== null) resultadosCompletos.push(value);
+                    } catch (err) {
+                        console.error(`[RESULTADOS] Falha na requisição ${urls[index]?.requisicao}:`, err?.message);
+                    }
                 }
-            }
+            };
+
+            await Promise.all(
+                Array.from({ length: Math.min(CONCURRENCIA, urls.length) }, () => worker())
+            );
 
             const totalResultados = resultadosCompletos.reduce((sum, exame) => sum + exame.totalResultados, 0);
             console.log(`[RESULTADOS] ✅ Concluído: ${resultadosCompletos.length} requisições com ${totalResultados} resultados`);
