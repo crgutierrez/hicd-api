@@ -1,4 +1,6 @@
 const axios = require('axios');
+const http = require('http');
+const https = require('https');
 require('dotenv').config();
 const config = require('../../config');
 const { isSessionExpiredHtml, sessionExpiredError } = require('./session');
@@ -12,9 +14,22 @@ class HICDHttpClient {
      */
     constructor(cfg = config) {
         this.config = cfg;
+
+        // Agents com keep-alive: reutilizam a conexão TCP/TLS entre requisições.
+        // Sem isso, cada request abre um socket novo e refaz o handshake TLS —
+        // proibitivo ao buscar centenas de laudos (N+1 de resultados de exames).
+        // maxSockets limita o pool (não sobrecarrega o HICD); deve acompanhar a
+        // concorrência do batch de exames (EXAM_BATCH_SIZE).
+        const maxSockets = parseInt(process.env.HTTP_MAX_SOCKETS) || 10;
+        const agentOpts = { keepAlive: true, keepAliveMsecs: 30000, maxSockets };
+        this.httpAgent = new http.Agent(agentOpts);
+        this.httpsAgent = new https.Agent(agentOpts);
+
         // Configuração do axios com jar de cookies
         this.client = axios.create({
             timeout: 30000,
+            httpAgent: this.httpAgent,
+            httpsAgent: this.httpsAgent,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -43,6 +58,11 @@ class HICDHttpClient {
         // Callback opcional (injetado pelo crawler) que refaz o login no HICD.
         // Assinatura: async () => void. Ausente = sem auto-cura (só detecção).
         this.onSessionExpired = null;
+        // Single-flight do re-login: garante UM re-login por vez. Requisições
+        // concorrentes que detectam sessão expirada aguardam o mesmo login em
+        // vez de disparar vários — evita PHPSESSIDs conflitantes que invalidam
+        // a sessão um do outro (tempestade de re-autenticação).
+        this._reloginPromise = null;
 
         // Configurações de rate limiting
         this.requestDelay = parseInt(process.env.REQUEST_DELAY) || 1000;
@@ -91,8 +111,19 @@ class HICDHttpClient {
         if (!isSessionExpiredHtml(response && response.data)) return response;
 
         if (!retried && typeof this.onSessionExpired === 'function') {
-            console.warn('[HTTP-CLIENT] Sessão HICD expirada — renovando login automaticamente...');
-            await this.onSessionExpired();
+            // Single-flight: só o primeiro request cria o re-login; os demais
+            // concorrentes aguardam a MESMA promise. Sem await entre o teste e a
+            // atribuição (JS single-thread) → sem race na criação.
+            if (!this._reloginPromise) {
+                console.warn('[HTTP-CLIENT] Sessão HICD expirada — renovando login automaticamente...');
+                this._reloginPromise = Promise.resolve()
+                    .then(() => this.onSessionExpired())
+                    .catch(err => console.error('[HTTP-CLIENT] Falha ao renovar sessão HICD:', err?.message))
+                    .finally(() => { this._reloginPromise = null; });
+            } else {
+                console.warn('[HTTP-CLIENT] Sessão expirada — aguardando re-login já em andamento...');
+            }
+            await this._reloginPromise;
             return await this._request(method, url, data, config, true);
         }
 

@@ -13,8 +13,14 @@
  * verifyLogin() como indicador de NÃO-autenticado.
  */
 
-// Página anônima/deslogada do HICD sempre carrega o marcador "ANONYMOUS".
-const ANONYMOUS_RE = /ANONYMOUS/i;
+// Página anônima/deslogada do HICD sempre carrega o marcador "ANONYMOUS"
+// (MAIÚSCULO) — o mesmo que verifyLogin() checa via body.text().includes('ANONYMOUS').
+// IMPORTANTE: case-SENSITIVE de propósito. Com a flag /i, o regex casava o
+// atributo `crossorigin="anonymous"` das tags <script> do jQuery presentes em
+// TODA página de impressão de exame — falso-positivo que disparava re-login
+// desnecessário em 100% dos laudos. O atributo é sempre minúsculo; o marcador
+// real é sempre MAIÚSCULO, então exigir o case elimina a colisão.
+const ANONYMOUS_RE = /ANONYMOUS/;
 
 // Quando o PHPSESSID expira, o controller.php responde HTTP 200 com uma pequena
 // página de aviso — SEM "ANONYMOUS" e SEM form de login. Capturada em produção:

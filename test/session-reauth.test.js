@@ -23,6 +23,15 @@ const HICDHttpClient = require('../src/core/http-client');
 const ANON = '<html><body>Sessão: ANONYMOUS</body></html>';
 const DADOS = '<select id="clinica"><option value="007">U T I</option></select>';
 
+// Página de laudo VÁLIDA que carrega jQuery com crossorigin="anonymous".
+// Regressão: com o regex /ANONYMOUS/i, o "anonymous" (minúsculo) do atributo
+// casava e marcava TODA página de exame como sessão expirada → re-login em 100%
+// dos laudos. O marcador real é MAIÚSCULO; o detector agora é case-sensitive.
+const LAUDO_COM_CROSSORIGIN = `<html><body>
+  <table class="table1"><tr id="HB"><td>Hemoglobina</td><td>Resultado--------> 12,3 g/dL</td></tr></table>
+  <script src="jquery-3.6.0.js" crossorigin="anonymous"></script>
+</body></html>`;
+
 // Página real servida pelo controller.php quando o PHPSESSID expira (HTTP 200).
 // Capturada em produção: NÃO contém "ANONYMOUS" nem form "Param=LOGIN" — só o
 // aviso "Sessão Expirada!" / "Login expirado!" (com o ã como entidade HTML).
@@ -45,6 +54,12 @@ test('isSessionExpiredHtml reconhece a página "Sessão Expirada!" (PHPSESSID mo
     // Regressão: essa página não tem "ANONYMOUS" nem "Param=LOGIN", então antes
     // passava batido e o endpoint de clínicas devolvia 0 resultados sem re-login.
     assert.strictEqual(isSessionExpiredHtml(SESSAO_EXPIRADA), true);
+});
+
+test('isSessionExpiredHtml NÃO confunde crossorigin="anonymous" com sessão expirada', () => {
+    // Regressão: /ANONYMOUS/i casava o atributo minúsculo do jQuery presente em
+    // toda página de laudo, disparando re-login desnecessário em 100% dos exames.
+    assert.strictEqual(isSessionExpiredHtml(LAUDO_COM_CROSSORIGIN), false);
 });
 
 test('isSessionExpiredHtml ignora página de dados e entradas não-string', () => {
@@ -93,6 +108,30 @@ test('sem handler onSessionExpired: expiração lança erro tipado direto', asyn
     const c = new HICDHttpClient();
     c.client = { post: async () => ({ data: ANON }), get: async () => ({ data: ANON }) };
     await assert.rejects(() => c.post('u', {}), (e) => e.code === 'SESSION_EXPIRED');
+});
+
+test('single-flight: N requisições concorrentes expiradas disparam UM só re-login', async () => {
+    // Sob concorrência (pool de exames), várias respostas anônimas chegam quase
+    // juntas. Sem guarda, cada uma chamaria login() → PHPSESSIDs conflitantes.
+    // O single-flight garante um único re-login compartilhado.
+    const c = new HICDHttpClient();
+    let expirada = true;
+    let loginChamado = 0;
+    c.client = {
+        get: async () => ({ data: expirada ? ANON : DADOS }),
+        post: async () => ({ data: expirada ? ANON : DADOS })
+    };
+    c.onSessionExpired = async () => {
+        loginChamado++;
+        await new Promise(r => setTimeout(r, 20)); // login leva um tempo
+        expirada = false;
+    };
+
+    const resultados = await Promise.all([
+        c.get('u'), c.get('u'), c.get('u'), c.get('u'), c.get('u')
+    ]);
+    assert.strictEqual(loginChamado, 1, 'apenas um re-login para todas as concorrentes');
+    for (const r of resultados) assert.match(r.data, /<select/, 'todas recuperam os dados');
 });
 
 test('authPhase ativo (login em curso): não dispara detecção', async () => {
