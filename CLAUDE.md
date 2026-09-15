@@ -172,6 +172,7 @@ node -e "
 | `auth-service.js` | Login com retry (primeiro login sempre falha no HICD) |
 | `patient-service.js` | `getPacientesClinica()`, `buscarPacientePorLeito()` |
 | `evolution-service.js` | `getEvolucoes()`, `getExames()`, `getPrescricoes()`, `getResultadosExames()` |
+| `internacao-service.js` | `getInternacoes()`, `getRelatoriosAlta()`, `getCatalogoSetores()`, `getCadastroSame()`, `getBoletinsEmergencia()`, `detectarObito()`, `resolverDesfecho()`, `derivarPercurso()` |
 
 ### Parsers (`src/parsers/`)
 
@@ -182,6 +183,9 @@ node -e "
 | `exames-parser.js` | HTML `exame.php` | `[{sigla, nome, resultado, vr, ...}]` |
 | `evolucao-parser.js` | HTML `#areaHistEvol` | `{profissional, dataEvolucao, descricao, dadosEstruturados, ...}` |
 | `prescricao-parser.js` | HTML prescrição | `[{medicamento, dose, ...}]` |
+| `internacao-parser.js` | HTML `Inter`, `RALTA`, `SIINF/237` | `[{setorAlta, entrada, saida, cidEntrada}]`, relatórios tipados, catálogo de setores |
+| `emergencia-parser.js` | HTML `EvolucaoBe`, `TRIAGEM` | `{motivo, cid, chegada}`, `{classificacaoRisco, queixa, sinais vitais}` |
+| `cadastro-same-parser.js` | linha `pipe-delimited` do SAME | `{racaCor, deficiencia, municipioIbge, cns, ...}` |
 
 ### Endpoints da API
 
@@ -197,6 +201,11 @@ node -e "
 | GET | `/api/pacientes/:prontuario/exames?formato=detalhado\|resultados\|resumido&incluirResultados=true` | Exames |
 | GET | `/api/pacientes/:prontuario/prescricoes` | Prescrições |
 | GET | `/api/pacientes/:prontuario/analise` | Análise clínica agregada |
+| GET | `/api/pacientes/:prontuario/internacoes?desfecho=true\|false` | Internações com desfecho, óbito e porta de entrada |
+| GET | `/api/pacientes/:prontuario/relatorios-alta` | Documentos do módulo RALTA, classificados por tipo |
+| GET | `/api/pacientes/:prontuario/cadastro-same` | Raça/cor, deficiência, CNS e código IBGE |
+| GET | `/api/pacientes/:prontuario/boletins-emergencia?limite=N` | BEs com motivo da entrada, CID e classificação de risco |
+| GET | `/api/setores` | Catálogo completo de setores (29), não o censo vivo |
 | GET | `/api/cache/stats` | Estatísticas do cache |
 | DELETE | `/api/cache/clear` | Limpa o cache |
 
@@ -205,6 +214,60 @@ node -e "
 ## 6. Instruções Corretivas e Aprendizados
 
 > Registre aqui falhas da IA, alucinações e soluções. **Formato**: data · problema · causa · solução.
+
+### 2026-09-14 — Teto de 400 evoluções: `Evo` vs `Evolucao`
+- **Problema**: `getEvolucoes()` devolvia no máximo 400 evoluções por paciente, truncando o histórico antigo sem nenhum aviso.
+- **Causa**: o teto é do `controller.php`, no módulo `ParamModule=Evo`. Não havia limite no nosso código.
+- **Solução**: usar `ParamModule=Evolucao`, que não tem o teto (525 e 621 evoluções onde o `Evo` dava 400). Dois detalhes: ele exige **`TIPOBUSCA` em maiúsculo** (só com `tipoBusca` minúsculo devolve vazio), e não envolve as linhas no wrapper `#areaHistEvol` — o parser ganhou uma segunda estratégia que varre o documento inteiro. Blocos passaram a ser ancorados na linha `Profissional:` em vez de fatiados de 5 em 5.
+
+### 2026-09-14 — Óbito só existe no texto das evoluções
+- **Problema**: um levantamento de mortalidade reportou **0 óbitos** onde havia 17.
+- **Causa**: o desfecho vinha do módulo `RALTA`. Quando o paciente morre ninguém escreve resumo de alta — o `RALTA` fica vazio **justamente nos óbitos**, e a ausência de documento estava sendo lida como ausência de óbito.
+- **Solução**: `detectarObito()` varre o texto das evoluções. A precedência em `resolverDesfecho()` é: óbito em evolução → documento do RALTA → resumo de alta escrito como evolução → sem informação.
+- **Armadilhas do detector**, todas encontradas em produção:
+  - `preencho\s+DO` casava com "PREENCHO **DO**CUMENTOS" (falta de `\b`) — marcou óbito em paciente vivo.
+  - O texto traz erro de digitação: "**Constatato** óbito às 15:10h". O padrão precisa ser `constat\w*`.
+  - "risco de óbito" e "risco iminente de óbito" aparecem o tempo todo em paciente grave que sobrevive — exclusão explícita.
+  - Óbito de terceiro ("mãe veio a óbito") precisa ser filtrado.
+  - A detecção tem que rodar **também no nível do prontuário**: quando o módulo `Inter` falha não há internação a que prender o desfecho, e o óbito some.
+
+### 2026-09-14 — O `setor` do módulo `Inter` é o de ALTA, não o de entrada
+- **Problema**: contagem de "passagem por UTI" subestimada em 3× (18 contra 53 reais), com letalidade inflada de 26% para 72%.
+- **Causa**: usávamos o campo `setor` do `Inter` como se fosse o setor de internação. Ele bate com o **último** setor das evoluções em 67% dos casos e com o primeiro em só 22%. Quem passa pela UTI e recebe alta da enfermaria aparecia só com a enfermaria.
+- **Solução**: `derivarPercurso()` lê o `clinicaLeito` das evoluções. 56% das internações passam por 2+ setores (o recorde é 8). O campo do `Inter` foi renomeado para `setorAlta`.
+
+### 2026-09-14 — Fronteira de palavra com acento quebra siglas
+- **Problema**: "FARMÁCIA" era classificada como menção a **CIA** (comunicação interatrial).
+- **Causa**: `(?<![a-z])cia(?![a-z])` parece correto e não é — em Python `[a-z]` é ASCII e não cobre "Á".
+- **Solução**: fronteira que inclui acentuadas: `[a-zà-öø-ÿA-ZÀ-ÖØ-Þ]`. Outros falsos positivos do mesmo tipo: "Epstein-Barr" → Ebstein, "transfontanela" → Fontan.
+
+### 2026-09-14 — `getClinicas()` é censo vivo, não catálogo
+- **Problema**: internações em setores que "não existem".
+- **Causa**: `getClinicas()` devolve só setores **com paciente internado no momento** — 25 dos 29. Faltam UIR 1, 2 e 3 (003–005) e o setor de teste (029), e as UIR respondem por internações reais.
+- **Solução**: `getCatalogoSetores()` (`SIINF/237`) devolve os 29. A posição na lista é o código.
+- **Cuidado extra**: o código **019** tem dois nomes ao mesmo tempo — "HOSPITAL DIA" nas evoluções, "OBSERVAÇÃO" no cadastro e no `Inter`, no mesmo período. **Agrupe por código, nunca por nome.**
+
+### 2026-09-14 — Raça/cor e o cadastro do SAME
+- **Problema**: conclusão precipitada de que o HICD não registra raça/cor.
+- **Causa**: o campo não existe no cadastro do prontuário (`CONSPAC_OPEN`), que era o único consultado.
+- **Solução**: está no cadastro do SAME — `Param=SSAME&ParamModule=pesq_Pront_Reg&pront=<registro>`, que devolve uma linha com 27 campos separados por `|`. Traz também deficiência, CNS, CPF e **código IBGE do município** (mais confiável que o nome em texto livre).
+- **Ressalva de uso**: 79% dos 200 prontuários amostrados estavam com raça/cor "não informado". Meça a cobertura antes de usar em análise.
+
+### 2026-09-14 — Boletim de Emergência (BE)
+- **Descoberta**: o BE é a porta de entrada pela emergência, alcançável por `CONSPAC_OPEN` com `TIPOBUSCA=BE` e o número do BE em `PACIENTE`. Os números vêm do cadastro do prontuário (`getPacienteBE("...")` no HTML).
+- **O que entrega**: `EvolucaoBe` dá motivo da entrada, CID e horário de chegada; `TRIAGEM` dá classificação de risco (Manchester), queixa e sinais vitais.
+- **BE marca a chegada; `Inter` marca a internação** — defasagem mediana de 48 min (p75 = 1,5 h), com 97% dos BEs tendo internação correspondente em até 24 h.
+- **Custo**: 2 requisições por BE, e pacientes com histórico longo têm 15–22 boletins. Triagem preenchida em só ~13%.
+
+### 2026-09-14 — Fallback de coluna engolindo a evolução inteira
+- **Problema**: 4 evoluções (de 43.294) com o campo `profissional` contendo até 5.345 caracteres e a `descricao` **vazia** — texto clínico perdido.
+- **Causa**: o fallback criado para ler `Clinica: 019-HOSPITAL DIA` (rótulo e valor na mesma coluna) capturava tudo depois do primeiro `:` quando o HICD entrega a evolução sem a estrutura de colunas esperada.
+- **Solução**: limitar o fallback a 80 caracteres. Efeito colateral positivo: o parser volta ao caminho normal e **recupera** essas evoluções.
+
+### 2026-09-14 — Limitações conhecidas do módulo `Inter`
+- Devolve **HTTP 500** em prontuários muito longos (~1% dos casos) — ele embute as evoluções dentro de cada internação e a resposta estoura. Retentativa não resolve. O serviço devolve `{ internacoes: [], erro }` em vez de propagar.
+- Internação em curso não tem valor após "Saída:", e o regex capturava o rótulo seguinte como se fosse data. Só se aceita o que tem forma de data.
+- Há inconsistências na origem: internação com saída anterior à entrada, internação de 553 dias, parecer registrado após a alta.
 
 ### 2026-06-16 — Host do HICD configurável via `.env`
 - **Problema**: o host `hicd-hospub.sesau.ro.gov.br` estava hardcoded em 6+ arquivos, impossibilitando apontar para outro servidor (ex.: `hb-hospub.sesau.ro.gov.br`).
@@ -294,7 +357,7 @@ Nenhum banco de dados próprio. Os dados vêm exclusivamente do servidor HICD ex
 ### Servidor HICD (dependência externa)
 - **Protocolo**: HTTP POST para `controller.php`
 - **Autenticação**: session cookie mantido pelo `http-client.js`
-- **Módulos** (campo `ParamModule`): `Evo` (evoluções), `Exames` → `exame.php`, `Paciente`, `Prescricao`
+- **Módulos** (campo `ParamModule`): `Evolucao` (evoluções — ver §6), `Exames` → `exame.php`, `Paciente`, `Prescricao`, `Inter` (internações), `RALTA` (relatórios de alta), `CONSPAC_OPEN` (cadastro do prontuário e abertura de BE), `EvolucaoBe` + `TRIAGEM` (boletim de emergência), `SIINF/237` (catálogo de setores), `SSAME/pesq_Pront_Reg` (cadastro do SAME)
 - **Quirk**: primeiro login sempre retorna erro — retry necessário
 
 ### Docker

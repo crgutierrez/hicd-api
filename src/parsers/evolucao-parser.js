@@ -26,13 +26,25 @@ class EvolucaoParser extends BaseParser {
             // const cabecalho = this.extrairCabecalhoEvolucao($);
             // this.debug('Cabeçalho extraído:', cabecalho);
 
-            // Estratégia 1: Buscar pela nova estrutura com #areaHistEvol
+            // Estratégia 1: Buscar pela nova estrutura com #areaHistEvol (ParamModule=Evo)
             $('#areaHistEvol').each((index, areaElement) => {
                 const evolucoesDetalhadamente = this.parseEvolucaoDetalhada($, areaElement, prontuario, index);
                 if (evolucoesDetalhadamente && evolucoesDetalhadamente.length > 0) {
                     evolucoes.push(...evolucoesDetalhadamente);
                 }
             });
+
+            // Estratégia 2: ParamModule=Evolucao devolve as mesmas linhas sem o wrapper
+            // #areaHistEvol. É o módulo sem o teto de 400 registros do Evo, então
+            // vale varrer o documento inteiro quando a estratégia 1 não achou nada.
+            if (evolucoes.length === 0) {
+                const raiz = $('body').length ? $('body').get(0) : $.root().get(0);
+                const semWrapper = this.parseEvolucaoDetalhada($, raiz, prontuario, 0);
+                if (semWrapper && semWrapper.length > 0) {
+                    this.debug(`Estrutura sem #areaHistEvol: ${semWrapper.length} evoluções`);
+                    evolucoes.push(...semWrapper);
+                }
+            }
 
             // // Se não encontrou na estrutura específica, usar o método anterior
             // if (evolucoes.length === 0) {
@@ -61,28 +73,32 @@ class EvolucaoParser extends BaseParser {
             const rows = area.find('.row');
             this.debug(`Encontradas ${rows.length} linhas de dados na área de evolução ${index}`);
 
-            // O parser original itera em blocos de 5 linhas. Vamos replicar essa lógica.
-            for (let i = 0; i < rows.length; i += 5) {
+            // Cada evolução ocupa um bloco de linhas que começa na linha com
+            // "Profissional:". O layout original tem 5 linhas por bloco, mas ancorar
+            // no cabeçalho evita desalinhar quando o HICD insere linhas extras
+            // (é o caso do módulo Evolucao, que aninha uma .row dentro da descrição).
+            const inicios = this._localizarIniciosDeBloco($, rows);
+
+            for (let b = 0; b < inicios.length; b++) {
                 const evolucao = {};
                 evolucao.prontuario = prontuario;
 
-                const row = rows.eq(i);
-
+                const i = inicios[b];
 
                 const cabecalhoRow = rows.eq(i);
                 const rowDois = rows.eq(i + 1)
                 const rowTres = rows.eq(i + 2);
                 const rowQuatro = rows.eq(i + 3);
-                const textoRow = rows.eq(i + 1);
-                const assinaturaRow = rows.eq(i + 2);
-                // As linhas i+3 e i+4 são geralmente divisores ou em branco no layout original.
+                // As linhas seguintes são divisores ou em branco no layout original.
 
                 // Extrai todos os campos da primeira linha do bloco
                 evolucao.profissional    = this.extrairCampoDaLinha($, cabecalhoRow, 'Profissional:');
                 evolucao.dataEvolucao   = this.extrairCampoDaLinha($, cabecalhoRow, 'Data Evolução:');
                 evolucao.atividade      = this.extrairCampoDaLinha($, rowDois, 'Atividade:');
                 evolucao.dataAtualizacao= this.extrairCampoDaLinha($, rowDois, 'Data de Atualização:');
-                evolucao.clinicaLeito   = this.extrairCampoDaLinha($, rowTres, 'Clínica/Leito:');
+                // "Clinica / Leito: 007-U T I" (Evo) ou "Clinica: 019-HOSPITAL DIA" (Evolucao)
+                evolucao.clinicaLeito   = this.extrairCampoDaLinha($, rowTres, 'Clínica/Leito:')
+                                       || this.extrairCampoDaLinha($, rowTres, 'Clínica:');
                 evolucao.descricao      = this.extrairCampoDaLinha($, rowQuatro, 'Descrição:');
                 evolucao.textoCompleto  = evolucao.descricao;
 
@@ -111,6 +127,28 @@ class EvolucaoParser extends BaseParser {
         }
     }
 
+
+    /**
+     * Índices das linhas que iniciam um bloco de evolução (as que trazem o rótulo
+     * "Profissional:"). Se nenhuma for encontrada, cai no comportamento histórico
+     * de blocos fixos de 5 linhas.
+     */
+    _localizarIniciosDeBloco($, rows) {
+        const inicios = [];
+        rows.each((i, el) => {
+            const cols = $(el).find('[class*="col-lg-"]');
+            if (!cols.length) return;
+            const primeira = this._normalizarLabel($(cols.get(0)).text().trim());
+            if (primeira.startsWith('profissional:')) {
+                inicios.push(i);
+            }
+        });
+
+        if (inicios.length === 0) {
+            for (let i = 0; i < rows.length; i += 5) inicios.push(i);
+        }
+        return inicios;
+    }
 
     retornaEvolucaoDetalhada($, row) {
         var retorno = {};
@@ -160,23 +198,37 @@ class EvolucaoParser extends BaseParser {
 
         let retorno = '';
         const cols = row.find('[class*="col-lg-"]');
-        if (cols.length >= 2) {
-            cols.each((j, colElement) => {
-                const col = $(colElement);
-                const textoNorm = this._normalizarLabel(col.text().trim());
+        cols.each((j, colElement) => {
+            const col = $(colElement);
+            const textoOriginal = col.text().trim();
+            const textoNorm = this._normalizarLabel(textoOriginal);
 
-                if (textoNorm.includes(buscaNorm)) {
-                    const nextCol = cols.eq(j + 1);
-                    if (nextCol.length) {
-                        if (isDescricao) {
-                            retorno = this.limparTextoEvolucao(nextCol.html());
-                        } else {
-                            retorno = this.limparTextoSimples(nextCol.text());
-                        }
-                    }
+            if (!textoNorm.includes(buscaNorm)) return;
+
+            const nextCol = cols.eq(j + 1);
+            if (nextCol.length) {
+                if (isDescricao) {
+                    retorno = this.limparTextoEvolucao(nextCol.html());
+                } else {
+                    retorno = this.limparTextoSimples(nextCol.text());
                 }
-            });
-        }
+            }
+
+            // Módulo Evolucao imprime rótulo e valor na mesma coluna
+            // ("Clinica: 019-HOSPITAL DIA"), sem coluna seguinte para ler.
+            //
+            // O limite de tamanho existe porque algumas evoluções vêm sem a
+            // estrutura de colunas esperada: o rótulo e o texto inteiro da
+            // evolução caem na mesma célula, e sem o corte o campo
+            // `profissional` recebia milhares de caracteres.
+            if (!retorno && !isDescricao) {
+                const resto = textoOriginal.slice(textoOriginal.indexOf(':') + 1);
+                const limpo = resto.trim();
+                if (textoOriginal.includes(':') && limpo && limpo.length <= 80) {
+                    retorno = this.limparTextoSimples(resto);
+                }
+            }
+        });
         return retorno;
     }
 

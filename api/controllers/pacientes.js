@@ -670,6 +670,124 @@ class PacientesController {
             });
         }
     }
+
+    /**
+     * Internações do paciente, com desfecho e porta de entrada.
+     *
+     * Três avisos que valem para quem consome esta rota:
+     *   - `setorAlta` é o setor de **alta**, não o de entrada; a entrada está em
+     *     `percurso.setorEntrada`, derivada das evoluções.
+     *   - `desfecho` "Sem informação" **não** é alta: significa que não há
+     *     documento no RALTA nem menção nas evoluções.
+     *   - o módulo Inter do HICD devolve 500 em prontuários muito longos; nesses
+     *     casos `erroModuloInternacoes` vem preenchido e a lista vem vazia, mas
+     *     `obitoNoProntuario` ainda é confiável.
+     */
+    async obterInternacoesPaciente(req, res) {
+        try {
+            const { prontuario } = req.params;
+            const { desfecho = 'true' } = req.query;
+            const comDesfecho = desfecho !== 'false';
+
+            const crawler = await this.initCrawler(req.hicdHost);
+            const cacheKey = cache.generateKey('internacoes', prontuario, { desfecho: comDesfecho }, req.hicdHost);
+
+            const resultado = await cache.getOrSet(cacheKey, async () => {
+                const r = await crawler.getInternacoes(prontuario, { comDesfecho });
+                const noBienio = r.internacoes.filter(i => /\/(2024|2025)/.test(i.entrada || ''));
+                return {
+                    data: r.internacoes,
+                    total: r.internacoes.length,
+                    erroModuloInternacoes: r.erro,
+                    obitoNoProntuario: r.obitoNoProntuario,
+                    resumo: {
+                        noBienio: noBienio.length,
+                        porDesfecho: r.internacoes.reduce((acc, i) => {
+                            if (i.desfecho) acc[i.desfecho] = (acc[i.desfecho] || 0) + 1;
+                            return acc;
+                        }, {}),
+                        // Considera as duas fontes: o percurso das evoluções é mais
+                        // completo, mas fica nulo quando as evoluções não trazem
+                        // clinicaLeito — e aí o setor de alta do Inter ainda informa.
+                        passouPorUti: r.internacoes.some(i =>
+                            (i.percurso && i.percurso.trajetoria.some(t => /U\s*T\s*I/i.test(t)))
+                            || /U\s*T\s*I/i.test(i.setorAlta || '')),
+                    },
+                };
+            });
+
+            res.json({ success: true, prontuario, ...resultado });
+        } catch (error) {
+            console.error('Erro ao obter internações:', error);
+            res.status(500).json({ success: false, error: 'Erro ao obter internações', message: error.message });
+        }
+    }
+
+    /** Relatórios do módulo RALTA — nem todos são resumo de alta. */
+    async obterRelatoriosAlta(req, res) {
+        try {
+            const { prontuario } = req.params;
+            const crawler = await this.initCrawler(req.hicdHost);
+            const cacheKey = cache.generateKey('ralta', prontuario, {}, req.hicdHost);
+            const relatorios = await cache.getOrSet(cacheKey, () => crawler.getRelatoriosAlta(prontuario));
+            const porTipo = relatorios.reduce((acc, r) => {
+                acc[r.tipoDocumento] = (acc[r.tipoDocumento] || 0) + 1;
+                return acc;
+            }, {});
+            res.json({ success: true, prontuario, total: relatorios.length, porTipo, data: relatorios });
+        } catch (error) {
+            console.error('Erro ao obter relatórios de alta:', error);
+            res.status(500).json({ success: false, error: 'Erro ao obter relatórios de alta', message: error.message });
+        }
+    }
+
+    /**
+     * Cadastro do SAME — única fonte de raça/cor, deficiência e código IBGE.
+     * Atenção à cobertura: numa amostra de 200 prontuários, 79% estavam com
+     * raça/cor "não informado".
+     */
+    async obterCadastroSame(req, res) {
+        try {
+            const { prontuario } = req.params;
+            const crawler = await this.initCrawler(req.hicdHost);
+            const cacheKey = cache.generateKey('same', prontuario, {}, req.hicdHost);
+            const cadastro = await cache.getOrSet(cacheKey, () => crawler.getCadastroSame(prontuario));
+            if (!cadastro) {
+                return res.status(404).json({
+                    success: false, error: 'Cadastro não encontrado',
+                    message: `O SAME não retornou cadastro para o prontuário ${prontuario}`
+                });
+            }
+            res.json({ success: true, prontuario, data: cadastro });
+        } catch (error) {
+            console.error('Erro ao obter cadastro do SAME:', error);
+            res.status(500).json({ success: false, error: 'Erro ao obter cadastro do SAME', message: error.message });
+        }
+    }
+
+    /**
+     * Boletins de Emergência — motivo da entrada, CID e classificação de risco.
+     * Cada BE custa duas requisições ao HICD; use `limite` para ler só os mais
+     * recentes. A triagem está preenchida em cerca de 13% dos boletins.
+     */
+    async obterBoletinsEmergencia(req, res) {
+        try {
+            const { prontuario } = req.params;
+            const limite = parseInt(req.query.limite, 10) || 0;
+            const crawler = await this.initCrawler(req.hicdHost);
+            const cacheKey = cache.generateKey('be', prontuario, { limite }, req.hicdHost);
+            const r = await cache.getOrSet(cacheKey, () => crawler.getBoletinsEmergencia(prontuario, { limite }));
+            const comTriagem = r.boletins.filter(b => b.triagem && b.triagem.classificacaoRisco).length;
+            res.json({
+                success: true, prontuario,
+                totalBes: r.totalBes, lidos: r.boletins.length, comClassificacaoRisco: comTriagem,
+                data: r.boletins,
+            });
+        } catch (error) {
+            console.error('Erro ao obter boletins de emergência:', error);
+            res.status(500).json({ success: false, error: 'Erro ao obter boletins de emergência', message: error.message });
+        }
+    }
 }
 
 module.exports = new PacientesController();
