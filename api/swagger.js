@@ -83,6 +83,8 @@ Gere com: \`node payload.js usuario minhaSenha\``,
         { name: 'Auth', description: 'Autenticação e sessão' },
         { name: 'Clínicas', description: 'Listagem e busca de clínicas' },
         { name: 'Pacientes', description: 'Dados clínicos de pacientes' },
+        { name: 'Internações', description: 'Internações, desfecho, porta de entrada e boletins de emergência' },
+        { name: 'Setores', description: 'Catálogo de setores do hospital' },
         { name: 'Cache', description: 'Gerenciamento do cache em memória' },
         { name: 'Sistema', description: 'Health check e informações gerais' }
     ],
@@ -419,6 +421,162 @@ Gere com: \`node payload.js usuario minhaSenha\``,
 
         // ── CACHE ─────────────────────────────────────────────────────────────
 
+        '/api/pacientes/{prontuario}/internacoes': {
+            get: {
+                tags: ['Internações'],
+                summary: 'Internações do paciente, com desfecho e porta de entrada',
+                description: `Cruza quatro fontes do HICD para montar a internação completa.
+
+**Três avisos importantes para quem consome esta rota:**
+
+1. \`setorAlta\` é o setor de **alta**, não o de entrada. Ele bate com o último setor
+   das evoluções em 67% dos casos e com o primeiro em apenas 22%. A porta de entrada
+   real está em \`percurso.setorEntrada\`, derivada do \`clinicaLeito\` das evoluções —
+   56% das internações passam por dois ou mais setores.
+
+2. \`desfecho: "Sem informação"\` **não** significa alta. Significa que não há documento
+   no módulo RALTA nem menção nas evoluções. Cerca de 36% das internações caem nesse caso.
+
+3. O óbito vem **exclusivamente** do texto das evoluções: quando o paciente morre ninguém
+   escreve resumo de alta, então o RALTA fica vazio justamente nos óbitos.
+
+O campo \`obitoNoProntuario\` roda no prontuário inteiro, independente das internações —
+necessário porque o módulo Inter devolve HTTP 500 em prontuários muito longos (~1% dos
+casos), e sem isso o óbito desses pacientes sumiria. Nesses casos \`erroModuloInternacoes\`
+vem preenchido e a lista vem vazia.
+
+\`percurso\` é **null** quando nenhuma evolução da internação traz \`clinicaLeito\` — acontece
+sobretudo em evoluções de UTI, que não usam o formato estruturado. Nesses casos o resumo
+\`passouPorUti\` recai sobre o \`setorAlta\` do módulo Inter.`,
+                parameters: [
+                    { name: 'prontuario', in: 'path', required: true, schema: { type: 'string' }, example: '36101' },
+                    { name: 'desfecho', in: 'query', required: false, schema: { type: 'string', enum: ['true', 'false'], default: 'true' },
+                      description: 'false pula a resolução de desfecho e percurso — bem mais rápido, pois dispensa buscar evoluções e RALTA' }
+                ],
+                responses: {
+                    200: {
+                        description: 'Internações do paciente',
+                        content: { 'application/json': { example: {
+                            success: true, prontuario: '36101', total: 14, erroModuloInternacoes: null,
+                            obitoNoProntuario: { data: '09/11/2025 21:45:00', atividade: 'PEDIATRA', trecho: '...declarado óbito às 20:05' },
+                            resumo: { noBienio: 14, porDesfecho: { 'Óbito': 1, Alta: 7, 'Sem informação': 6 }, passouPorUti: true },
+                            data: [{
+                                setorAlta: 'U T I', entrada: '01/11/2025 09:11', saida: '09/11/2025 22:21',
+                                cidEntrada: 'R56', cidDescricao: 'CONVULSOES NAO CLASSIFICADAS EM OUTRA PARTE',
+                                desfecho: 'Óbito', confianca: 'alta', fonte: 'Óbito constatado em evolução',
+                                percurso: {
+                                    setorEntrada: 'UIR 2 UNID-INTERN RAPIDA', portaDeEntrada: 'UIR',
+                                    entrouPelaEmergencia: false, nSetores: 3,
+                                    trajetoria: ['UIR 2 UNID-INTERN RAPIDA', 'EMERGENCIA - INTERNADOS', 'U T I'],
+                                    horasAtePrimeiraEvolucao: 9.1
+                                }
+                            }]
+                        } } }
+                    },
+                    500: { description: 'Erro ao consultar o HICD' }
+                }
+            }
+        },
+        '/api/pacientes/{prontuario}/relatorios-alta': {
+            get: {
+                tags: ['Internações'],
+                summary: 'Documentos do módulo RALTA',
+                description: `O módulo RALTA não guarda só resumos de alta. Numa amostra de 200 prontuários
+apareceram cinco tipos: resumo de alta, relatório de transferência, laudo médico,
+encaminhamento ambulatorial e documentos sem título identificável.
+
+A classificação vem do **título** na primeira linha do documento, que é bem mais confiável
+que varrer o corpo do texto — "transferido" aparece o tempo todo descrevendo movimentação
+interna (emergência → UTI → enfermaria) dentro de resumos que terminam em alta.`,
+                parameters: [{ name: 'prontuario', in: 'path', required: true, schema: { type: 'string' }, example: '36101' }],
+                responses: {
+                    200: { description: 'Relatórios encontrados', content: { 'application/json': { example: {
+                        success: true, prontuario: '36101', total: 7,
+                        porTipo: { 'Resumo de alta': 6, 'Outro / não identificado': 1 },
+                        data: [{ profissional: 'PAULA LAMEGO PASCHOALINO LOPES', dataRegistro: '23/10/2025 09:52:24', tipoDocumento: 'Resumo de alta', texto: '...' }]
+                    } } } }
+                }
+            }
+        },
+        '/api/pacientes/{prontuario}/cadastro-same': {
+            get: {
+                tags: ['Pacientes'],
+                summary: 'Cadastro do SAME — raça/cor, deficiência e código IBGE',
+                description: `Única fonte no HICD com **raça/cor**, **deficiência** e **código IBGE do município**.
+O cadastro do prontuário (\`GET /api/pacientes/{prontuario}\`) não traz esses campos.
+
+Raça/cor segue a codificação do SUS: 1 branca, 2 negra, 3 parda, 4 amarela, 5 indígena,
+0 não informado.
+
+⚠️ **Cobertura baixa.** Numa amostra de 200 prontuários, 79% estavam com raça/cor
+"não informado" — o campo é obrigatório no formulário mas aceita ficar em branco.
+Antes de usar a variável em análise, meça a taxa de preenchimento da sua amostra.`,
+                parameters: [{ name: 'prontuario', in: 'path', required: true, schema: { type: 'string' }, example: '36101' }],
+                responses: {
+                    200: { description: 'Cadastro encontrado', content: { 'application/json': { example: {
+                        success: true, prontuario: '36101',
+                        data: { nome: 'ATHOS GABRIEL DE OLIVEIRA COSTA', sexo: 'M', racaCor: 'Parda', racaCorCodigo: '3',
+                                deficiencia: 'Sem deficiência', municipioIbge: '1101104', uf: 'RO',
+                                dataNascimento: '03/01/2024', cns: '706.8077.5332.8421', nomeMae: 'KATIELLY DE OLIVEIRA BARRA' }
+                    } } } },
+                    404: { description: 'O SAME não retornou cadastro para este prontuário' }
+                }
+            }
+        },
+        '/api/pacientes/{prontuario}/boletins-emergencia': {
+            get: {
+                tags: ['Internações'],
+                summary: 'Boletins de Emergência — motivo da entrada, CID e classificação de risco',
+                description: `O BE é a porta de entrada pela emergência e a única fonte, no HICD, de
+**motivo da entrada**, **CID do atendimento** e **classificação de risco do protocolo de Manchester**.
+
+O BE marca a **chegada**; o módulo Inter marca a **internação**. A defasagem mediana entre
+os dois é de 48 minutos (p75 = 1,5 h), e 97% dos BEs têm uma internação correspondente em
+até 24 horas — útil para calcular tempo de permanência na emergência antes de internar.
+
+⚠️ **Custo:** cada BE exige duas requisições ao HICD. Pacientes com histórico longo chegam
+a 15–22 boletins. Use \`limite\` para ler só os mais recentes.
+
+⚠️ **Triagem pouco preenchida:** apenas ~13% dos BEs têm classificação de risco; nos demais
+o HICD responde "Nenhum registro encontrado".`,
+                parameters: [
+                    { name: 'prontuario', in: 'path', required: true, schema: { type: 'string' }, example: '36101' },
+                    { name: 'limite', in: 'query', required: false, schema: { type: 'integer', default: 0 },
+                      description: 'Quantidade de BEs mais recentes a ler. 0 lê todos — pode ser lento.' }
+                ],
+                responses: {
+                    200: { description: 'Boletins encontrados', content: { 'application/json': { example: {
+                        success: true, prontuario: '36101', totalBes: 15, lidos: 2, comClassificacaoRisco: 2,
+                        data: [{ be: '578155', motivo: 'QUEDA', cid: 'R56', chegada: '01/11/2025 09:13', saida: '01/11/2025 09:43',
+                                 triagem: { classificacaoRisco: 'Amarelo', queixa: 'CRISE CONVULSIVA', spo2: '93' } }]
+                    } } } }
+                }
+            }
+        },
+        '/api/setores': {
+            get: {
+                tags: ['Setores'],
+                summary: 'Catálogo completo de setores do hospital',
+                description: `São **29 setores**, contra os 25 devolvidos por \`GET /api/clinicas\`.
+
+A diferença importa: \`/api/clinicas\` devolve o **censo vivo** — só setores com paciente
+internado no momento. Ficam de fora as **UIR 1, 2 e 3** (códigos 003, 004 e 005), que são
+setores em uso e respondem por internações reais. Quem monta denominador a partir do censo
+perde essas internações silenciosamente.
+
+A posição na lista é o próprio código: o primeiro nome é o setor 001.
+
+⚠️ **O código 019 tem dois nomes ao mesmo tempo:** as evoluções o chamam "HOSPITAL DIA" e o
+cadastro o chama "OBSERVAÇÃO", no mesmo período. Para agrupar por setor, use o código.`,
+                responses: {
+                    200: { description: 'Catálogo de setores', content: { 'application/json': { example: {
+                        success: true, total: 29,
+                        data: [{ codigo: '001', nome: 'EMERGENCIA - INTERNADOS' }, { codigo: '003', nome: 'UIR 1 UNID-INTERN RAPIDA' }],
+                        observacao: 'Catálogo completo. /api/clinicas devolve apenas o censo vivo, sem as UIR.'
+                    } } } }
+                }
+            }
+        },
         '/api/cache/stats': {
             get: {
                 tags: ['Cache'],

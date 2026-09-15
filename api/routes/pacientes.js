@@ -55,4 +55,24 @@ router.get('/:prontuario/prescricoes', validateProntuario, async (req, res) => {
     await pacientesController.obterPrescricaoPaciente(req, res);
 });
 
+// GET /api/pacientes/:prontuario/internacoes - Internações com desfecho e porta de entrada
+router.get('/:prontuario/internacoes', validateProntuario, async (req, res) => {
+    await pacientesController.obterInternacoesPaciente(req, res);
+});
+
+// GET /api/pacientes/:prontuario/relatorios-alta - Documentos do módulo RALTA
+router.get('/:prontuario/relatorios-alta', validateProntuario, async (req, res) => {
+    await pacientesController.obterRelatoriosAlta(req, res);
+});
+
+// GET /api/pacientes/:prontuario/cadastro-same - Raça/cor, deficiência e IBGE
+router.get('/:prontuario/cadastro-same', validateProntuario, async (req, res) => {
+    await pacientesController.obterCadastroSame(req, res);
+});
+
+// GET /api/pacientes/:prontuario/boletins-emergencia - BEs com motivo e triagem
+router.get('/:prontuario/boletins-emergencia', validateProntuario, async (req, res) => {
+    await pacientesController.obterBoletinsEmergencia(req, res);
+});
+
 module.exports = router;

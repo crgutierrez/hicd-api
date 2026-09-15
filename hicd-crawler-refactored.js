@@ -3,6 +3,7 @@ const HICDAuthService = require('./src/services/auth-service');
 const HICDParser = require('./src/parsers/hicd-parser');
 const PatientService = require('./src/services/patient-service');
 const EvolutionService = require('./src/services/evolution-service');
+const InternacaoService = require('./src/services/internacao-service');
 const ClinicalDataExtractor = require('./src/extractors/clinical-data-extractor');
 const ClinicAnalyzer = require('./src/analyzers/clinic-analyzer');
 const config = require('./config');
@@ -32,6 +33,7 @@ class HICDCrawler {
         this.parser = new HICDParser({ origin: cfg.origin });
         this.patientService = new PatientService(this.httpClient, this.parser);
         this.evolutionService = new EvolutionService(this.httpClient, this.parser);
+        this.internacaoService = new InternacaoService(this.httpClient);
         this.clinicalExtractor = new ClinicalDataExtractor();
         this.clinicAnalyzer = new ClinicAnalyzer(
             this.patientService,
@@ -149,6 +151,64 @@ class HICDCrawler {
     /**
      * Busca evoluções do paciente
      */
+    /**
+     * Internações do paciente, com desfecho e porta de entrada resolvidos.
+     *
+     * Precisa das evoluções: o óbito só aparece no texto delas (em óbito não se
+     * escreve resumo de alta, então o RALTA fica vazio), e a porta de entrada
+     * vem do `clinicaLeito` — o setor do módulo Inter é o de **alta**.
+     */
+    async getInternacoes(pacienteId, { comDesfecho = true } = {}) {
+        if (!this.isLoggedIn) await this.login();
+
+        const { internacoes, erro } = await this.internacaoService.getInternacoes(pacienteId);
+        if (!comDesfecho) return { internacoes, erro, obitoNoProntuario: null };
+
+        const [relatorios, evolucoes] = await Promise.all([
+            this.internacaoService.getRelatoriosAlta(pacienteId),
+            this.getEvolucoes(pacienteId),
+        ]);
+
+        const enriquecidas = internacoes.map(i => ({
+            ...i,
+            ...this.internacaoService.resolverDesfecho(i, relatorios, evolucoes),
+            percurso: this.internacaoService.derivarPercurso(i, evolucoes),
+        }));
+
+        return {
+            internacoes: enriquecidas,
+            relatorios,
+            erro,
+            // Roda no prontuário inteiro: quando o módulo Inter falha não há
+            // internação a que prender o óbito, e ele sumiria do levantamento.
+            obitoNoProntuario: this.internacaoService.detectarObito(evolucoes),
+        };
+    }
+
+    /** Relatórios do módulo RALTA (alta, transferência, laudo, encaminhamento). */
+    async getRelatoriosAlta(pacienteId) {
+        if (!this.isLoggedIn) await this.login();
+        return await this.internacaoService.getRelatoriosAlta(pacienteId);
+    }
+
+    /** Catálogo completo de setores (29), contra os 25 do censo de getClinicas(). */
+    async getCatalogoSetores() {
+        if (!this.isLoggedIn) await this.login();
+        return await this.internacaoService.getCatalogoSetores();
+    }
+
+    /** Cadastro do SAME — raça/cor, deficiência, CNS e código IBGE do município. */
+    async getCadastroSame(pacienteId) {
+        if (!this.isLoggedIn) await this.login();
+        return await this.internacaoService.getCadastroSame(pacienteId);
+    }
+
+    /** Boletins de Emergência — motivo da entrada, CID e classificação de risco. */
+    async getBoletinsEmergencia(pacienteId, opcoes = {}) {
+        if (!this.isLoggedIn) await this.login();
+        return await this.internacaoService.getBoletinsEmergencia(pacienteId, opcoes);
+    }
+
     async getEvolucoes(pacienteId, filtros = {}) {
         console.log(`\n🩺 Buscando evoluções do paciente: ${pacienteId} com filtros:`, filtros);
         this.verificarAutenticacao();

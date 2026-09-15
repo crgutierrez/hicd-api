@@ -47,23 +47,39 @@ class EvolutionService {
 
             const urls = this.httpClient.getUrls();
 
-            const evolucaoData = new URLSearchParams({
-                'Param': 'REGE',
-                'ParamModule': 'Evo',
-                'IdPac': pacienteId,
-                'cpf': filtros.cpf || '74413201272',
-                'filtro': filtros.filtro || '',
-                'tipoBusca': 'PRONT'
-            });
+            // O HICD expõe dois módulos para o mesmo histórico:
+            //   Evo      → trunca em exatamente 400 evoluções (teto do controller.php)
+            //   Evolucao → devolve o histórico completo
+            // Usamos Evolucao e só caímos no Evo se ele não render nada.
+            const buscar = async (paramModule) => {
+                const evolucaoData = new URLSearchParams({
+                    'Param': 'REGE',
+                    'ParamModule': paramModule,
+                    'IdPac': pacienteId,
+                    'cpf': filtros.cpf || '74413201272',
+                    'filtro': filtros.filtro || '',
+                    'tipoBusca': 'PRONT',
+                    // O módulo Evolucao lê TIPOBUSCA em maiúsculo (é o que o
+                    // getRegeMenu do front-end do HICD envia); sem isso devolve vazio.
+                    'TIPOBUSCA': 'PRONT'
+                });
 
-            const response = await this.httpClient.post(urls.login, evolucaoData, {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-            console.log(`[EVOLUCOES] Resposta recebida - tamanho: ${response.data.length} caracteres`);
-            const evolucoes = this.parser.parseEvolucoes(response.data, pacienteId);
+                const response = await this.httpClient.post(urls.login, evolucaoData, {
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                console.log(`[EVOLUCOES] Resposta de ${paramModule} - tamanho: ${response.data.length} caracteres`);
+                return this.parser.parseEvolucoes(response.data, pacienteId);
+            };
+
+            let evolucoes = await buscar('Evolucao');
+
+            if (!evolucoes || evolucoes.length === 0) {
+                console.log(`[EVOLUCOES] Módulo Evolucao não retornou registros; tentando Evo...`);
+                evolucoes = await buscar('Evo');
+            }
 
             // Remover duplicatas e mesclar evoluções similares
             // const evolucoesUnicas = this.removerDuplicatasEvolucoes(evolucoes);

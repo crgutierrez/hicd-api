@@ -12,6 +12,9 @@ yarn-error.log*
 # Dados extraídos e logs
 output/
 *.csv
+# Exceção: classificação cardiológica revisada à mão, prontuário a prontuário.
+# É trabalho curado, não dado extraído — sem ele o levantamento não se reproduz.
+!docs/classificacao_cardiologica.csv
 *.json
 !package.json
 !package-lock.json
@@ -50,3 +53,6 @@ pids
 *.pid.lock
 # Added by code-review-graph
 .code-review-graph/
+
+# Locks do LibreOffice/Obsidian sobre arquivos abertos
+.~lock.*#

@@ -10,6 +10,7 @@ const authRoutes = require('./routes/auth');
 const clinicasRoutes = require('./routes/clinicas');
 const pacientesRoutes = require('./routes/pacientes');
 const cacheRoutes = require('./routes/cache');
+const setoresRoutes = require('./routes/setores');
 
 // Criar instância do Express
 const app = express();
@@ -48,6 +49,7 @@ app.get('/api/docs.json', (req, res) => res.json(swaggerSpec));
 app.use('/api/auth', authRoutes);
 app.use('/api/clinicas', clinicasRoutes);
 app.use('/api/pacientes', pacientesRoutes);
+app.use('/api/setores', setoresRoutes);
 app.use('/api/cache', cacheRoutes);
 
 // Rota de saúde da API
