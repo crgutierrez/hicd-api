@@ -74,8 +74,18 @@ class PrescricaoParser extends BaseParser {
         try {
             const $ = this.loadHTML(html);
             this.extrairCabecalhoPrescricao($, detalhes);
-            this.extrairMedicamentosPrescricao($, detalhes);
-            this.extrairDietas($, detalhes);
+
+            // Layout novo do HICD: tudo numa única <table class="tabela-prescricao">
+            // com linhas <tr class="header-secao"> delimitando as seções.
+            // Layout antigo: uma <table border="1"> por seção. Mantido como fallback.
+            const tabelaNova = $('table.tabela-prescricao').first();
+            if (tabelaNova.length) {
+                this.extrairSecoesLayoutNovo($, tabelaNova, detalhes);
+            } else {
+                this.extrairMedicamentosPrescricao($, detalhes);
+                this.extrairDietas($, detalhes);
+            }
+
             this.extrairObservacoesPrescricao($, detalhes);
             this.extrairAssinaturasPrescricao($, detalhes);
             this.extrairDataImpressaoPrescricao($, detalhes);
@@ -85,24 +95,85 @@ class PrescricaoParser extends BaseParser {
         return detalhes;
     }
 
+    /**
+     * Layout novo: varre a `table.tabela-prescricao` mantendo a seção corrente
+     * (ditada pelas linhas `tr.header-secao`) e despacha cada linha de dados
+     * (1ª coluna = "N-", 2ª coluna = conteúdo) para o coletor certo. Reusa
+     * `extrairDadosMedicamento`/`extrairDadosMedicamentoNaoPadronizado`, que
+     * continuam válidos — o texto de cada medicamento preserva o separador
+     * `,\xa0\xa0` casado por `\s{2,}`.
+     */
+    extrairSecoesLayoutNovo($, tabela, detalhes) {
+        let secao = null;
+        tabela.find('tr').each((_, row) => {
+            const $row = $(row);
+            if ($row.hasClass('header-secao')) {
+                const t = $row.text();
+                if (/N[ÃA]O\s+PADRONIZAD|SEM\s+ESTOQUE|N\.?\s*P\.?/i.test(t)) secao = 'med_np';
+                else if (/MEDICA[ÇC][ÃA]O/i.test(t)) secao = 'med_pad';
+                else if (/DIETAS?/i.test(t)) secao = 'dieta';
+                else if (/CUIDADOS\s+GERAIS/i.test(t)) secao = 'cuidado';
+                else secao = null;
+                return;
+            }
+            if (!secao) return;
+
+            const colunas = $row.find('td');
+            if (colunas.length < 2) return;
+            const num = $(colunas[0]).text().trim();
+            if (!/^\d+\s*-?$/.test(num)) return;
+            const texto = $(colunas[1]).text().trim();
+            if (!texto) return;
+            const numero = num.replace(/\D/g, '');
+
+            if (secao === 'med_pad') {
+                const medicamento = this.extrairDadosMedicamento(texto);
+                if (medicamento.nome) {
+                    medicamento.naoPadronizado = false;
+                    detalhes.medicamentos.push(medicamento);
+                }
+            } else if (secao === 'med_np') {
+                const medicamento = this.extrairDadosMedicamentoNaoPadronizado(texto);
+                if (medicamento.nome) {
+                    medicamento.naoPadronizado = true;
+                    detalhes.medicamentos.push(medicamento);
+                }
+            } else if (secao === 'dieta') {
+                detalhes.dietas.push({ numero, descricao: texto });
+            } else if (secao === 'cuidado') {
+                detalhes.observacoes.push({ tipo: 'Cuidado Geral', descricao: `${numero} - ${texto}` });
+            }
+        });
+    }
+
     extrairCabecalhoPrescricao($, detalhes) {
         const cabecalhoText = $('body').text();
         const extract = (regex) => (cabecalhoText.match(regex) || [])[1] || '';
 
+        // Regexes aceitam os dois layouts: antigo ("REGISTRO/BE:", "INTERNADO EM:")
+        // e novo ("REG/BE:", "INTERNADO:").
         detalhes.cabecalho = {
-            pacienteNome: extract(/NOME\s*:\s*([A-Z\s]+)/),
-            registro: extract(/REGISTRO\/BE:\s*(\d+)/),
-            prontuario: extract(/REGISTRO\/BE:\s*(\d+)/),
-            leito: extract(/LEITO:\s*(\d+)/),
-            dataNascimento: extract(/DT\.\s*NASC:\s*(\d{2}\/\d{2}\/\d{4})/),
-            idade: extract(/IDADE:\s*([^-\s]+(?:\s+[a-zA-Z]+)?)/),
-            cns: extract(/CNS:\s*(\d+)/),
-            peso: extract(/PESO:\s*([\d,]+\s*Kg)/),
-            dataInternacao: extract(/INTERNADO\s+EM:\s*(\d{2}\/\d{2}\/\d{4})/),
-            clinica: extract(/CLINICA\/SETOR:\s*([^-]+?)(?:\s*-|$)/),
-            dataPrescricao: extract(/válida\s+para\s*(\d{2}\/\d{2}\/\d{4})/),
-            hospital: ($('font:contains("Hospital")').first().text() || '').trim(),
+            pacienteNome: (extract(/NOME\s*:\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.\s]*?)\s+REG(?:ISTRO)?\/BE\s*:/i)
+                || extract(/NOME\s*:\s*([A-Z\s]+)/)).trim(),
+            registro: extract(/REG(?:ISTRO)?\/BE\s*:\s*(\d+)/i),
+            prontuario: extract(/REG(?:ISTRO)?\/BE\s*:\s*(\d+)/i),
+            leito: extract(/LEITO:\s*(\d+)/i),
+            dataNascimento: extract(/DT\.?\s*NASC:\s*(\d{2}\/\d{2}\/\d{4})/i),
+            idade: (extract(/IDADE:\s*(.+?)\s*-\s*CNS\s*:/i) || extract(/IDADE:\s*([^-\n]+)/i)).trim(),
+            cns: extract(/CNS:\s*(\d+)/i),
+            peso: extract(/PESO:\s*([\d,]+\s*Kg)/i),
+            dataInternacao: extract(/INTERNADO(?:\s+EM)?\s*:\s*(\d{2}\/\d{2}\/\d{4})/i),
+            clinica: (extract(/CL[IÍ]NICA\/SETOR:\s*(.+?)\s*-\s*LEITO\s*:/i)
+                || extract(/CLINICA\/SETOR:\s*([^-]+?)(?:\s*-|$)/i)).trim(),
+            dataPrescricao: extract(/válida\s+para\s*(\d{2}\/\d{2}\/\d{4})/i),
+            hospital: (extract(/(Hospital[^\n]*?)\s+PRESCRI[ÇC]/i)
+                || ($('font:contains("Hospital")').first().text() || '')).trim(),
         };
+
+        // Normaliza espaços não-quebráveis e quebras de linha internas.
+        for (const k of Object.keys(detalhes.cabecalho)) {
+            detalhes.cabecalho[k] = String(detalhes.cabecalho[k]).replace(/\s+/g, ' ').trim();
+        }
     }
 
     extrairMedicamentosPrescricao($, detalhes) {
@@ -304,11 +375,13 @@ class PrescricaoParser extends BaseParser {
     }
 
     extrairAssinaturasPrescricao($, detalhes) {
-        const medicoElem = $('b:contains("MÉDICO:")').parent();
-        if (medicoElem.length > 0) {
-            const texto = medicoElem.text();
-            const matchMedico = texto.match(/MÉDICO:\s*([^C]+?)(?:CRM:|$)/);
-            const matchCRM = texto.match(/CRM[:\s]*([A-Z0-9\/-]+)/);
+        // Layout novo: <tr class="assinatura-row"> "PROFISSIONAL PRESCRITOR: NOME CRM: N".
+        // Layout antigo: <b>MÉDICO:</b> ... CRM: ...
+        const texto = $('body').text();
+        if (texto.includes('PROFISSIONAL PRESCRITOR') || texto.includes('MÉDICO:') || texto.includes('MEDICO:')) {
+            const matchMedico = texto.match(/PROFISSIONAL\s+PRESCRITOR:\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.\s]+?)\s+CRM\s*:/i)
+                || texto.match(/M[ÉE]DICO:\s*([^C]+?)(?:CRM:|$)/i);
+            const matchCRM = texto.match(/CRM[:\s]*([A-Z0-9\/-]+)/i);
             const matchData = texto.match(/DATA:\s*(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})/);
 
             if (matchMedico) {
