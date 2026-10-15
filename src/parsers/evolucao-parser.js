@@ -85,21 +85,30 @@ class EvolucaoParser extends BaseParser {
 
                 const i = inicios[b];
 
+                // O bloco vai do cabeçalho "Profissional:" até o próximo (ou o fim).
+                // O HICD intercala uma linha "Clinica:" antes da descrição (bloco de
+                // 5 linhas); o HB não tem essa linha (bloco de 4), então a "Descrição:"
+                // cai uma linha acima. Em vez de offsets fixos (i+2 / i+3), procuramos
+                // cada rótulo DENTRO do bloco — serve aos dois layouts sem quebrar nenhum.
                 const cabecalhoRow = rows.eq(i);
-                const rowDois = rows.eq(i + 1)
-                const rowTres = rows.eq(i + 2);
-                const rowQuatro = rows.eq(i + 3);
-                // As linhas seguintes são divisores ou em branco no layout original.
+                const fimBloco = (b + 1 < inicios.length) ? inicios[b + 1] : rows.length;
+                const buscarNoBloco = (label) => {
+                    for (let r = i; r < fimBloco; r++) {
+                        const val = this.extrairCampoDaLinha($, rows.eq(r), label);
+                        if (val) return val;
+                    }
+                    return '';
+                };
 
-                // Extrai todos os campos da primeira linha do bloco
+                // Profissional e Data Evolução vêm sempre na primeira linha do bloco.
                 evolucao.profissional    = this.extrairCampoDaLinha($, cabecalhoRow, 'Profissional:');
                 evolucao.dataEvolucao   = this.extrairCampoDaLinha($, cabecalhoRow, 'Data Evolução:');
-                evolucao.atividade      = this.extrairCampoDaLinha($, rowDois, 'Atividade:');
-                evolucao.dataAtualizacao= this.extrairCampoDaLinha($, rowDois, 'Data de Atualização:');
-                // "Clinica / Leito: 007-U T I" (Evo) ou "Clinica: 019-HOSPITAL DIA" (Evolucao)
-                evolucao.clinicaLeito   = this.extrairCampoDaLinha($, rowTres, 'Clínica/Leito:')
-                                       || this.extrairCampoDaLinha($, rowTres, 'Clínica:');
-                evolucao.descricao      = this.extrairCampoDaLinha($, rowQuatro, 'Descrição:');
+                evolucao.atividade      = buscarNoBloco('Atividade:');
+                evolucao.dataAtualizacao= buscarNoBloco('Data de Atualização:');
+                // "Clinica / Leito: 007-U T I" (Evo) ou "Clinica: 019-HOSPITAL DIA"
+                // (Evolucao); ausente no layout do HB.
+                evolucao.clinicaLeito   = buscarNoBloco('Clínica/Leito:') || buscarNoBloco('Clínica:');
+                evolucao.descricao      = buscarNoBloco('Descrição:');
                 evolucao.textoCompleto  = evolucao.descricao;
 
                 // Se não encontrou data, provavelmente não é um registro válido, então pulamos.
