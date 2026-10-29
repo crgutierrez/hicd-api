@@ -65,6 +65,8 @@ class PrescricaoParser extends BaseParser {
             id: idPrescricao,
             cabecalho: {},
             medicamentos: [],
+            hidratacao: [],
+            sedacao: [],
             dietas: [],
             observacoes: [],
             assinaturas: [],
@@ -125,6 +127,12 @@ class PrescricaoParser extends BaseParser {
             const texto = $(colunas[1]).text().trim();
             if (!texto) return;
             const numero = num.replace(/\D/g, '');
+
+            if ((secao === 'med_pad' || secao === 'med_np') && this._ehSolucao(texto)) {
+                const horario = colunas[3] ? $(colunas[3]).text().trim().replace(/^\d+\s*-\s*/, '') : '';
+                this._registrarSolucao(texto, numero, horario, secao === 'med_np', detalhes);
+                return;
+            }
 
             if (secao === 'med_pad') {
                 const medicamento = this.extrairDadosMedicamento(texto);
@@ -203,6 +211,11 @@ class PrescricaoParser extends BaseParser {
                     const colunas = $(row).find('td');
                     if (colunas.length >= 2 && $(colunas[0]).text().trim().match(/^\d+-?$/)) {
                         const textoMedicamento = $(colunas[1]).text().trim();
+                        if (this._ehSolucao(textoMedicamento)) {
+                            const numero = $(colunas[0]).text().replace(/\D/g, '');
+                            this._registrarSolucao(textoMedicamento, numero, '', isNaoPadronizado, detalhes);
+                            return;
+                        }
                         const medicamento = isPadronizado 
                             ? this.extrairDadosMedicamento(textoMedicamento)
                             : this.extrairDadosMedicamentoNaoPadronizado(textoMedicamento);
@@ -333,6 +346,112 @@ class PrescricaoParser extends BaseParser {
         return medicamento;
     }
 
+    /** Linha de MEDICAÇÃO que é uma solução composta ("Hidratação:" / "Sedação:"). */
+    _ehSolucao(texto) {
+        return /^\s*(Hidrata[çc][ãa]o|Seda[çc][ãa]o)\s*:/i.test(texto);
+    }
+
+    /**
+     * Registra uma hidratação venosa ou sedação: estruturada em
+     * `detalhes.hidratacao` / `detalhes.sedacao` e, para quem já lia a lista,
+     * também em `medicamentos` com `nome` e `tipo` corretos (antes o nome saía
+     * do primeiro "[...]" do texto: "42,7- 40,6", "3").
+     */
+    _registrarSolucao(texto, numero, horario, naoPadronizado, detalhes) {
+        const solucao = this.extrairSolucao(texto);
+        // O formulário traz a linha "Hidratação:" mesmo quando o prescritor não
+        // preenche nada (visto no HICD, marcada "CONTÍNUA"). Vazia não é item.
+        if (!solucao.componentes.length && !solucao.volumeTotal && !Object.keys(solucao.parametros).length) return;
+        solucao.numero = numero || '';
+        solucao.horario = horario || '';
+        (solucao.tipo === 'sedacao' ? detalhes.sedacao : detalhes.hidratacao).push(solucao);
+        detalhes.medicamentos.push({
+            textoMedicamento: texto,
+            nome: solucao.tipo === 'sedacao' ? 'Sedação' : 'Hidratação venosa',
+            tipo: solucao.tipo,
+            naoPadronizado,
+        });
+    }
+
+    /**
+     * Estrutura o texto de uma hidratação venosa ou sedação. Formato no HICD/HB:
+     *
+     *   Hidratação: TH: 40 [42,7- 40,6 ]  | TIG: 3  (5 GG) [14,2]  | NA [3]  | K [0]
+     *   Periodo: 24/24 horas;
+     *   SG 5% ---------------- 34 ML
+     *   (300) GLUC CA 10% ----- 2,6 ML        ← "(n)" ou "[n]" antes do nome = dose
+     *   VT:  46,8 ML - CORRER EV EM 1,7ML/H EM BIC
+     *
+     *   Sedação: Periodo: 24/24 horas;
+     *   [3] Fentanil --------- 1,8 ML
+     *   TOTAL: 4,8 ML , CORRER 0,2 ML/H  EV
+     *
+     * Parâmetros (TH, TIG, NA, K, CA, PESO) podem vir no cabeçalho ou numa linha
+     * depois dos componentes; ficam como texto, sem interpretar a notação
+     * "[42,7- 40,6]", que varia de prescritor para prescritor.
+     * @param {string} texto
+     */
+    extrairSolucao(texto) {
+        const tipo = /^\s*Seda/i.test(texto) ? 'sedacao' : 'hidratacao';
+        const corpo = texto.replace(/^\s*(Hidrata[çc][ãa]o|Seda[çc][ãa]o)\s*:\s*/i, '');
+        const RE_COMPONENTE = /^\s*(?:[[(]\s*([\d.,]+)\s*[\])]\s*)?(.+?)\s*-{3,}\s*([\d.,]+)\s*([A-Za-zµ]+(?:\/[A-Za-z]+)?)?\s*$/;
+        const RE_PARAM = /\b(TH|TIG|NA|K|CA|PESO)\b\s*:?\s*([^|;]*)/gi;
+
+        const solucao = {
+            tipo,
+            periodo: '',
+            parametros: {},
+            componentes: [],
+            volumeTotal: '',
+            volumeUnidade: '',
+            vazao: '',
+            vazaoUnidade: '',
+            administracao: '',
+            texto,
+        };
+
+        for (const bruta of corpo.split(/\n/)) {
+            const linha = bruta.replace(/\s+/g, ' ').trim();
+            if (!linha) continue;
+
+            const comp = linha.match(RE_COMPONENTE);
+            if (comp) {
+                solucao.componentes.push({
+                    nome: comp[2].replace(/[\s:]+$/, ''),   // "[0,3] MidazolAM: ---1,8 ML"
+                    dose: comp[1] || '',
+                    volume: comp[3],
+                    unidade: (comp[4] || '').toUpperCase(),
+                });
+                continue;
+            }
+
+            const total = linha.match(/^(?:VT|VOLUME\s+TOTAL|TOTAL)\s*:\s*([\d.,]+)\s*(ML)?/i);
+            if (total) {
+                solucao.volumeTotal = total[1];
+                solucao.volumeUnidade = (total[2] || '').toUpperCase();
+                const vazao = linha.match(/(?:VAZ[ÃA]O\s*:?|CORRER)\D*?([\d.,]+)\s*(ML\s*\/\s*H)/i);
+                if (vazao) {
+                    solucao.vazao = vazao[1];
+                    solucao.vazaoUnidade = vazao[2].replace(/\s+/g, '').toUpperCase();
+                }
+                solucao.administracao = linha.replace(/^(?:VT|VOLUME\s+TOTAL|TOTAL)\s*:\s*[\d.,]+\s*(ML)?\s*[-,]?\s*/i, '').trim();
+                continue;
+            }
+
+            const periodo = linha.match(/Per[ií]odo\s*:\s*([^;]+)/i) || linha.match(/PARA\s+(\d+\s*HORAS)/i);
+            if (periodo && !solucao.periodo) solucao.periodo = periodo[1].trim();
+
+            let m;
+            RE_PARAM.lastIndex = 0;
+            while ((m = RE_PARAM.exec(linha)) !== null) {
+                const chave = m[1].toUpperCase();
+                const valor = m[2].trim();
+                if (valor && !(chave in solucao.parametros)) solucao.parametros[chave] = valor;
+            }
+        }
+        return solucao;
+    }
+
     extrairDietas($, detalhes) {
         $('label.valorV3:contains("Dietas")').parent().find('table').first().find('tr').each((i, row) => {
             const colunas = $(row).find('td');
@@ -382,10 +501,14 @@ class PrescricaoParser extends BaseParser {
             }
         };
         // Seletor por filter para evitar dependência de encoding do caractere ã
-        $('label.valorV3').filter((_, el) => /SEDA[Çç][ÃA]O/i.test($(el).text())).first().parent().each((_, elem) => {
-            const texto = $(elem).text().replace(/SEDA[Çç][ÃA]O:/i, '').trim();
-            if (texto) detalhes.observacoes.push({ tipo: 'Sedação', descricao: texto });
-        });
+        // No layout novo a sedação é uma linha da MEDICAÇÃO e já virou
+        // `detalhes.sedacao`; sem esta guarda ela reaparecia aqui como observação.
+        if (!(detalhes.sedacao && detalhes.sedacao.length)) {
+            $('label.valorV3').filter((_, el) => /SEDA[Çç][ÃA]O/i.test($(el).text())).first().parent().each((_, elem) => {
+                const texto = $(elem).text().replace(/SEDA[Çç][ÃA]O:/i, '').trim();
+                if (texto) detalhes.observacoes.push({ tipo: 'Sedação', descricao: texto });
+            });
+        }
         extractSimple('label.valorV3:contains("VENOSA:")', 'Terapia Venosa', 'VENOSA:');
         extractSimple('b:contains("NECESSIDADE DE:")', 'Necessidade', 'NECESSIDADE DE:');
     }

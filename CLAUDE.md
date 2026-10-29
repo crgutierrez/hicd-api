@@ -215,6 +215,13 @@ node -e "
 
 > Registre aqui falhas da IA, alucinações e soluções. **Formato**: data · problema · causa · solução.
 
+### 2026-10-29 — Hidratação e sedação eram lidas como medicamento comum
+
+- **Problema**: na prescrição, as linhas `Hidratação:` e `Sedação:` da seção MEDICAÇÃO viravam medicamentos com `nome` lixo — `"42,7- 40,6"`, `"3"` — porque `extrairDadosMedicamento` toma o primeiro `[...]` do texto como nome, e ali o colchete é parâmetro/dose. Componentes, volume e vazão ficavam só no texto bruto. A sedação aparecia **duas vezes**: um extrator do layout antigo (rótulo "SEDAÇÃO") casava a mesma linha e a punha em `observacoes`.
+- **Formato** (HB e HICD): parâmetros `TH/TIG/NA/K/CA/PESO` no cabeçalho **ou** numa linha depois dos componentes; `Periodo: 24/24 horas;` ou `HV PARA 24 HORAS`; componentes `[dose] NOME ---- volume UN` (dose como `[3]` ou `(300)`, às vezes `NOME:` com dois-pontos e só 3 traços); total `VT:` / `TOTAL:` / `VOLUME TOTAL:` com `CORRER … ML/H` ou `VAZÃO: … ML/H`.
+- **Solução**: `extrairSolucao()` estrutura em `detalhes.hidratacao[]` / `detalhes.sedacao[]`; o item continua em `medicamentos` com `nome` "Hidratação venosa"/"Sedação" e `tipo`. O extrator antigo de sedação só roda sem sedação estruturada. Parâmetros ficam como texto — a notação `[42,7- 40,6]` varia por prescritor.
+- **Armadilha**: o formulário traz `Hidratação:` **em branco** (visto no HICD 624652, marcada CONTÍNUA). O parser antigo a descartava por acaso (nome vazio); a nova regra a ignora de propósito. HICD 624652 sai idêntico ao anterior; HB 581004 → 10/10 prescrições com HV e sedação.
+
 ### 2026-10-29 — Lista de pacientes do HB tem uma coluna a mais: o leito caía no `cid`
 
 - **Problema**: em `/api/clinicas/:id/pacientes` do HB, `leito` vinha `"UTI - NEONATAL"` para todos, o leito real (`008.046-0018`) aparecia em `cid` e a data de internação em `diasInternacao`. `/search-leito` não achava ninguém no HB.

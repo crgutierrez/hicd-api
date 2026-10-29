@@ -414,7 +414,7 @@ HB enviado sem o header tenta logar no host padrão e recebe 401.`,
             get: {
                 tags: ['Pacientes'],
                 summary: 'Prescrições médicas do paciente',
-                description: 'Medicamentos, dietas e dispositivos. Cache 10 min.',
+                description: 'Medicamentos, dietas e cuidados. Cache 10 min.\n\nCada `detalhes` traz também `hidratacao[]` e `sedacao[]` estruturadas: `periodo`, `parametros` (TH, TIG, NA, K, CA, PESO — como texto), `componentes[]` (`nome`, `dose`, `volume`, `unidade`), `volumeTotal`, `vazao` (ML/H), `horario` e o `texto` original. Elas continuam em `medicamentos` com `nome` "Hidratação venosa" / "Sedação" e `tipo`. Linha "Hidratação:" em branco no formulário é ignorada.',
                 parameters: [
                     { name: 'prontuario', in: 'path', required: true, schema: { type: 'string' }, example: '45164' }
                 ],
