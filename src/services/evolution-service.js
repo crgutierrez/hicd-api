@@ -1,3 +1,5 @@
+const { isUsuarioNaoLogado, usuarioNaoLogadoError } = require('../core/session');
+
 /**
  * Serviço para buscar e gerenciar evoluções médicas
  */
@@ -71,6 +73,9 @@ class EvolutionService {
                     }
                 });
                 console.log(`[EVOLUCOES] Resposta de ${paramModule} - tamanho: ${response.data.length} caracteres`);
+                if (isUsuarioNaoLogado(response.data)) {
+                    throw usuarioNaoLogadoError();
+                }
                 return this.parser.parseEvolucoes(response.data, pacienteId);
             };
 
@@ -93,6 +98,8 @@ class EvolutionService {
 
         } catch (error) {
             console.error(`[EVOLUCOES] Erro ao buscar evoluções do paciente ${pacienteId}:`, error.message);
+            // Credencial inválida não é "paciente sem evolução": propaga.
+            if (error.code === 'HICD_USUARIO_NAO_LOGADO') throw error;
             return [];
         }
     }

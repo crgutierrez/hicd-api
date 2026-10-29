@@ -10,15 +10,13 @@ const spec = {
 
 ## Autenticação
 
-Todas as rotas de clínicas, pacientes e cache exigem autenticação.
+Todas as rotas de clínicas, pacientes, setores, cache e \`GET /api/auth/status\` exigem o header
+\`Authorization\` com o payload criptografado **em toda requisição**. Sem ele a resposta é 401,
+mesmo que o servidor já tenha uma sessão aberta no HICD.
 
-Há duas formas de autenticar:
-
-**1. Login explícito** — faça \`POST /api/auth/login\` com o payload criptografado.
-A sessão é mantida em memória enquanto o servidor estiver rodando.
-
-**2. Auto-login por header** — envie o header \`Authorization\` com o mesmo payload criptografado
-em qualquer requisição protegida. O servidor faz o login automaticamente se ainda não estiver autenticado.
+Na primeira requisição (ou com credenciais diferentes das da sessão ativa) o servidor faz o login
+no HICD com as credenciais do token. As seguintes, com o mesmo usuário e senha, reusam a sessão.
+\`POST /api/auth/login\` faz esse login antecipadamente, mas não dispensa o header.
 
 ### Formato do payload criptografado
 AES-256-GCM aplicado sobre \`"login:senha"\`, codificado em base64: **IV (12 bytes) + AUTH_TAG (16 bytes) + CIPHERTEXT**.

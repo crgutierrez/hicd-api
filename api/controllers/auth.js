@@ -19,6 +19,7 @@
 
 const crypto = require('crypto');
 const sharedCrawler = require('../shared-crawler');
+const { decrypt: decryptHeader } = require('../middleware/require-auth');
 const config = require('../../config');
 
 const ALGORITHM = 'aes-256-gcm';
@@ -123,8 +124,7 @@ class AuthController {
             return res.status(401).json({
                 success: false,
                 error: 'Falha na autenticação',
-                message: result.message || 'Credenciais inválidas ou sistema HICD indisponível',
-                debug: result.errors || []
+                message: result.message || 'Credenciais inválidas ou sistema HICD indisponível'
             });
 
         } catch (error) {
@@ -137,6 +137,10 @@ class AuthController {
         }
     }
 
+    /**
+     * Responde se a sessão do host foi aberta com as credenciais do token
+     * enviado. Sem token → 401: o estado da sessão não é público.
+     */
     status(req, res) {
         let host;
         try {
@@ -148,10 +152,36 @@ class AuthController {
                 message: `Host não permitido. Hosts aceitos: ${config.HOST_ALLOWLIST.join(', ')}`
             });
         }
+
+        const authHeader = req.headers['authorization'];
+        if (!authHeader) {
+            return res.status(401).json({
+                success: false,
+                error: 'Não autenticado',
+                message: 'Envie o header Authorization com o payload criptografado'
+            });
+        }
+
+        let credenciais;
+        try {
+            const raw = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+            credenciais = decryptHeader(raw);
+        } catch {
+            return res.status(401).json({
+                success: false,
+                error: 'Header inválido',
+                message: 'Não foi possível descriptografar o header Authorization'
+            });
+        }
+
+        const colonIndex = credenciais.indexOf(':');
+        const username = colonIndex === -1 ? '' : credenciais.substring(0, colonIndex);
+        const password = colonIndex === -1 ? '' : credenciais.substring(colonIndex + 1);
+
         res.json({
             success: true,
             host,
-            authenticated: sharedCrawler.isReady(host)
+            authenticated: sharedCrawler.matches(host, username, password)
         });
     }
 }

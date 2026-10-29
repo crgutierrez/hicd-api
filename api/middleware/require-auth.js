@@ -1,13 +1,18 @@
 /**
- * Middleware que garante que o crawler está autenticado antes de processar a requisição.
+ * Middleware que autentica **cada requisição** e garante que o crawler do host
+ * está logado antes de processá-la.
  *
  * Fluxo:
- *   1. Se o crawler já está pronto → prossegue normalmente.
- *   2. Se não está pronto → tenta auto-login via header Authorization.
- *      O header deve conter o mesmo payload criptografado do endpoint POST /api/auth/login.
+ *   1. Exige o header Authorization (o mesmo payload criptografado do
+ *      POST /api/auth/login). Sem ele → 401, mesmo com o crawler já logado.
  *      Formato: Authorization: <base64(IV + AUTH_TAG + CIPHERTEXT)>
  *               Authorization: Bearer <base64(IV + AUTH_TAG + CIPHERTEXT)>
- *   3. Se o header não existir ou as credenciais forem inválidas → 401/503.
+ *   2. Se as credenciais decifradas são as que abriram a sessão do host → prossegue.
+ *   3. Senão → faz login com elas. Sucesso substitui a sessão; falha → 401 e a
+ *      sessão anterior continua de pé.
+ *
+ * Antes, o passo 1 só acontecia enquanto o crawler não estava pronto: depois do
+ * primeiro login qualquer requisição sem token lia dados de pacientes.
  */
 
 const crypto = require('crypto');
@@ -56,17 +61,13 @@ async function requireCrawler(req, res, next) {
     }
     req.hicdHost = host;
 
-    if (sharedCrawler.isReady(host)) {
-        return next();
-    }
-
     const authHeader = req.headers['authorization'];
 
     if (!authHeader) {
-        return res.status(503).json({
+        return res.status(401).json({
             success: false,
-            error: 'Serviço não disponível',
-            message: 'O sistema não está autenticado. Envie o header Authorization ou faça login via POST /api/auth/login'
+            error: 'Não autenticado',
+            message: 'Envie o header Authorization com o payload criptografado em toda requisição'
         });
     }
 
@@ -96,6 +97,10 @@ async function requireCrawler(req, res, next) {
     const username = decrypted.substring(0, colonIndex);
     const password = decrypted.substring(colonIndex + 1);
 
+    if (sharedCrawler.matches(host, username, password)) {
+        return next();
+    }
+
     console.log(`[AUTH-MIDDLEWARE] Auto-login via Authorization header para o usuário: ${username} (host: ${host})`);
 
     const result = await sharedCrawler.initCrawler(username, password, host);
@@ -111,4 +116,4 @@ async function requireCrawler(req, res, next) {
     });
 }
 
-module.exports = { requireCrawler };
+module.exports = { requireCrawler, decrypt };

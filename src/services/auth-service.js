@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const config = require('../../config');
+const { extrairErroLogin } = require('../core/session');
 
 /**
  * Serviço de autenticação para o sistema HICD
@@ -177,6 +178,14 @@ class HICDAuthService {
             // Verificar resposta do login
             const responseText = String(loginResponse.data);
             console.log('[LOGIN] Resposta do servidor (300 chars):', responseText.substring(0, 300));
+
+            // Login recusado vem com HTTP 200 e um alert(). Antes, o `status === 200`
+            // abaixo aceitava isso como sucesso e a sessão ficava aberta com usuário
+            // inexistente (clínicas respondem, evoluções não).
+            const erroLogin = extrairErroLogin(responseText);
+            if (erroLogin) {
+                return { success: false, message: `HICD recusou o login: ${erroLogin}` };
+            }
 
             // Verificar se o login foi bem-sucedido
             if (responseText.includes('OK') || responseText.includes('sucesso') || loginResponse.status === 200) {

@@ -57,4 +57,50 @@ function sessionExpiredError(message = 'Sessão HICD expirada e não pôde ser r
     return err;
 }
 
-module.exports = { isSessionExpiredHtml, sessionExpiredError };
+// Login recusado: o controller.php responde HTTP 200 com um alert() em vez do
+// redirecionamento de sucesso (`<script>window.location='';</script>`).
+// Capturado no HB: alert('Usuario Nao Existe (cristiano)!...').
+const LOGIN_ALERT_RE = /alert\s*\(\s*(['"])([\s\S]*?)\1\s*\)/i;
+
+/**
+ * Extrai a mensagem de erro de uma resposta de login recusada.
+ * @param {*} data - corpo da resposta do POST de login.
+ * @returns {string|null} a mensagem do alert(), ou null se não houver recusa.
+ */
+function extrairErroLogin(data) {
+    if (typeof data !== 'string') return null;
+    const m = data.match(LOGIN_ALERT_RE);
+    return m ? (m[2].trim() || 'login recusado pelo HICD') : null;
+}
+
+// Com login leniente (usuário inexistente mas cookie de sessão válido), clínicas
+// e prescrições respondem, e o módulo de evoluções (Param=REGE) devolve só isto
+// (25 bytes). Sem o detector o parser lê 0 evoluções e o paciente parece vazio.
+const USUARIO_NAO_LOGADO_RE = /Usu[aá]rio\s+n[aã]o\s+est[aá]\s+logado/i;
+
+/**
+ * Indica se a resposta é o aviso "Usuario nao esta logado" do HICD.
+ * @param {*} data
+ * @returns {boolean}
+ */
+function isUsuarioNaoLogado(data) {
+    return typeof data === 'string' && USUARIO_NAO_LOGADO_RE.test(data);
+}
+
+/**
+ * Erro tipado para "Usuario nao esta logado" (code = 'HICD_USUARIO_NAO_LOGADO').
+ * @returns {Error}
+ */
+function usuarioNaoLogadoError() {
+    const err = new Error('HICD respondeu "Usuario nao esta logado": a sessão foi aberta com usuário inválido');
+    err.code = 'HICD_USUARIO_NAO_LOGADO';
+    return err;
+}
+
+module.exports = {
+    isSessionExpiredHtml,
+    sessionExpiredError,
+    extrairErroLogin,
+    isUsuarioNaoLogado,
+    usuarioNaoLogadoError
+};

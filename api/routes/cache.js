@@ -1,7 +1,11 @@
 const express = require('express');
 const cache = require('../utils/cache');
+const { requireCrawler } = require('../middleware/require-auth');
 
 const router = express.Router();
+
+// Limpar/invalidar cache força nova ida ao HICD; não pode ficar aberto.
+router.use(requireCrawler);
 
 /**
  * @swagger

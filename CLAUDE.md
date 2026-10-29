@@ -215,6 +215,87 @@ node -e "
 
 > Registre aqui falhas da IA, alucinações e soluções. **Formato**: data · problema · causa · solução.
 
+### 2026-10-29 — API sem autenticação por requisição + login leniente valendo para todos
+
+- **Problema**: no servidor exposto (`85.31.61.1:3000`), `GET /api/clinicas/008/pacientes` sem nenhum header devolvia o censo da UTI Neonatal do HB com nomes e prontuários. E, no mesmo servidor, `/evolucoes` do HB voltava vazio para **todo** paciente enquanto `/prescricoes` funcionava.
+- **Causa 1**: `requireCrawler` fazia `if (isReady(host)) return next()` **antes** de olhar o `Authorization`. O token só era lido enquanto o crawler não tinha sessão; depois do primeiro login a API ficava aberta. `/api/cache/*` não tinha middleware nenhum e `/api/auth/status` dizia a qualquer um se havia sessão.
+- **Causa 2**: `attemptLogin` aceitava `loginResponse.status === 200` como sucesso. O HICD recusa login com **HTTP 200 + `alert('Usuario Nao Existe (x)! ou Senha inválida')`**; o sucesso é só `<script>window.location='';</script>`. A sessão com usuário inválido ficava guardada para o host inteiro e, pela causa 1, nenhum token certo a substituía até reiniciar o container.
+- **Solução**: o token é exigido e decifrado em **toda** requisição; a sessão só é reusada por quem apresenta as mesmas credenciais (`sharedCrawler.matches`, digest SHA-256 em tempo constante). Credencial diferente faz login e **só substitui a sessão se der certo** (`initCrawler` apagava a instância antes de tentar). `/api/cache` e `/api/auth/status` passaram a exigir token. `extrairErroLogin()` recusa a resposta com `alert(`. `getEvolucoes` lança `HICD_USUARIO_NAO_LOGADO` ao receber `Usuario nao esta logado` em vez de devolver `[]`. Testes em `test/auth-por-requisicao.test.js`; validado ao vivo no HB e no HICD.
+- **Regra**: ausência de dado vinda de um módulo que exige mais permissão que os outros é sintoma de autenticação, não de paciente vazio — e um estado de login guardado por processo precisa ser conferido por requisição.
+
+### 2026-10-15 — O HICD redesenhou o `imprime.php`: prescrição voltava sem medicamentos
+
+- **Problema**: `/api/pacientes/:prontuario/prescricoes` devolvia `medicamentos: []` (e `dietas: []`, cabeçalho furado) em **todas** as prescrições — ex.: o 48755, cuja última prescrição tinha 8 medicamentos padronizados, 3 não padronizados, dieta e 7 cuidados gerais escritos no prontuário.
+- **Causa**: o módulo de impressão de prescrição (`/prescricao_medica3/interface/imprime.php`) foi **redesenhado**. O `prescricao-parser.js` esperava o layout antigo — uma `<table border="1">` **por seção**, identificada pelo texto do elemento anterior conter "Medicação"+"LEGENDA". O HICD agora entrega **zero** tabelas `border="1"`: tudo está numa **única** `<table class="tabela-prescricao">`, com as seções delimitadas por linhas `<tr class="header-secao">` (DIETAS / MEDICAÇÃO / MEDICAÇÃO NÃO PADRONIZADA / CUIDADOS GERAIS). O seletor-âncora não casava com nada e o loop nunca entrava — ausência de estrutura lida como ausência de dado. Os rótulos do cabeçalho também mudaram: `REGISTRO/BE:`→`REG/BE:`, `INTERNADO EM:`→`INTERNADO:`, e a assinatura `MÉDICO:`→`PROFISSIONAL PRESCRITOR:`.
+- **Solução**: `extrairSecoesLayoutNovo()` varre a `table.tabela-prescricao` mantendo a seção corrente (ditada pelas `tr.header-secao`) e despacha cada linha de dados para medicamentos/dietas/cuidados, **reusando** `extrairDadosMedicamento`/`extrairDadosMedicamentoNaoPadronizado` — o separador `,\xa0\xa0` (char 160) continua casando com `\s{2,}`, então a lógica de campos não mudou. O layout antigo (`table[border="1"]`) ficou como **fallback** quando `tabela-prescricao` não existe. Cabeçalho e assinatura passaram a aceitar os dois conjuntos de rótulos. Validado ao vivo: 48755 → 11 medicamentos; 26052 → prescrição só com cuidados gerais, 0 medicamentos (vazio correto, não regressão).
+- **`textoMedicamento` continua a fonte de verdade** por medicamento — os campos parseados seguem best-effort (ver memória skill-prescricoes).
+
+### 2026-10-15 — Hospital de Base (`hb-hospub`): grafia do host, credencial com espaço e login leniente
+
+- **Host**: o HB é **`hb-hospub.sesau.ro.gov.br`** — resolve em DNS. A grafia invertida `hospub-hb.sesau.ro.gov.br` (que estava no `.env.hb`) **não resolve** (`ENOTFOUND`). `hicd-hospub.sesau.ro.gov.br` continua sendo o padrão. A allowlist em `config.js` lista `hb-hospub`; só esse (ou o `HICD_HOST` que subiu o servidor) é aceito no header `X-HICD-Host`.
+- **Credencial**: o usuário do HB é **`cristiano sousa`** (com espaço), não `cristiano`. Com `cristiano` o login devolve `alert('Usuario Nao Existe (cristiano)!...')`.
+- **Login leniente — a armadilha**: o `auth-service` marca `success: true` mesmo quando o HICD responde "Usuario Nao Existe", porque a verificação é frouxa. Pior: com só o cookie de sessão, **clínicas e prescrições retornam dados**, mas o módulo de evoluções (`Param=REGE`) exige usuário válido e responde **`Usuario nao esta logado`** (25 bytes) → **0 evoluções**. Logo: **`getEvolucoes` vazio enquanto prescrições funcionam é sintoma de credencial inválida**, não de parser nem de paciente sem evolução.
+- **Rodar contra o HB**: instância dedicada — `set -a; source ./.env.hb; set +a; PORT=3001 node api-server.js` — e apontar o cliente/Hermes para `http://localhost:3001/api`. O token da API é o mesmo (criptografa só `usuário:senha`, host é ortogonal).
+
+### 2026-10-15 — O HB serve um layout de evolução diferente: bloco sem a linha "Clinica:"
+
+- **Problema**: no HB, `getEvolucoes` trazia os metadados (profissional, data, atividade) mas `descricao`/`textoLimpo`/`clinicaLeito` vinham **vazios em todas** as evoluções. No HICD o mesmo parser funciona.
+- **Causa**: `evolucao-parser.js` localizava a descrição por **offset fixo** (`rowQuatro = i+3` a partir da linha `Profissional:`), o que embute a suposição de existir uma linha `Clinica:` em `i+2`. O HICD tem bloco de **5 linhas** (Profissional / Atividade / **Clinica** / Descrição / texto); o HB tem **4 linhas** (sem a `Clinica:`), então a `Descrição:` cai em **`i+2`** e o parser lia a linha errada. Não tem `#areaHistEvol` em nenhum dos dois no módulo `Evolucao`.
+- **Solução**: trocar os offsets fixos por **busca do rótulo DENTRO do bloco** (de um `Profissional:` até o próximo) — `buscarNoBloco('Descrição:')`, `'Atividade:'`, `'Clínica:'`. Serve aos dois layouts e recupera também evoluções do HICD que porventura não tragam a linha `Clinica:` (que o offset fixo perdia em silêncio). Validado contra HTML real: HICD 48755 → 304/304 com descrição (sem regressão); HB 580265 → **0 → 112**.
+- **Resquício**: no HB, `clinicaLeito` fica vazio nas evoluções (o layout não tem a linha `Clinica:`; o setor aparece como "Tipo: Internação"). Se precisar do setor no HB, derive de outra fonte (lista de pacientes / percurso do `Inter`).
+- **Regra**: parser que depende de **posição fixa de linha/coluna** quebra quando outro servidor omite uma linha. Ancore por **rótulo dentro do bloco**, não por offset.
+
+### 2026-09-16 — `registro` não é `prontuario`: o paciente fantasma 21640
+
+- **Problema**: o prontuário `21640` entrou no dataset com **43 campos vazios** — sem sexo, idade, município, raça/cor ou desfecho — e ainda assim contava em `n=235`, classificado automaticamente como "sem cardiopatia".
+- **Causa**: a coluna-chave do `docs/DRA_VERA_HICD_2024_2025.csv` chama-se **`registro`**, e ela vinha sendo passada direto para `--prontuarios` como se fosse o prontuário. Na maioria dos casos coincide (235 de 238 coletados; 14 de 15 numa amostra), mas no `21640` o `CONSPAC_OPEN` devolve resposta **vazia** (27 bytes). O pior é a assimetria: o módulo de evoluções **aceita** o número e devolve 750 evoluções, então a coleta parece ter funcionado e grava um `raw_*.json` mutilado, sem nenhum aviso.
+- **Solução**: resolver o prontuário a partir do registro antes de coletar e **validar que `cadastro.dadosBasicos.nome` veio preenchido**. Sem nome, o registro é marcado como não resolvido e fica fora do denominador — nunca vira `raw_*.json`.
+- **Testado e descartado**: **não existe `TIPOBUSCA=REG`** — devolve vazio. Os valores válidos são `PRONT` e `BE`. O `SSAME/pesq_Pront_Reg` devolve os 27 campos do cadastro mas **nenhum campo de prontuário** (o campo [2] é `00001` para todos). A busca por nome é `SSAME/pesq_Pront_Nome`.
+- **Regra**: coleta que não confirma identidade do paciente é coleta falhada, não coleta parcial.
+
+### 2026-09-14 — A triagem lia o marco amostral, não o prontuário
+
+- **Problema**: duas cardiopatias congênitas **operadas** classificadas como "sem cardiopatia" — o 34990 (CIV de via de entrada corrigida, com Síndrome de Down) e o 39332 (ventriculoplastia com endocardite sobre o patch).
+- **Causa**: `scripts/triagem_cardiopatia.py` varria as evoluções do `docs/DRA_VERA_HICD_2024_2025.csv` — o **marco amostral do estudo** —, não o prontuário. No 34990 a CIV está nas 20 evoluções da Dra. Luciana Nina, que não existem no CSV; a nota da Dra. Vera dizia só "pacth no septo interventricular". Segunda causa, independente: não havia termo para cardiopatia **corrigida**. No 39332 a conclusão do eco já estava transcrita na linha do CSV de classificação ("Pós Operatório de Ventriculoplastia e Endocardite no Patch") e ainda assim saiu `Não` — o dado estava lá, faltava a regra.
+- **Solução**: a fonte primária passou a ser **todas as evoluções com `atividade = CARDIOLOGISTA`** do `raw_*.json`, de qualquer profissional, unidas ao CSV (que continua servindo a quem ainda não foi coletado). Saída ganhou a coluna `outros_cardiologistas`. Novo grupo de termos `cardiopatia operada`: `patch`/`pacth` junto de septo, `POT CIV`, `ventriculoplastia`, `atriosseptoplastia`, `valvoplastia`, `anel redutor`, `prótese valvar`. O `pa(?:tc|ct)h` existe porque o prontuário traz as duas grafias.
+- **O `classificar_auto.py` passou a importar `fontes_do_prontuario` da triagem** em vez de reler o CSV — mesma lição do `reprocessar_obito.py`.
+- **Texto boilerplate reescrito**: "sem qualquer achado registrado nas evoluções" afirmava ausência; agora diz "NÃO LIDO À MÃO — a varredura não encontrou (…) isto não afirma ausência de achado". 108 linhas automáticas refeitas.
+- **Resultado**: 58 congênitas em 235 prontuários, sensibilidade 100% (58/58), nenhum falso negativo.
+- **Limite que permanece**: para os prontuários **ainda não coletados**, a triagem cai de volta no CSV e volta a ser cega. A correção só vale depois da coleta.
+
+### 2026-09-14 — "Óbito confirmado" não era óbito, e a cópia em Python desfez a correção
+
+- **Problema**: um óbito de UTI (prontuário 38183, 8 meses, 112 dias internada) contado como "sem informação". A evolução dizia, com todas as letras: "Óbito confirmado 11h32. Informo a mãe. Emito atestado de óbito" — e a saída do `Inter` era 11:32 do mesmo dia.
+- **Causa**: `OBITO_CONSTATADO` aceitava "óbito declarado" e "óbito constatado", mas não **"confirmado"**; aceitava "declaração de óbito", mas não **"atestado de óbito"**.
+- **Solução**: os dois verbos entraram no padrão. Varredura dos 218 prontuários: 1 óbito novo, nenhum perdido. Mortalidade passou de 17 para 18 internações (18 → 19 pacientes).
+- **O segundo bug foi pior**: rodar o `scripts/reprocessar_obito.py` logo depois **apagou** o óbito recém-detectado. Aquele script reescreveu a regex em Python, e a cópia velha sobrescreveu a nova. Regra duplicada em duas linguagens diverge — e divergiu na mesma sessão em que foi apontada. O script Python foi marcado como obsoleto; o `scripts/reprocessar_desfecho.js` passou a recalcular também o `obitoNoProntuario`, chamando o serviço em vez de reimplementar.
+- **Regra**: scripts de reprocessamento **chamam o serviço**, nunca reescrevem a regra.
+
+### 2026-09-14 — 40% de desfecho "sem informação" era falha de detecção, não dado faltante
+
+- **Problema**: 230 das 566 internações (40,6%) sem desfecho, e só **2 transferências** no dataset inteiro — implausível num hospital que faz TFD aéreo de rotina.
+- **Causa**: `resolverDesfecho()` só olhava o módulo RALTA e um padrão estreito de resumo de alta. Mas o HICD não obriga resumo: em metade dessas internações a alta está escrita na última evolução — às vezes o texto inteiro dela é `ALTA MEDICA`.
+- **Solução**: passo 4 na precedência — desfecho declarado nas evoluções do **último dia** da internação (no máximo 6), com `confianca: 'média'`. Resultado: sem informação 40,6% → 21,9%, alta 50,7% → 68,4%, transferência 2 → 8. Nenhum óbito mudou (tem precedência). Reprocessamento sem recoletar: `node scripts/reprocessar_desfecho.js [--gravar]`, que chama o serviço em vez de reescrever a regex (o `reprocessar_obito.py` duplicou a regra em Python e as duas cópias podem divergir).
+- **Por que só o último dia**: o prontuário recopia a admissão inteira todo dia; varrer a janela toda faz a história pregressa virar desfecho.
+- **Quatro falsos positivos encontrados na validação à mão**, todos viraram regra:
+  - **Alta de especialidade**: `ALTA CARDIOLÓGICA` no primeiro parecer da cardio, com o paciente internado mais 31 dias (35708). Removida do texto antes da busca — inclusive na forma `Neuropediatria- alta médica`.
+  - **Narrativa de chegada**: "transferida para o Hospital Bom Pastor" é a HDA de como o paciente *chegou* (36170). O particípio `transferid[ao] para` saiu do padrão de transferência; só contam formas substantivas (`transferência para o hospital X`) e transporte/UTI aérea.
+  - **Alta de outra internação**: "recebeu alta da UTI do SAMAR há 5 dias da admissão" (25183). O pretérito `recebeu alta` saiu do padrão.
+  - **Passagem de equipe**: "alta da pediatria, aos cuidados da nefro" (14385) — segue internado.
+
+### 2026-09-14 — Laudos de imagem não existem como módulo: o eco é uma evolução
+
+- **Problema**: contagem de ecocardiogramas inflada em ~20× — um filtro textual devolveu 69 "laudos" para o prontuário 35649 onde havia 3 exames reais. E uma varredura por laudo de eco perdeu diagnósticos que não vêm do eco.
+- **Causa**: o HICD não tem módulo de laudos de imagem. O ecocardiograma vive como **evolução** com `atividade = CARDIOLOGISTA`. Pior: a conclusão do parecer é **copiada e colada** nas evoluções diárias da pediatria e da nefrologia, então casar texto conta cada cópia como um laudo.
+- **Solução**: filtrar por `profissional` (nome do cardiologista), nunca pelo texto. Três formatos coexistem: laudo formal (`LAUDO DE ECOCARDIODOPPLER PEDIÁTRICO` / `ECOCARDIOGRAMA BIDIMENSIONAL COM DOPPLER`, com `CONCLUSÃO:` e assinatura com CRM), eco à beira-leito (`PELA CARDIOPED / REALIZADO ECOCARDIODOPPLER AO LEITO`, sem laudo formal mas com diagnóstico) e parecer só clínico, sem eco nenhum.
+- **Armadilhas relacionadas**: distúrbio de condução (bloqueio de ramo) é diagnosticado por **ECG**, com eco normal — quem varre só eco perde a categoria; o eco pode ser solicitado pelo HICD e **realizado no Hospital de Base**, mantendo o laudo do cardiologista do HICD.
+
+### 2026-09-14 — Texto de triagem automática lido como se fosse leitura do prontuário
+
+- **Problema**: três dos 19 pacientes de janeiro/2024 estavam descritos em `docs/classificacao_cardiologica.csv` como "sem laudo formal de ecocardiograma e sem qualquer achado" — e os três tinham ecocardiograma com achado, um deles laudo formal assinado por cardiologista.
+- **Causa**: a frase é boilerplate emitida pelo `scripts/triagem_cardiopatia.py` quando ele não encontra os termos da sua lista. "Não achei" foi registrado com a redação de "não existe".
+- **Solução**: linhas com `origem_classificacao = auto (triagem)` não são leitura do prontuário. Antes de afirmar ausência de achado, abrir as evoluções do cardiologista. Ao relatar números da amostra, declarar quantos prontuários não foram lidos à mão.
+
 ### 2026-09-14 — Teto de 400 evoluções: `Evo` vs `Evolucao`
 - **Problema**: `getEvolucoes()` devolvia no máximo 400 evoluções por paciente, truncando o histórico antigo sem nenhum aviso.
 - **Causa**: o teto é do `controller.php`, no módulo `ParamModule=Evo`. Não havia limite no nosso código.
@@ -444,6 +525,45 @@ Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 2. Use `detect_changes` for code review.
 3. Use `get_affected_flows` to understand impact.
 4. Use `query_graph` pattern="tests_for" to check coverage.
+
+### 2026-09-20 — O filtro de "linha normal" do laudo engolia o achado que vinha depois
+
+- **Problema**: o `42792` tinha laudo formal de ecocardiodoppler com "Canal Arterial minimo em vias de fechamento" e a triagem o classificou como **AUTO-NAO**, sem nenhum termo encontrado.
+- **Causa**: `RUIDO_NORMAL` em `scripts/triagem_cardiopatia.py` existe para não contar "Artéria Pulmonar: Normal" como achado. Mas ele fazia `continue` na **linha inteira**, e o laudo do HICD escreve o achado **depois** da cláusula normal, na mesma linha: `Artéria Pulmonar: Normal e ramos confluentes. Canal arterial amplo de 7.2mm`; `Septo Interatrial: Íntegro. FOP 3,3 mm.`; `Situs: Sólitus e dextrocardia.`
+- **Alcance**: **13 prontuários** com termo escondido atrás do "Normal", entre eles um canal arterial de 7,2 mm e uma dextrocardia.
+- **Dano real: 1 caso em 677** — doze dos treze já tinham sido pegos na leitura à mão. A redundância entre triagem automática e leitura humana absorveu o defeito.
+- **Solução**: remover a cláusula normal casada e continuar procurando no **resto** da linha, em vez de descartar a linha.
+- **Regra**: filtro de ruído que opera por linha precisa consumir só o trecho que casou. Prontuário não respeita "uma afirmação por linha".
+
+### 2026-09-20 — Auditoria da triagem automática: 43/43 dentro do domínio, 1,5% de erro residual
+
+- **Pergunta**: dá para confiar nos 297 pacientes classificados **só** pela triagem automática, nunca lidos à mão?
+- **Medida 1 — validação contra leitura humana**: dos 382 lidos à mão, separando quem veio da varredura por termo (enriquecido, por construção) dos demais: **43 `AUTO-NAO` do marco de cardiologistas, 0 falsos negativos**; 24 `AUTO-NAO` vindos da varredura, **15 falsos negativos (62,5%)**. Os 62,5% não são defeito: a triagem lê **evoluções de cardiologista** e esses pacientes não têm nenhuma. Com n=43 e zero erros, o limite superior de 95% (regra de três) é **7%** — declare isso, não "zero".
+- **Medida 2 — ir atrás do erro em vez de estimá-lo**: a varredura por termo tinha rodado só sobre quem estava **fora** do marco. Rodada sobre os 307 classificados automaticamente, achou 11 casos: **4 cardiopatias reais perdidas** (`20969`, `26036`, `27011`, `40327`), 1 limítrofe, 2 hipóteses não confirmadas e 4 falsos positivos de sigla. **Erro residual medido: 1,3%–1,7%.**
+- **Regra**: quando duas checagens independentes cobrem o mesmo conjunto — uma sobre evoluções de cardiologista, outra sobre todas as evoluções —, o erro de uma é absorvido pela outra. Foi o que aconteceu com o defeito do `RUIDO_NORMAL`: 13 prontuários afetados, 1 caso de dano.
+
+### 2026-09-20 — `CIA` é o nome de um posto de saúde, e `CIV` é onde ficou o cateter
+
+- **Problema**: cinco dos 54 achados da varredura por termo eram falso positivo de siglas que **não são diagnósticos**, e nenhum deles tinha ecocardiograma no prontuário.
+- **Casos**: `39498` "Procurou atendimento de **CIA** em 03/04/25" — é o **Centro Integrado de Atendimento**, unidade de saúde de Porto Velho; `43432` "**CIA**: MAE ROZENE" — é o campo **acompanhante** do cabeçalho da evolução; `38151` "Dieta **cia** oral" — erro de digitação de **via** oral; `40511` "Acesso venoso central em **CIV**" — sítio anatômico do cateter (outra evolução do mesmo paciente escreve "em VSD"); `38086` "MÃE ... **COARCTAÇÃO** DA AORTA" — história **familiar**.
+- **Solução**: nenhuma regex resolve isso — "CIA" ali está correta e é um substantivo próprio. A regra é de leitura: **achado de varredura sem exame que o sustente exige ler o contexto inteiro da evolução, não o trecho casado**. Os cinco viraram `Não` com a justificativa escrita na coluna `dx_cardio`.
+- **Regra**: siglas de três letras em prontuário são ambíguas por padrão, e a ambiguidade não é só com exame laboratorial (`PCA` = procalcitonina) — é com **nome de serviço, campo de formulário, sítio anatômico e erro de digitação**.
+
+### 2026-09-20 — Duplicata de prontuário: 678 registros, 676 pessoas
+
+- **Problema**: `38496` e `39071` são a mesma criança (mesmo nome, mesma data de nascimento, mesma mãe), ambas classificadas como congênita. A criança entrava duas vezes no numerador **e** no denominador de prevalência.
+- **Solução**: `duplicatas()` em `scripts/dataset_epidemio.py` detecta pares por `(nome, dataNascimento)` varrendo os `raw_*.json` — **detecção automática, não mapa escrito à mão**, para sobreviver às próximas coletas. O canônico é o de mais evoluções. As duas internações são eventos reais e distintos: **migram** para o canônico com a coluna `prontuario_origem` guardando a procedência, e o paciente deixa de contar em dobro (`prontuarios_duplicados`).
+- **Por que não descartar o duplicado inteiro**: as internações dele existiram. Apagá-las corrigiria o numerador de pacientes quebrando o denominador de internações.
+
+### 2026-09-18 — `PCA` no laboratório é PROCALCITONINA, não canal arterial
+
+- **Problema**: varredura de termos de cardiopatia nos 6.127 internados fora do marco amostral devolveu 71 achados de "canal arterial" — **53 deles (75%) eram falso positivo**.
+- **Causa**: a sigla `PCA` no laboratório do HICD é **procalcitonina**, e aparece no meio de listas de exames (`... PCR 136,7 PCA 0,36 CL 99 ...`). O padrão de persistência do canal arterial aceitava `PCA` solto.
+- **Solução**: `${NB}pca${NA}(?!\s*[:=]?\s*\d)` — a sigla não vale quando seguida de número. Corrigidos, os achados caem de 110 para ~59 em 5.000 varridos (2,2% → 1,2%).
+- **Da mesma varredura, outro falso positivo**: `fontan` casando com **"fontanela"**, que está no exame neurológico de todo lactente — 10 falsos positivos nos primeiros 150 pacientes. O `transfontanela` já estava excluído, mas não a forma simples. Precisa da fronteira acentuada: `${NB}fontan${NA}`.
+- **`PCA` tem uma SEGUNDA homonímia**: na história obstétrica, `G3PCA0` é a fórmula **Gesta-Para-Cesárea-Aborto**. Escapou do filtro de laboratório porque não vem seguida de número isolado. Exige o lookbehind `(?<![G]\d)`. Foram mais 5 falsos positivos.
+- **E o filtro post-hoc errou onde o scanner acertou**: usei `\bPCA` para limpar os resultados, e `\b` não casa em `2,40PCA` (dígito e letra são ambos `\w`, logo não há fronteira). A limpeza precisa da mesma fronteira acentuada do scanner, não de `\b`.
+- **Regra**: sigla de três letras em prontuário é ambígua por padrão. Antes de usar `PCA`, `CIA`, `CIV`, `HP` como termo diagnóstico, verificar se existe **exame laboratorial** homônimo **e** se a sigla aparece em alguma **fórmula estruturada** (obstétrica, escalas).
 
 ## Agent skills
 
