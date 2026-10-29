@@ -91,7 +91,7 @@ class Prescricao {
             id: parserData.id || listData?.id,
             codigo: listData?.codigo || null,
             dataHora: listData?.dataHora || cabecalho.dataPrescricao,
-            validaPara: cabecalho.dataPrescricao,
+            validaPara: cabecalho.validaPara,
             
             // Dados do paciente
             pacienteNome: cabecalho.pacienteNome,

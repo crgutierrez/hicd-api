@@ -161,14 +161,30 @@ class PrescricaoParser extends BaseParser {
             dataNascimento: extract(/DT\.?\s*NASC:\s*(\d{2}\/\d{2}\/\d{4})/i),
             idade: (extract(/IDADE:\s*(.+?)\s*-\s*CNS\s*:/i) || extract(/IDADE:\s*([^-\n]+)/i)).trim(),
             cns: extract(/CNS:\s*(\d+)/i),
-            peso: extract(/PESO:\s*([\d,]+\s*Kg)/i),
             dataInternacao: extract(/INTERNADO(?:\s+EM)?\s*:\s*(\d{2}\/\d{2}\/\d{4})/i),
             clinica: (extract(/CL[IÍ]NICA\/SETOR:\s*(.+?)\s*-\s*LEITO\s*:/i)
                 || extract(/CLINICA\/SETOR:\s*([^-]+?)(?:\s*-|$)/i)).trim(),
-            dataPrescricao: extract(/válida\s+para\s*(\d{2}\/\d{2}\/\d{4})/i),
+            // Layout novo: "PRESCRIÇÃO MÉDICA registrada em: 28/10/2026 09:56".
+            // Layout antigo: "válida para 08/09/2025" (só a data).
+            dataPrescricao: extract(/registrada\s+em\s*:\s*(\d{2}\/\d{2}\/\d{4}(?:\s+\d{2}:\d{2})?)/i)
+                || extract(/válida\s+para\s*(\d{2}\/\d{2}\/\d{4})/i),
+            validaPara: extract(/válida\s+para\s*(\d{2}\/\d{2}\/\d{4})/i),
             hospital: (extract(/(Hospital[^\n]*?)\s+PRESCRI[ÇC]/i)
                 || ($('font:contains("Hospital")').first().text() || '')).trim(),
         };
+
+        // "PESO: 21.6 Kg/g  ALT: Cm  SC: Sc" — o layout novo usa PONTO decimal
+        // (o regex antigo, [\d,]+, só aceitava vírgula e deixava o peso vazio) e a
+        // unidade "Kg/g" serve a kg e a gramas, então ela é guardada como veio, sem
+        // conversão. ALT/SC vêm só com a unidade quando não preenchidos.
+        const peso = cabecalhoText.match(/PESO\s*:\s*([\d.,]+)\s*(Kg\/g|Kg|g)?/i);
+        Object.assign(detalhes.cabecalho, {
+            peso: peso ? [peso[1], peso[2]].filter(Boolean).join(' ') : '',
+            pesoValor: peso ? peso[1] : '',
+            pesoUnidade: peso && peso[2] ? peso[2] : '',
+            altura: extract(/ALT\s*:\s*([\d.,]+)/i),
+            superficieCorporal: extract(/\bSC\s*:\s*([\d.,]+)/i),
+        });
 
         // Normaliza espaços não-quebráveis e quebras de linha internas.
         for (const k of Object.keys(detalhes.cabecalho)) {
