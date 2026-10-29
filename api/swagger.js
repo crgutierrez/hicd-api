@@ -21,14 +21,32 @@ no HICD com as credenciais do token. As seguintes, com o mesmo usuário e senha,
 ### Formato do payload criptografado
 AES-256-GCM aplicado sobre \`"login:senha"\`, codificado em base64: **IV (12 bytes) + AUTH_TAG (16 bytes) + CIPHERTEXT**.
 
-Gere com: \`node payload.js usuario minhaSenha\``,
+Gere com \`node payload.js usuario minhaSenha\` ou \`python generate_token.py\`. O token precisa ser
+cifrado com a mesma \`LOGIN_ENCRYPT_KEY\` do servidor que vai recebê-lo; com outra chave a resposta é 401.
+
+## Hospital (host do HICD)
+
+O header opcional \`X-HICD-Host\` escolhe o servidor HICD consultado — ex.:
+\`hb-hospub.sesau.ro.gov.br\` para o Hospital de Base. Ausente, vale o \`HICD_HOST\` com que a API subiu.
+Só hosts da allowlist são aceitos (400 caso contrário). Cada host tem sessão própria: um token do
+HB enviado sem o header tenta logar no host padrão e recebe 401.`,
         version: '1.0.0',
         contact: { name: 'Cristiano' }
     },
     servers: [
+        { url: '/', description: 'Este servidor' },
         { url: 'http://localhost:3000', description: 'Desenvolvimento' }
     ],
     components: {
+        parameters: {
+            HicdHost: {
+                name: 'X-HICD-Host',
+                in: 'header',
+                required: false,
+                description: 'Servidor HICD a consultar (allowlist). Ausente = host padrão da API.',
+                schema: { type: 'string', example: 'hb-hospub.sesau.ro.gov.br' }
+            }
+        },
         securitySchemes: {
             AuthorizationHeader: {
                 type: 'apiKey',
@@ -93,8 +111,8 @@ Gere com: \`node payload.js usuario minhaSenha\``,
         '/api/auth/login': {
             post: {
                 tags: ['Auth'],
-                summary: 'Autenticar no sistema HICD',
-                description: 'Recebe payload criptografado com `"login:senha"`, inicializa o crawler e autentica no HICD.',
+                summary: 'Abrir a sessão no HICD antecipadamente',
+                description: 'Recebe o payload criptografado com `"login:senha"` e faz o login no HICD do host indicado em `X-HICD-Host`. **Não dispensa** o header `Authorization` nas requisições seguintes: só adianta o login que a primeira requisição faria. Uma tentativa com credencial errada não derruba a sessão que já existe.',
                 security: [],
                 requestBody: {
                     required: true,
@@ -123,14 +141,15 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                                     type: 'object',
                                     properties: {
                                         success: { type: 'boolean', example: true },
-                                        message: { type: 'string', example: 'Login realizado com sucesso' }
+                                        message: { type: 'string', example: 'Login realizado com sucesso' },
+                                        host: { type: 'string', example: 'hb-hospub.sesau.ro.gov.br' }
                                     }
                                 }
                             }
                         }
                     },
                     400: { description: 'Payload ausente, inválido ou mal formatado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    401: { description: 'Credenciais rejeitadas pelo HICD', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    401: { description: 'Credenciais rejeitadas pelo HICD (ex.: "Usuario Nao Existe")', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -138,17 +157,18 @@ Gere com: \`node payload.js usuario minhaSenha\``,
         '/api/auth/status': {
             get: {
                 tags: ['Auth'],
-                summary: 'Verificar status de autenticação',
-                security: [],
+                summary: 'Verificar se o token tem sessão aberta no host',
+                description: 'Responde se a sessão do host foi aberta com as credenciais deste token. Não faz login. Sem token → 401.',
                 responses: {
                     200: {
-                        description: 'Status atual do crawler',
+                        description: 'Estado da sessão para este token',
                         content: {
                             'application/json': {
                                 schema: {
                                     type: 'object',
                                     properties: {
                                         success: { type: 'boolean', example: true },
+                                        host: { type: 'string', example: 'hicd-hospub.sesau.ro.gov.br' },
                                         authenticated: { type: 'boolean', example: true }
                                     }
                                 }
@@ -181,8 +201,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                                 }
                             }
                         }
-                    },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    }
                 }
             }
         },
@@ -196,8 +215,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 ],
                 responses: {
                     200: { description: 'Clínicas encontradas' },
-                    400: { description: 'Parâmetro nome ausente', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    400: { description: 'Parâmetro nome ausente', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -212,8 +230,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 ],
                 responses: {
                     200: { description: 'Pacientes da clínica', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, clinica: { $ref: '#/components/schemas/Clinica' }, data: { type: 'array', items: { $ref: '#/components/schemas/PacienteResumo' } }, total: { type: 'integer' } } } } } },
-                    404: { description: 'Clínica não encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    404: { description: 'Clínica não encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -227,8 +244,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 ],
                 responses: {
                     200: { description: 'Estatísticas da clínica' },
-                    404: { description: 'Clínica não encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    404: { description: 'Clínica não encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -241,8 +257,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                     { name: 'id', in: 'path', required: true, schema: { type: 'string' }, example: '007' }
                 ],
                 responses: {
-                    200: { description: 'Pareceres encontrados nas evoluções' },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    200: { description: 'Pareceres encontrados nas evoluções' }
                 }
             }
         },
@@ -257,8 +272,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 ],
                 responses: {
                     200: { description: 'Clínica encontrada', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Clinica' } } } } } },
-                    404: { description: 'Clínica não encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    404: { description: 'Clínica não encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -276,8 +290,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 responses: {
                     200: { description: 'Paciente(s) encontrado(s)' },
                     400: { description: 'Nenhum parâmetro informado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    404: { description: 'Paciente não encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    404: { description: 'Paciente não encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -292,8 +305,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 responses: {
                     200: { description: 'Paciente encontrado no leito' },
                     400: { description: 'Parâmetro leito ausente', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    404: { description: 'Nenhum paciente no leito', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    404: { description: 'Nenhum paciente no leito', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -309,8 +321,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 responses: {
                     200: { description: 'Dados completos do paciente' },
                     404: { description: 'Paciente não encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    422: { description: 'Dados inválidos', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    422: { description: 'Dados inválidos', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -319,7 +330,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
             get: {
                 tags: ['Pacientes'],
                 summary: 'Evoluções médicas do paciente',
-                description: 'Cache 10 min.',
+                description: 'Cache 10 min. Se o HICD responder "Usuario nao esta logado" (sessão aberta com usuário inválido — clínicas e prescrições ainda respondem) a rota devolve **500** com essa mensagem, e não lista vazia.',
                 parameters: [
                     { name: 'prontuario', in: 'path', required: true, schema: { type: 'string' }, example: '45164' },
                     { name: 'formato', in: 'query', schema: { type: 'string', enum: ['resumido', 'detalhado', 'clinico'], default: 'detalhado' } },
@@ -327,8 +338,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 ],
                 responses: {
                     200: { description: 'Lista de evoluções' },
-                    404: { description: 'Nenhuma evolução encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    404: { description: 'Nenhuma evolução encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -361,8 +371,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                             }
                         }
                     },
-                    404: { description: 'Nenhuma evolução com data válida encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    404: { description: 'Nenhuma evolução com data válida encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -377,8 +386,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 ],
                 responses: {
                     200: { description: 'Análise clínica estruturada' },
-                    404: { description: 'Paciente não encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    404: { description: 'Paciente não encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -395,8 +403,7 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 ],
                 responses: {
                     200: { description: 'Lista de exames com resultados' },
-                    404: { description: 'Nenhum exame encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    404: { description: 'Nenhum exame encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
@@ -411,13 +418,12 @@ Gere com: \`node payload.js usuario minhaSenha\``,
                 ],
                 responses: {
                     200: { description: 'Lista de prescrições com detalhes' },
-                    404: { description: 'Nenhuma prescrição encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
-                    503: { description: 'Não autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                    404: { description: 'Nenhuma prescrição encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }
             }
         },
 
-        // ── CACHE ─────────────────────────────────────────────────────────────
+        // ── INTERNAÇÕES ───────────────────────────────────────────────────────
 
         '/api/pacientes/{prontuario}/internacoes': {
             get: {
@@ -575,11 +581,12 @@ cadastro o chama "OBSERVAÇÃO", no mesmo período. Para agrupar por setor, use 
                 }
             }
         },
+        // ── CACHE ─────────────────────────────────────────────────────────────
+
         '/api/cache/stats': {
             get: {
                 tags: ['Cache'],
                 summary: 'Estatísticas do cache em memória',
-                security: [],
                 responses: {
                     200: { description: 'Estatísticas', content: { 'application/json': { schema: { $ref: '#/components/schemas/CacheStats' } } } }
                 }
@@ -590,7 +597,6 @@ cadastro o chama "OBSERVAÇÃO", no mesmo período. Para agrupar por setor, use 
             delete: {
                 tags: ['Cache'],
                 summary: 'Limpar todo o cache',
-                security: [],
                 responses: { 200: { description: 'Cache limpo completamente' } }
             }
         },
@@ -599,7 +605,6 @@ cadastro o chama "OBSERVAÇÃO", no mesmo período. Para agrupar por setor, use 
             delete: {
                 tags: ['Cache'],
                 summary: 'Invalidar cache de um paciente',
-                security: [],
                 parameters: [
                     { name: 'prontuario', in: 'path', required: true, schema: { type: 'string' }, example: '45164' }
                 ],
@@ -611,11 +616,13 @@ cadastro o chama "OBSERVAÇÃO", no mesmo período. Para agrupar por setor, use 
             delete: {
                 tags: ['Cache'],
                 summary: 'Invalidar cache por tipo',
-                security: [],
                 parameters: [
-                    { name: 'type', in: 'path', required: true, schema: { type: 'string', enum: ['cadastro', 'evolucoes', 'exames', 'prescricoes', 'analise'] }, example: 'evolucoes' }
+                    { name: 'type', in: 'path', required: true, schema: { type: 'string', enum: ['exames', 'evolucoes', 'prontuarios', 'prescricoes'] }, example: 'evolucoes' }
                 ],
-                responses: { 200: { description: 'Cache do tipo invalidado' } }
+                responses: {
+                    200: { description: 'Cache do tipo invalidado' },
+                    400: { description: 'Tipo inválido', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
+                }
             }
         },
 
@@ -623,7 +630,6 @@ cadastro o chama "OBSERVAÇÃO", no mesmo período. Para agrupar por setor, use 
             post: {
                 tags: ['Cache'],
                 summary: 'Remover itens expirados do cache',
-                security: [],
                 responses: { 200: { description: 'Itens expirados removidos' } }
             }
         },
@@ -657,5 +663,20 @@ cadastro o chama "OBSERVAÇÃO", no mesmo período. Para agrupar por setor, use 
         }
     }
 };
+
+// Toda rota que passa pelo requireCrawler (ou lê o X-HICD-Host) recebe o mesmo
+// parâmetro e as mesmas respostas de erro — declarado uma vez aqui para não
+// divergir rota a rota.
+const erro = (description) => ({ description, content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } });
+for (const [rota, ops] of Object.entries(spec.paths)) {
+    if (rota === '/api/health') continue;
+    for (const op of Object.values(ops)) {
+        op.parameters = [{ $ref: '#/components/parameters/HicdHost' }, ...(op.parameters || [])];
+        op.responses[400] = op.responses[400] || erro('Host fora da allowlist em X-HICD-Host');
+        if (rota !== '/api/auth/login') {
+            op.responses[401] = op.responses[401] || erro('Token ausente, que não decifra com a LOGIN_ENCRYPT_KEY do servidor, ou credenciais recusadas pelo HICD');
+        }
+    }
+}
 
 module.exports = spec;
