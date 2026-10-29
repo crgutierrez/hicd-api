@@ -41,6 +41,7 @@ class Paciente {
             codigoClinica: data.codigoClinica || null,
             nomeClinica: data.nomeClinica || null,
             numeroLeito: data.numeroLeito || null,
+            leitoNumero: data.leitoNumero || null,
             clinicaLeito: data.clinicaLeito || null,
             diasInternacao: data.diasInternacao || null,
             dataInternacao: data.dataInternacao || null
@@ -109,6 +110,7 @@ class Paciente {
             sexo: listData.sexo,
             cid: listData.cid,
             numeroLeito: listData.leito || listData.clinicaLeito,
+            leitoNumero: listData.leitoNumero,
             nomeClinica: listData.clinica || listData.clinicaNome,
             clinicaLeito: listData.clinicaLeito || listData.leito,
             diasInternacao: listData.diasInternacao,
@@ -128,6 +130,7 @@ class Paciente {
             sexo: this.sexo,
             cid: this.cid,
             leito: this.internacao.numeroLeito,
+            leitoNumero: this.internacao.leitoNumero,
             clinicaLeito: this.internacao.clinicaLeito,
             clinica: this.internacao.nomeClinica,
             diasInternacao: this.internacao.diasInternacao,

@@ -78,7 +78,8 @@ HB enviado sem o header tenta logar no host padrão e recebe 401.`,
                 properties: {
                     prontuario: { type: 'string', example: '45164' },
                     nome: { type: 'string', example: 'FULANO DE TAL' },
-                    leito: { type: 'string', example: '007-UTI 0001', nullable: true },
+                    leito: { type: 'string', example: '008.046-0018', nullable: true },
+                    leitoNumero: { type: 'string', example: '18', nullable: true, description: 'Número do leito extraído do código' },
                     clinica: { type: 'string', example: 'U T I' }
                 }
             },
@@ -299,11 +300,12 @@ HB enviado sem o header tenta logar no host padrão e recebe 401.`,
             get: {
                 tags: ['Pacientes'],
                 summary: 'Buscar paciente por leito',
+                description: 'Varre todas as clínicas (lento: uma requisição por clínica). Aceita o código completo (`008.046-0018`) ou formatos curtos como `G7`. `data` é uma **lista**: o mesmo leito pode aparecer em mais de uma clínica. Cada item traz `leito` (código) e `leitoNumero` (`"18"`).',
                 parameters: [
-                    { name: 'leito', in: 'query', required: true, schema: { type: 'string' }, example: 'G7' }
+                    { name: 'leito', in: 'query', required: true, schema: { type: 'string' }, example: '008.046-0018' }
                 ],
                 responses: {
-                    200: { description: 'Paciente encontrado no leito' },
+                    200: { description: 'Pacientes encontrados no leito', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { $ref: '#/components/schemas/PacienteResumo' } }, total: { type: 'integer' }, leito: { type: 'string' } } } } } },
                     400: { description: 'Parâmetro leito ausente', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } },
                     404: { description: 'Nenhum paciente no leito', content: { 'application/json': { schema: { $ref: '#/components/schemas/Erro' } } } }
                 }

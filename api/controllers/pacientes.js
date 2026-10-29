@@ -635,9 +635,16 @@ class PacientesController {
             const crawler = await this.initCrawler(req.hicdHost);
 
             console.log(`Buscando paciente por leito: ${leito}`);
-            const pacienteRaw = await crawler.buscarPacientePorLeito(leito);
+            // O serviço devolve uma LISTA (o mesmo código pode existir em mais de
+            // uma clínica). Antes ela era passada inteira ao fromListData, que
+            // espera um paciente: saía sem prontuário e a rota respondia 422
+            // sempre — e [] não é falsy, então o 404 também nunca acontecia.
+            const encontrados = await crawler.buscarPacientePorLeito(leito);
+            const pacientes = (encontrados || [])
+                .map(p => Paciente.fromListData(p))
+                .filter(p => p && p.isValid());
 
-            if (!pacienteRaw) {
+            if (pacientes.length === 0) {
                 return res.status(404).json({
                     success: false,
                     error: 'Paciente não encontrado',
@@ -645,20 +652,10 @@ class PacientesController {
                 });
             }
 
-            // Converter para o modelo Paciente
-            const paciente = Paciente.fromListData(pacienteRaw);
-
-            if (!paciente || !paciente.isValid()) {
-                return res.status(422).json({
-                    success: false,
-                    error: 'Dados inválidos',
-                    message: 'Os dados do paciente não puderam ser processados corretamente'
-                });
-            }
-
             res.json({
                 success: true,
-                data: paciente.toResumo(),
+                data: pacientes.map(p => p.toResumo()),
+                total: pacientes.length,
                 leito: leito
             });
         } catch (error) {

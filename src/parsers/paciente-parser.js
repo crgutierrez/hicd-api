@@ -14,6 +14,7 @@ const HTML_ENTITY   = /&[a-z]+;|&#\d+;/gi; // entidades básicas
 const TABLE_RE   = /<table\b[^>]*>([\s\S]*?)<\/table>/i;
 const TR_RE      = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
 const TD_RE      = /<td\b[^>]*>([\s\S]*?)<\/td>/gi;
+const TH_RE      = /<th\b[^>]*>([\s\S]*?)<\/th>/gi;
 const COMMENT_RE = /<!--[\s\S]*?-->/g;   // remove <td> dentro de comentários HTML
 const ONCLICK_RE = /onclick=["']([^"']+)["']/i;
 const HREF_RE    = /href=["']([^"']+)["']/i;
@@ -70,6 +71,44 @@ function stripHtml(s) {
             .replace(/&[a-z#\d]+;/gi, ' ')   // &nbsp;, &amp;, &#160; → espaço
             .replace(WS_RE, ' ')
             .trim();
+}
+
+/** Código do leito na lista de pacientes: "007.007-0001", "008.046-0018". */
+const RE_CODIGO_LEITO = /^(\d{3})\.(\d{3})-(\d{4})$/;
+
+/**
+ * Lê o cabeçalho da lista de pacientes e devolve o índice de cada coluna.
+ *
+ * As colunas mudam de servidor para servidor: o HICD entrega
+ *   Nome | Prontuário | Leito | CID | Data Internação | Dias Internados …
+ * e o Hospital de Base acrescenta uma coluna "Clínica" antes do Leito. Lidas
+ * por posição, no HB o nome da clínica caía em `leito`, o leito em `cid` e a
+ * data de internação em `diasInternacao`. Ancorar pelo rótulo serve aos dois.
+ *
+ * @param {string[]} cabecalho - textos das células do cabeçalho
+ * @returns {Object|null} índices por campo, ou null se não houver coluna "Leito"
+ */
+function mapearCabecalho(cabecalho) {
+    const norm = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const mapa = {};
+    cabecalho.forEach((texto, i) => {
+        const t = norm(texto);
+        if (/\bleito\b/.test(t) && mapa.leito === undefined) mapa.leito = i;
+        else if (/^\s*cid\b/.test(t)) mapa.cid = i;
+        // Acentos podem vir como entidade (&ccedil;&atilde;), que o stripHtml
+        // troca por espaço: "Data Interna  o", "Cl nica". Os testes toleram isso.
+        else if (/interna/.test(t) && /data/.test(t)) mapa.dataInternacao = i;
+        else if (/dias/.test(t)) mapa.diasInternacao = i;
+        else if (/^\s*cl.{0,3}nica\s*$/.test(t)) mapa.clinica = i;
+        else if (/^\s*sexo\b/.test(t)) mapa.sexo = i;
+    });
+    return mapa.leito === undefined ? null : mapa;
+}
+
+/** Número do leito a partir do código ("008.046-0018" → "18"), ou null. */
+function numeroDoLeito(codigo) {
+    const m = RE_CODIGO_LEITO.exec(codigo || '');
+    return m ? String(parseInt(m[3], 10)) : null;
 }
 
 /**
@@ -248,6 +287,7 @@ class PacienteParser extends BaseParser {
         const pacientes    = [];
         const timestamp    = new Date().toISOString();
         let   firstRow     = true;
+        let   mapa         = null;
 
         TR_RE.lastIndex = 0;
         let trMatch;
@@ -256,9 +296,18 @@ class PacienteParser extends BaseParser {
             // colunas opcionais com <!-- <td>...</td> --> dentro das linhas
             const trContent = trMatch[1].replace(COMMENT_RE, '');
 
-            // Pula linhas de cabeçalho
-            if (trContent.includes('<th')) { firstRow = false; continue; }
-            if (firstRow) { firstRow = false; continue; }
+            // Linha de cabeçalho: <th> no HB, primeira linha de <td> no HICD.
+            // Guarda os rótulos para mapear as colunas e pula a linha.
+            if (trContent.includes('<th') || firstRow) {
+                const re = trContent.includes('<th') ? TH_RE : TD_RE;
+                const rotulos = [];
+                re.lastIndex = 0;
+                let m;
+                while ((m = re.exec(trContent)) !== null) rotulos.push(stripHtml(m[1]));
+                mapa = mapa || mapearCabecalho(rotulos);
+                firstRow = false;
+                continue;
+            }
 
             // Extrai células <td>
             const cells = [];
@@ -289,41 +338,20 @@ class PacienteParser extends BaseParser {
 
             if (!prontuario || !nome) continue;
 
-            const leito = cells.length >= 3 ? stripHtml(cells[2]) : '';
-
-            // Detecta automaticamente a estrutura da tabela:
-            // Estrutura com sexo:    [pront, nome, leito, sexo, dataInt, dias]
-            // Estrutura com CID:     [pront, nome, leito, cid,  dataInt, dias]
-            // Estrutura sem sexo:    [pront, nome, leito, dataInt, dias]
-            const c3raw = cells.length >= 4 ? stripHtml(cells[3]) : '';
-            let sexo = '', cid = '', internacao = '', diasInternacao = '';
-
-            if (this.isSexoValue(c3raw)) {
-                // Coluna 3 é sexo → data e dias nas posições 4 e 5
-                sexo           = c3raw;
-                internacao     = cells.length >= 5 ? stripHtml(cells[4]) : '';
-                diasInternacao = cells.length >= 6 ? stripHtml(cells[5]) : '';
-            } else if (DATE_LIKE.test(c3raw)) {
-                // Coluna 3 é a data de internação (sem coluna de sexo/CID)
-                internacao     = c3raw;
-                diasInternacao = cells.length >= 5 ? stripHtml(cells[4]) : '';
-            } else {
-                // Coluna 3 é CID ou campo desconhecido
-                cid            = c3raw;
-                internacao     = cells.length >= 5 ? stripHtml(cells[4]) : '';
-                diasInternacao = cells.length >= 6 ? stripHtml(cells[5]) : '';
-            }
+            const campos = this._camposDaLinha(cells.map(stripHtml), mapa);
 
             pacientes.push({
                 prontuario: String(prontuario),
                 nome,
-                cid:            cid || null,
+                cid:            campos.cid || null,
                 dataNascimento: null,
-                dataInternacao: this.parseDate(internacao),
-                sexo:           this.normalizeSexo(sexo),
-                diasInternacao,
-                leito,
-                clinicaLeito:   leito,
+                dataInternacao: this.parseDate(campos.internacao),
+                sexo:           this.normalizeSexo(campos.sexo),
+                diasInternacao: campos.diasInternacao,
+                leito:          campos.leito,
+                leitoNumero:    numeroDoLeito(campos.leito),
+                clinicaLeito:   campos.leito,
+                clinicaNome:    campos.clinicaNome || null,
                 status:         'ativo',
                 dataUltimaAtualizacao: timestamp
             });
@@ -364,14 +392,20 @@ class PacienteParser extends BaseParser {
 
         // Fallback genérico: qualquer TR com TD
         let skipFirst = true;
+        let mapa = null;
         $('table tr').each((_, trNode) => {
             // Filtra células filhas diretas sem .find('td') (mais rápido)
             const tds = [];
-            for (const ch of (trNode.children || []))
-                if (ch.type === 'tag' && ch.name === 'td') tds.push(ch);
+            const ths = [];
+            for (const ch of (trNode.children || [])) {
+                if (ch.type !== 'tag') continue;
+                if (ch.name === 'td') tds.push(ch);
+                else if (ch.name === 'th') ths.push(ch);
+            }
 
+            if (ths.length > 0) { mapa = mapa || mapearCabecalho(ths.map(nodeText)); skipFirst = false; return; }
             if (tds.length === 0) return;
-            if (skipFirst) { skipFirst = false; return; }
+            if (skipFirst) { mapa = mapa || mapearCabecalho(tds.map(nodeText)); skipFirst = false; return; }
 
             const c0 = nodeText(tds[0]);
             const c1 = nodeText(tds[1] || {});
@@ -391,39 +425,61 @@ class PacienteParser extends BaseParser {
             }
             if (!prontuario || !nome) return;
 
-            const leito = tds[2] ? nodeText(tds[2]) : '';
-            const c3raw = tds[3] ? nodeText(tds[3]) : '';
-            let sexo = '', cid = '', internacao = '', diasInternacao = '';
-
-            if (this.isSexoValue(c3raw)) {
-                sexo           = c3raw;
-                internacao     = tds[4] ? nodeText(tds[4]) : '';
-                diasInternacao = tds[5] ? nodeText(tds[5]) : '';
-            } else if (DATE_LIKE.test(c3raw)) {
-                internacao     = c3raw;
-                diasInternacao = tds[4] ? nodeText(tds[4]) : '';
-            } else {
-                cid            = c3raw;
-                internacao     = tds[4] ? nodeText(tds[4]) : '';
-                diasInternacao = tds[5] ? nodeText(tds[5]) : '';
-            }
+            const campos = this._camposDaLinha(tds.map(nodeText), mapa);
 
             pacientes.push({
                 prontuario: String(prontuario),
                 nome,
-                cid:             cid || null,
+                cid:             campos.cid || null,
                 dataNascimento:  null,
-                dataInternacao:  this.parseDate(internacao),
-                sexo:            this.normalizeSexo(sexo),
-                diasInternacao,
-                leito,
-                clinicaLeito:    leito,
+                dataInternacao:  this.parseDate(campos.internacao),
+                sexo:            this.normalizeSexo(campos.sexo),
+                diasInternacao:  campos.diasInternacao,
+                leito:           campos.leito,
+                leitoNumero:     numeroDoLeito(campos.leito),
+                clinicaLeito:    campos.leito,
+                clinicaNome:     campos.clinicaNome || null,
                 status:          'ativo',
                 dataUltimaAtualizacao: timestamp
             });
         });
 
         return pacientes;
+    }
+
+    /**
+     * Campos de uma linha da lista, a partir dos textos das células.
+     * Com cabeçalho mapeado, lê pelo rótulo da coluna; sem ele, cai na
+     * detecção por posição (colunas 2 em diante):
+     *   com sexo: [pront, nome, leito, sexo, dataInt, dias]
+     *   com CID:  [pront, nome, leito, cid,  dataInt, dias]
+     *   sem sexo: [pront, nome, leito, dataInt, dias]
+     * @param {string[]} t - textos das células
+     * @param {Object|null} mapa - saída de mapearCabecalho
+     */
+    _camposDaLinha(t, mapa) {
+        const em = (i) => (i === undefined ? '' : (t[i] || ''));
+
+        if (mapa) {
+            return {
+                leito:          em(mapa.leito),
+                cid:            em(mapa.cid),
+                sexo:           em(mapa.sexo),
+                internacao:     em(mapa.dataInternacao),
+                diasInternacao: em(mapa.diasInternacao),
+                clinicaNome:    em(mapa.clinica),
+            };
+        }
+
+        const leito = em(2);
+        const c3 = em(3);
+        if (this.isSexoValue(c3)) {
+            return { leito, sexo: c3, cid: '', internacao: em(4), diasInternacao: em(5) };
+        }
+        if (DATE_LIKE.test(c3)) {
+            return { leito, sexo: '', cid: '', internacao: c3, diasInternacao: em(4) };
+        }
+        return { leito, sexo: '', cid: c3, internacao: em(4), diasInternacao: em(5) };
     }
 
     _parseFallbackEl($, el, codigoClinica, timestamp) {

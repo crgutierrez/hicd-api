@@ -215,6 +215,15 @@ node -e "
 
 > Registre aqui falhas da IA, alucinações e soluções. **Formato**: data · problema · causa · solução.
 
+### 2026-10-29 — Lista de pacientes do HB tem uma coluna a mais: o leito caía no `cid`
+
+- **Problema**: em `/api/clinicas/:id/pacientes` do HB, `leito` vinha `"UTI - NEONATAL"` para todos, o leito real (`008.046-0018`) aparecia em `cid` e a data de internação em `diasInternacao`. `/search-leito` não achava ninguém no HB.
+- **Causa**: `paciente-parser.js` lia as colunas por **posição**. O HB acrescenta uma coluna **"Clínica"** antes do Leito (`Nome | Prontuário | Clínica | Leito | CID | Data Internação | Dias …`); no HICD ela não existe. Tudo deslocou uma casa. É o mesmo erro do parser de evoluções do HB, ao contrário: lá faltava uma linha, aqui sobra uma coluna.
+- **Solução**: `mapearCabecalho()` lê os rótulos do cabeçalho (`<th>` no HB; primeira linha de `<td>` no HICD, com acentos como entidade HTML, que o `stripHtml` vira espaço — por isso `/interna/` e `cl.{0,3}nica`) e as linhas são lidas pelo rótulo. Sem cabeçalho reconhecível, cai na leitura por posição antiga. Novos campos: `leitoNumero` (`"18"`) e `clinicaNome`. HICD 007 sai idêntico ao anterior; HB 008 → 21/21 com leito correto. Testes em `test/lista-pacientes-colunas.test.js`.
+- **Bug colateral, antigo**: `/search-leito` respondia **422 sempre**, em qualquer hospital — o serviço devolve uma lista e o controller a passava inteira ao `Paciente.fromListData`. E `[]` não é falsy, então o 404 nunca acontecia. Agora `data` é lista, com `total`.
+- **Leito da prescrição ≠ leito atual**: o `enfLeito` da prescrição é o leito quando ela foi escrita. No 582019 a prescrição dizia `0460010` e a lista, 18 — com o leito 10 ocupado por outro paciente.
+- **Regra**: já é a segunda vez que o HB difere em estrutura (linha de evolução, coluna de lista). Parser de tabela lê **pelo rótulo**, nunca pela posição.
+
 ### 2026-10-29 — API sem autenticação por requisição + login leniente valendo para todos
 
 - **Problema**: no servidor exposto (`85.31.61.1:3000`), `GET /api/clinicas/008/pacientes` sem nenhum header devolvia o censo da UTI Neonatal do HB com nomes e prontuários. E, no mesmo servidor, `/evolucoes` do HB voltava vazio para **todo** paciente enquanto `/prescricoes` funcionava.
