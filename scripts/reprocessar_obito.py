@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Reaplica a detecção de óbito sobre os raw_*.json já coletados.
+"""OBSOLETO — use `node scripts/reprocessar_desfecho.js`.
+
+Este script reescreveu `OBITO_CONSTATADO` em Python. Em 14/09/2026 as duas
+cópias divergiram: o serviço em JS ganhou "óbito confirmado" e "atestado de
+óbito", este arquivo não, e rodá-lo depois do script Node APAGOU um óbito real
+de UTI já detectado (prontuário 38183). Mantido só como registro.
+
+Reaplica a detecção de óbito sobre os raw_*.json já coletados.
 
 Existe para corrigir a detecção sem refazer a coleta inteira no HICD — os textos
 das evoluções já estão em disco, e só a regra mudou.

@@ -15,9 +15,15 @@ const CadastroSameParser = require('../parsers/cadastro-same-parser');
  */
 const OBITO_CONSTATADO = new RegExp([
     'constat\\w*\\s+(?:o\\s+)?[óo]bito',
-    '[óo]bito\\s+(?:foi\\s+)?(?:declarado|constatado)',
+    // "Obito confirmado 11h32" — o verbo varia; "confirmado" faltava e escondeu
+    // um óbito real de UTI (38183), com a saída do Inter no minuto exato.
+    '[óo]bito\\s+(?:foi\\s+)?(?:declarado|constatado|confirmado|atestado)',
+    'confirm(?:o|ou|ado|ada)\\s+(?:o\\s+)?[óo]bito',
     'declar(?:o|ou|ado|ada)\\s+(?:a\\s+)?(?:hora\\s+do\\s+)?[óo]bito',
     'declara[çc][ãa]o\\s+de\\s+[óo]bito',
+    // "Emito atestado de óbito" é o registro do ato, não menção genérica.
+    '(?:emit\\w+|assin\\w+|preenc\\w+|fornec\\w+)\\s+(?:o\\s+|a\\s+)?(?:atestado|declara[çc][ãa]o)\\s+de\\s+[óo]bito',
+    'atestado\\s+de\\s+[óo]bito',
     'protocolo\\s+de\\s+[óo]bito',
     'hora\\s+do\\s+[óo]bito',
     'evolui[u]?\\s+(?:para\\s+)?[óo]bito',
@@ -32,6 +38,78 @@ const paraData = (s) => {
     const m = String(s || '').match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
     return m ? new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0)) : null;
 };
+
+/**
+ * Fronteira de palavra que inclui acentuadas. `\b` não serve: em "FARMÁCIA" o
+ * `\b` enxerga fronteira antes de "CIA" porque `\w` é ASCII.
+ */
+const L = 'a-zà-öø-ÿA-ZÀ-ÖØ-Þ';
+
+/**
+ * Alta da **especialidade**, não do hospital. Precisa ser removida do texto
+ * antes de procurar alta hospitalar: a cardiopediatria escreve "ALTA
+ * CARDIOLÓGICA" no primeiro parecer e o paciente segue internado semanas.
+ */
+const ESPECIALIDADES = `cardio|neuro|nefro|reumato|gastro|pneumo|endocrino|hemato|infecto|` +
+    `cirurgia|ortopedia|psicologia|fisioterapia|nutri[çc][ãa]o|fonoaudiologia|dermato|urolog`;
+
+const ALTA_DE_ESPECIALIDADE = new RegExp([
+    `alta\\s+(?:cardiol[óo]gica|neurol[óo]gica|cir[úu]rgica|ortop[ée]dica|psicol[óo]gica|` +
+        `nutricional|fonoaudiol[óo]gica|fisioterap[êe]utica|da\\s+especialidade|` +
+        `(?:d[ao]|pel[ao])\\s+(?:${ESPECIALIDADES})\\w*)`,
+    // "Neuropediatria- alta médica": o nome da especialidade vem antes, com traço.
+    `(?:${ESPECIALIDADES})\\w*\\s*[-–—:]\\s*alta\\s+m[ée]dica`,
+    // Alta de uma equipe passando o paciente para outra: segue internado.
+    `alta\\s+(?:d[ao]|pel[ao])\\s+\\w+[\\s,]*aos?\\s+cuidados\\s+d`,
+].join('|'), 'gi');
+
+/**
+ * Alta negada, apenas aguardada, ou de outra internação.
+ *
+ * "aguarda alta hospitalar" é expectativa, não desfecho; e o pretérito
+ * "recebeu alta" quase sempre está na história pregressa — pegou "recebeu alta
+ * da UTI do SAMAR há 5 dias da admissão" como se fosse a alta desta internação.
+ */
+const ALTA_NEGADA = new RegExp(
+    `(?:sem\\s+(?:condi[çc][õo]es|crit[ée]rios)\\s+(?:de|para)\\s+alta|` +
+    `(?:n[ãa]o|nega)\\s+(?:est[áa]\\s+|tem\\s+|houve\\s+)?(?:de\\s+)?alta|` +
+    `contraindicad[ao]\\s+alta|alta\\s+(?:n[ãa]o|suspensa|cancelada)|` +
+    `aguarda(?:ndo|r)?\\s+(?:a\\s+)?alta|recebe[ud]\\s+alta)`,
+    'gi');
+
+/**
+ * Alta hospitalar declarada na evolução. O HICD não obriga resumo de alta: em
+ * metade das internações o desfecho é uma linha solta na última evolução —
+ * às vezes o texto inteiro dela é "ALTA MEDICA".
+ */
+const ALTA_HOSPITALAR = new RegExp([
+    `(?<![${L}])alta\\s+(?:m[ée]dica|hospitalar|melhorad[ao])(?![${L}])`,
+    `conduta\\s*:?\\s*-?\\s*alta(?![${L}])`,
+    `(?<![${L}])alta\\s+(?:d[ao]|pel[ao])\\s+pediatria(?![${L}])`,
+    `(?<![${L}])(?:recebe|receber[áa]|obt[ée]m)\\s+alta(?![${L}])`,
+    `(?<![${L}])sugiro\\s+alta(?![${L}])`,
+    `(?<![${L}])alta\\s+a\\s+pedido(?![${L}])`,
+].join('|'), 'i');
+
+/**
+ * Transferência para **fora** do hospital. Deliberadamente restrita: "TFD"
+ * sozinho não serve — "dará entrada no TFD e poderá receber alta e aguardar
+ * TFD em domicílio" é alta, não transferência. E "transferido para a UTI" é
+ * movimentação interna, coberta por `derivarPercurso`.
+ *
+ * Só entram formas **substantivas** ("transferência para o hospital X") e o
+ * transporte aéreo. O particípio "transferida para o Hospital Bom Pastor" foi
+ * retirado de propósito: é a forma da narrativa de chegada na HDA, que o
+ * prontuário recopia todo dia — marcou transferência num paciente que veio
+ * transferido de outro município e recebeu alta daqui (36170). Perde-se
+ * recall; num levantamento de desfecho, inventar transferência é pior.
+ */
+const TRANSFERENCIA_EXTERNA = new RegExp([
+    `UTI\\s+a[ée]rea`,
+    `transporte\\s+a[ée]reo`,
+    `remo[çc][ãa]o\\s+a[ée]rea`,
+    `transfer[êe]ncia\\s+(?:externa|inter\\s*-?\\s*hospitalar|para\\s+(?:o\\s+|outr[ao]\\s+)?(?:hospital|munic[íi]pio|servi[çc]o))`,
+].join('|'), 'i');
 
 /**
  * Serviço de internações, desfecho e porta de entrada.
@@ -179,14 +257,22 @@ class InternacaoService {
 
     /**
      * Desfecho de uma internação, com precedência explícita:
-     *   1. óbito constatado em evolução  (anula os demais)
-     *   2. documento do RALTA            (classificado pelo título)
+     *   1. óbito constatado em evolução        (anula os demais)
+     *   2. documento do RALTA                  (classificado pelo título)
      *   3. resumo de alta escrito como evolução
-     *   4. sem informação
+     *   4. desfecho declarado nas evoluções do último dia
+     *   5. sem informação
+     *
+     * O passo 4 existe porque o RALTA cobre pouco: em 40% das internações não há
+     * documento nenhum, e em metade dessas a alta está escrita na última
+     * evolução — às vezes o texto inteiro dela é "ALTA MEDICA". Ele vale
+     * `confianca: 'média'`; quem precisar de desfecho auditado filtra por
+     * `confianca === 'alta'`.
      *
      * "Transferido" no corpo do texto quase nunca é o desfecho: descreve
      * movimentação interna (emergência → UTI → enfermaria) dentro de um resumo
-     * que termina em alta. Só o título "Relatório de transferência" decide.
+     * que termina em alta. Fora do título "Relatório de transferência", só
+     * contam marcas de saída do hospital (UTI aérea, transporte aéreo).
      */
     resolverDesfecho(internacao, relatorios = [], evolucoes = []) {
         const ent = paraData(internacao.entrada);
@@ -226,9 +312,47 @@ class InternacaoService {
             return d && d >= ent && (!limite || d <= limite)
                 && /resumo\s+de\s+alta\s+hospitalar|data\s+da\s+alta\s*:/i.test(e.descricao || '');
         });
-        return naEvolucao
-            ? { desfecho: 'Alta', confianca: 'média', fonte: 'Resumo de alta escrito como evolução' }
-            : { desfecho: 'Sem informação', confianca: null, fonte: null };
+        if (naEvolucao) {
+            return { desfecho: 'Alta', confianca: 'média', fonte: 'Resumo de alta escrito como evolução' };
+        }
+
+        // Último recurso: o desfecho declarado nas evoluções do fim da internação.
+        // Só o último dia entra — "recebeu alta" na história pregressa é de outra
+        // internação, e o texto da admissão é copiado inteiro todo dia.
+        const texto = this._textoDoFimDaInternacao(evolucoes, ent, limite);
+        if (texto) {
+            if (TRANSFERENCIA_EXTERNA.test(texto)) {
+                return { desfecho: 'Transferência', confianca: 'média', fonte: 'Transferência declarada na evolução final' };
+            }
+            const limpo = texto.replace(ALTA_DE_ESPECIALIDADE, ' ').replace(ALTA_NEGADA, ' ');
+            if (ALTA_HOSPITALAR.test(limpo)) {
+                return { desfecho: 'Alta', confianca: 'média', fonte: 'Alta declarada na evolução final' };
+            }
+        }
+        return { desfecho: 'Sem informação', confianca: null, fonte: null };
+    }
+
+    /**
+     * Texto das evoluções do último dia da internação.
+     *
+     * A janela é o dia da última evolução registrada, não a data de saída do
+     * `Inter`: a alta costuma ser escrita horas depois da saída (e a saída às
+     * vezes é lançada antes da última visita).
+     */
+    _textoDoFimDaInternacao(evolucoes, ent, limite, maximo = 6) {
+        const UM_DIA = 86400 * 1000;
+        const dentro = evolucoes
+            .map(e => ({ d: paraData(e.dataEvolucao || e.data), e }))
+            .filter(x => x.d && x.d >= ent && (!limite || x.d <= limite))
+            .sort((a, b) => a.d - b.d);
+        if (!dentro.length) return '';
+
+        const fim = dentro[dentro.length - 1].d;
+        return dentro
+            .filter(x => fim - x.d <= UM_DIA)
+            .slice(-maximo)
+            .map(x => [x.e.descricao, ...(Array.isArray(x.e.hipoteses) ? x.e.hipoteses : [])].join('\n'))
+            .join('\n');
     }
 
     /**

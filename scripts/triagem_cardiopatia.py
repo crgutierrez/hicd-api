@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
 """Triagem automática para o levantamento de cardiopatias.
 
-Varre DUAS fontes por prontuário:
-  1. evoluções da cardiopediatria (CSV da Dra. Vera) — laudos e pareceres
-  2. hipóteses diagnósticas de todas as especialidades (raw_<pront>.json)
+Varre TRÊS fontes por prontuário:
+  1. **todas** as evoluções com `atividade = CARDIOLOGISTA` do raw_<pront>.json —
+     de qualquer cardiologista, não só da Dra. Vera
+  2. as evoluções do CSV da Dra. Vera (marco amostral), como rede de segurança
+     para prontuários ainda não coletados
+  3. hipóteses diagnósticas de todas as especialidades (raw_<pront>.json)
 
-A segunda fonte importa: há cardiopatia registrada nas hipóteses da pediatria que
+A fonte 1 foi acrescentada em 14/09/2026 e é a correção mais importante deste
+script. Antes ele lia **só o CSV da Dra. Vera** — o marco amostral — e por isso
+era cego para cardiopatia acompanhada por outra cardiologista. Perdeu a CIV
+operada do prontuário 34990 (CIV de via de entrada com extensão subaórtica,
+corrigida em 31/08/2023, com Síndrome de Down): o diagnóstico está nas 20
+evoluções da Dra. Luciana Nina, que não existem no CSV, e a nota da Dra. Vera
+dizia só "pacth no septo interventricular".
+
+A fonte 3 importa porque há cardiopatia registrada nas hipóteses da pediatria que
 não aparece no texto da cardio (o 38089, FOP + canal arterial, é o caso que
 obrigou a incluí-la).
 
@@ -57,6 +68,15 @@ TERMOS = OrderedDict([
     ('cardiopatia (gen)',r'cardiopatia\s+cong[êe]nita|cardiopata'),
     ('Kawasaki',         r'kawasaki'),
     ('colateral aórtica',r'colateral\s+em\s+aorta|art[ée]ria\s+colateral'),
+    # Cardiopatia CORRIGIDA continua sendo cardiopatia. Sem estes termos, um
+    # paciente operado cuja única menção é "pacth no septo interventricular"
+    # (34990) sai como "sem cardiopatia". O "pacth" trocado é do prontuário.
+    ('cardiopatia operada', rf'{NB}pa(?:tc|ct)h{NA}[^.\n]{{0,60}}(?:septo|interventricular|interatrial|v[íi]a\s+de)|'
+                            rf'(?:septo|interventricular|interatrial|v[íi]a\s+de\s+(?:entrada|sa[íi]da))[^.\n]{{0,60}}{NB}pa(?:tc|ct)h{NA}|'
+                            rf'{NB}pot{NA}\s+(?:ci[va]|corre|tardio)|p[óo]s[\s-]?operat[óo]rio\s+(?:tardio\s+)?de\s+(?:corre|ci[va]|troca|pr[óo]tese|ventriculoplastia)|'
+                            rf'ventriculoplastia|atri?os+eptoplastia|valvoplastia|anel\s+redutor|'
+                            rf'pr[óo]tese\s+(?:valvar|mitral|a[óo]rtica|biol[óo]gica|tric[úu]spide)|'
+                            rf'corre[çc][ãa]o\s+(?:cir[úu]rgica\s+)?(?:de\s+)?cardiopatia|cirurgia\s+card[íi]aca'),
 ])
 
 # Linhas do laudo padrão que descrevem normalidade e não podem disparar termo.
@@ -92,12 +112,81 @@ def hipoteses_do_hicd(pront, base='output/epidemio'):
     return saida
 
 
+MARCO = 'output/epidemio/marco_amostral.json'
+
+
+def carregar_marco(caminho=MARCO):
+    """Marco amostral AMPLIADO: CSV da Dra. Vera + varredura de todos os cardiologistas.
+
+    O CSV dela cobre ~99% de quem foi avaliado pela cardiologia no biênio, mas
+    não 100%: a varredura dos 6.127 internados fora do marco achou 6 pacientes
+    com avaliação em 2024-2025 (5 só da Dra. Luciana Nina, 1 da própria Dra.
+    Vera ausente do export). Chavear o pipeline só no CSV os deixava de fora
+    mesmo depois de coletados.
+    """
+    if os.path.exists(caminho):
+        with open(caminho, encoding='utf-8') as fh:
+            m = json.load(fh)
+        return OrderedDict(
+            (k, [{'data_evo': d, 'descricao': '', 'profissional': '', 'fonte': 'marco'}
+                 for d in v.get('datas', [])])
+            for k, v in m.items())
+    return carregar_cardio()
+
+
 def carregar_cardio(caminho=CSV_CARDIO):
+    """Marco amostral original: evoluções da Dra. Vera, na ordem em que o CSV as traz."""
     por_pront = OrderedDict()
     with open(caminho, encoding='utf-8', newline='') as fh:
         for r in csv.DictReader(fh):
-            por_pront.setdefault(r['registro'], []).append(r)
+            por_pront.setdefault(r['registro'], []).append(
+                {'data_evo': r['data_evo'], 'descricao': r['descricao'],
+                 'profissional': r.get('profissional', ''), 'fonte': 'CSV'})
     return por_pront
+
+
+def _para_iso(data_br):
+    """`14/09/2026 08:30:00` -> `2026-09-14 08:30:00`, para ordenar junto com o CSV."""
+    m = re.match(r'(\d{2})/(\d{2})/(\d{4})[ T]?(.*)', str(data_br or ''))
+    return f'{m.group(3)}-{m.group(2)}-{m.group(1)} {m.group(4)}'.strip() if m else str(data_br or '')
+
+
+def evolucoes_de_cardiologista(pront, base='output/epidemio'):
+    """TODAS as evoluções com `atividade = CARDIOLOGISTA` do prontuário.
+
+    Não filtra por profissional: é justamente o que o script fazia de errado.
+    """
+    caminho = os.path.join(base, f'raw_{pront}.json')
+    if not os.path.exists(caminho):
+        return []
+    with open(caminho, encoding='utf-8') as fh:
+        d = json.load(fh)
+    evs = d.get('evolucoes')
+    if not isinstance(evs, list):
+        return []
+    return [{'data_evo': _para_iso(e.get('data') or e.get('dataEvolucao')),
+             'descricao': e.get('descricao') or '',
+             'profissional': (e.get('profissional') or '').strip(),
+             'fonte': 'prontuario'}
+            for e in evs
+            if re.search(r'CARDIOLOG', e.get('atividade') or '', re.I)]
+
+
+def fontes_do_prontuario(pront, do_csv=()):
+    """Une prontuário + CSV, sem contar a mesma evolução duas vezes.
+
+    O CSV é redundante quando o prontuário foi coletado, mas continua sendo a
+    única fonte para quem ainda não foi — e o marco amostral pode trazer texto
+    que o parser do HICD cortou.
+    """
+    unidas, vistos = [], set()
+    for e in list(evolucoes_de_cardiologista(pront)) + list(do_csv):
+        chave = (e['data_evo'][:16], limpar(e['descricao'])[:200].strip())
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        unidas.append(e)
+    return unidas
 
 
 def triar(evolucoes, hipoteses=()):
@@ -111,11 +200,21 @@ def triar(evolucoes, hipoteses=()):
                 continue
             if re.match(r'conclus[ãa]o\s*:', linha, re.I):
                 conclusoes.append(re.sub(r'^conclus[ãa]o\s*:\s*', '', linha, flags=re.I).strip())
-            # linhas de laudo normal não contam como achado
-            if RUIDO_NORMAL.match(linha):
+            # Linhas de laudo normal não contam como achado — mas descartar a
+            # LINHA INTEIRA perdia o achado que vem DEPOIS da cláusula normal,
+            # na mesma linha. O laudo do HICD escreve assim o tempo todo:
+            #   "Artéria Pulmonar: Normal e ramos confluentes. Canal arterial amplo de 7.2mm"
+            #   "Septo Interatrial: Íntegro. FOP 3,3 mm."
+            #   "Situs: Sólitus e dextrocardia."
+            # Eram 13 prontuários com termo escondido atrás do "Normal", entre eles
+            # um canal arterial de 7,2 mm e uma dextrocardia. Agora a cláusula
+            # normal é removida e o RESTO da linha continua sendo procurado.
+            m_normal = RUIDO_NORMAL.match(linha)
+            alvo = linha[m_normal.end():] if m_normal else linha
+            if not alvo.strip():
                 continue
             for rotulo, padrao in TERMOS.items():
-                if re.search(padrao, linha, re.I):
+                if re.search(padrao, alvo, re.I):
                     achados.setdefault(rotulo, linha[:150])
 
     for h in hipoteses:
@@ -134,19 +233,35 @@ def triar(evolucoes, hipoteses=()):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--n', type=int, default=200)
+    ap.add_argument('--n', type=int, default=200,
+                    help='quantos prontuários do início do CSV triar')
+    ap.add_argument('--prontuarios', default='',
+                    help='lista explícita, separada por vírgula; ignora --n')
+    ap.add_argument('--coletados', action='store_true',
+                    help='triar todos os prontuários já coletados em output/epidemio')
     ap.add_argument('--out', default='output/epidemio/triagem.csv')
     args = ap.parse_args()
 
-    cardio = carregar_cardio()
-    alvos = list(cardio)[:args.n]
+    cardio = carregar_marco()
+    if args.prontuarios:
+        alvos = [p.strip() for p in args.prontuarios.split(',') if p.strip() in cardio]
+    elif args.coletados:
+        import glob
+        coletados = {os.path.basename(f)[4:-5] for f in glob.glob('output/epidemio/raw_*.json')}
+        alvos = [p for p in cardio if p in coletados]
+    else:
+        alvos = list(cardio)[:args.n]
     linhas = []
     for pront in alvos:
-        grupo, achados, conclusoes = triar(cardio[pront], hipoteses_do_hicd(pront))
+        fontes = fontes_do_prontuario(pront, cardio.get(pront, ()))
+        grupo, achados, conclusoes = triar(fontes, hipoteses_do_hicd(pront))
+        outros = sorted({e['profissional'] for e in fontes
+                         if e['profissional'] and 'VERA JOANA' not in e['profissional'].upper()})
         linhas.append(dict(
             prontuario=pront,
             grupo=grupo,
-            n_evolucoes_cardio=len(cardio[pront]),
+            n_evolucoes_cardio=len(fontes),
+            outros_cardiologistas='; '.join(outros),
             termos='; '.join(achados.keys()),
             conclusoes=' | '.join(dict.fromkeys(conclusoes))[:400],
             laudo_todo_normal=('Sim' if conclusoes and all(CONCLUSAO_NORMAL.search(c) for c in conclusoes)
@@ -155,6 +270,13 @@ def main():
         ))
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    # Preserva a triagem já feita: o arquivo acumula, prontuário a prontuário.
+    if os.path.exists(args.out):
+        with open(args.out, encoding='utf-8', newline='') as fh:
+            anteriores = {r['prontuario']: r for r in csv.DictReader(fh)}
+        novos = {l['prontuario'] for l in linhas}
+        linhas = [r for p, r in anteriores.items() if p not in novos] + linhas
+
     with open(args.out, 'w', encoding='utf-8', newline='') as fh:
         w = csv.DictWriter(fh, fieldnames=list(linhas[0].keys()))
         w.writeheader()

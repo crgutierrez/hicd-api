@@ -10,6 +10,13 @@ Uso: python3 scripts/classificar_auto.py [--triagem ...] [--saida docs/classific
 import argparse, csv, html, json, os, re
 from collections import OrderedDict
 
+# A triagem é a fonte da regra: importar de lá evita a divergência de cópia que
+# já apagou um óbito real neste projeto (ver scripts/reprocessar_desfecho.js).
+from triagem_cardiopatia import fontes_do_prontuario
+
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 csv.field_size_limit(10 ** 9)
 CSV_CARDIO = 'docs/DRA_VERA_HICD_2024_2025.csv'
 COLUNAS = ['prontuario', 'cardiopatia_congenita', 'classe', 'dx_cardio',
@@ -90,14 +97,21 @@ def main():
     for pront, t in triagem.items():
         if t['grupo'] != 'AUTO-NAO' or pront in existentes:
             continue
-        conclusoes = resumo_cardio(cardio.get(pront, []))
+        # Todas as evoluções de cardiologista do prontuário, não só as do CSV
+        # da Dra. Vera: a conclusão pode estar num laudo de outra cardiologista.
+        conclusoes = resumo_cardio(fontes_do_prontuario(pront, cardio.get(pront, [])))
         if conclusoes:
-            dx = ('Sem cardiopatia congênita. Conclusão do ecocardiograma: '
-                  + ' / '.join(conclusoes))
+            dx = ('Sem cardiopatia congênita pela triagem automática. Conclusão do '
+                  'ecocardiograma: ' + ' / '.join(conclusoes))
         else:
-            dx = ('Sem cardiopatia congênita. Parecer da cardiopediatria sem laudo formal de '
-                  'ecocardiograma e sem qualquer achado estrutural, de condução ou coronariano '
-                  'registrado nas evoluções')
+            # Redação deliberada: "a triagem não encontrou" não é "não existe".
+            # A frase anterior afirmava ausência de achado e era falsa em 3 dos
+            # 19 prontuários de janeiro/2024, que tinham eco com achado.
+            dx = ('Sem cardiopatia congênita pela triagem automática — NÃO LIDO À MÃO. '
+                  'A varredura não encontrou laudo formal de ecocardiograma nem termo de '
+                  'cardiopatia nas evoluções de cardiologista deste prontuário. Isto não '
+                  'afirma ausência de achado: confirme abrindo as evoluções antes de usar '
+                  'esta linha como negativa')
         existentes[pront] = dict(
             prontuario=pront,
             cardiopatia_congenita='Não',

@@ -73,24 +73,32 @@ def porta_entrada(caminho='output/epidemio/porta_entrada.csv'):
 
 
 def passagem_por_uti(base='output/epidemio', anos=(2024, 2025)):
-    """Prontuários com ao menos uma evolução registrada na UTI (código 007).
+    """Prontuários que passaram pela UTI, pelas duas fontes.
 
-    Derivar isso do setor do Inter subestima em 3x: quem passa pela UTI e recebe
-    alta da enfermaria aparece só com a enfermaria.
+    O `clinicaLeito` das evoluções é a fonte principal: derivar só do setor do
+    Inter subestima em 3x, porque ele é o setor de ALTA — quem passa pela UTI e
+    recebe alta da enfermaria aparece só com a enfermaria.
+
+    Mas as evoluções de UTI frequentemente vêm sem `clinicaLeito`, e aí o setor
+    do Inter é o único sinal. Por isso as duas fontes entram.
     """
     import glob
     saida = set()
     for caminho in glob.glob(os.path.join(base, 'raw_*.json')):
         with open(caminho, encoding='utf-8') as fh:
             d = json.load(fh)
-        evs = d.get('evolucoes')
-        if not isinstance(evs, list):
-            continue
-        for e in evs:
-            m = re.match(r'(\d{2})/(\d{2})/(\d{4})', str(e.get('data') or ''))
-            if m and int(m.group(3)) in anos and str(e.get('clinicaLeito') or '').startswith('007-'):
+        no_ano = lambda v: (lambda m: bool(m) and int(m.group(3)) in anos)(
+            re.match(r'(\d{2})/(\d{2})/(\d{4})', str(v or '')))
+
+        for e in (d.get('evolucoes') if isinstance(d.get('evolucoes'), list) else []):
+            if no_ano(e.get('data')) and str(e.get('clinicaLeito') or '').startswith('007-'):
                 saida.add(d['prontuario'])
                 break
+        else:
+            for i in (d.get('internacoes') if isinstance(d.get('internacoes'), list) else []):
+                if no_ano(i.get('entrada')) and re.search(r'U\s*T\s*I', str(i.get('setor') or ''), re.I):
+                    saida.add(d['prontuario'])
+                    break
     return saida
 
 
@@ -98,6 +106,27 @@ def classificacao(caminho=CSV_CLASSIFICACAO):
     """prontuário -> classificação cardiológica revisada à mão."""
     with open(caminho, encoding='utf-8', newline='') as fh:
         return {r['prontuario']: r for r in csv.DictReader(fh)}
+
+
+def datas_marco(caminho='output/epidemio/marco_amostral.json'):
+    """Datas de avaliação cardiológica pelo marco AMPLIADO (todos os cardiologistas).
+
+    Cai de volta no CSV da Dra. Vera se o arquivo do marco não existir.
+    """
+    if not os.path.exists(caminho):
+        return datas_cardio()
+    with open(caminho, encoding='utf-8') as fh:
+        m = json.load(fh)
+    saida = OrderedDict()
+    for k, v in m.items():
+        ds = []
+        for d in v.get('datas', []):
+            try:
+                ds.append(datetime.strptime(d[:19], '%Y-%m-%d %H:%M:%S'))
+            except ValueError:
+                pass
+        saida[k] = sorted(ds)
+    return saida
 
 
 def datas_cardio(caminho=CSV_CARDIO):
@@ -161,18 +190,65 @@ def idade_legivel(dias):
     return f'{meses}m {resto % 30}d'
 
 
+def duplicatas(base='output/epidemio'):
+    """prontuário duplicado -> prontuário canônico, por (nome, data de nascimento).
+
+    O mesmo paciente pode ter dois prontuários no HICD (registro refeito). Contá-lo
+    duas vezes infla o numerador de prevalência e o denominador de pacientes, mas
+    as internações dos dois registros são eventos reais e distintos — elas migram
+    para o prontuário canônico em vez de serem descartadas.
+
+    O canônico é o que tem mais evoluções (o registro efetivamente usado).
+    """
+    import glob
+    por_pessoa = {}
+    for caminho in glob.glob(os.path.join(base, 'raw_*.json')):
+        with open(caminho, encoding='utf-8') as fh:
+            d = json.load(fh)
+        b = (d.get('cadastro') or {}).get('dadosBasicos') or {}
+        nome = (b.get('nome') or '').strip().upper()
+        if not nome:
+            continue
+        chave = (nome, str(b.get('dataNascimento') or '')[:10])
+        por_pessoa.setdefault(chave, []).append((len(d.get('evolucoes') or []), d['prontuario']))
+    mapa = {}
+    for chave, v in por_pessoa.items():
+        if len(v) < 2:
+            continue
+        v.sort(reverse=True)
+        canonico = v[0][1]
+        for _, p in v[1:]:
+            mapa[p] = canonico
+    return mapa
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', default='output/epidemio')
     args = ap.parse_args()
 
-    cardio = datas_cardio()
+    cardio = datas_marco()
     setores = catalogo_setores()
     CLASSIFICACAO = classificacao()
     PORTAS = porta_entrada()
     UTI = passagem_por_uti()
     BES = boletins_emergencia()
-    ordem = [p for p in cardio if p in CLASSIFICACAO]
+    # TODOS os prontuários coletados entram — não só os já classificados.
+    # Restringir a `CLASSIFICACAO` descartava silenciosamente os que aguardam
+    # leitura à mão (eram 187 de 626, 30%), e com eles TODAS as suas internações:
+    # o denominador de internações ficava incompleto sem nenhum aviso.
+    import glob as _glob
+    coletados = {os.path.basename(f)[4:-5] for f in _glob.glob(os.path.join(args.out, 'raw_*.json'))}
+    DUP = duplicatas(args.out)
+    ordem = [p for p in cardio if p in coletados and p not in DUP]
+    # Prontuários que se fundem em cada canônico (as internações vêm junto).
+    FUNDIDOS = {}
+    for dup, canon in DUP.items():
+        FUNDIDOS.setdefault(canon, []).append(dup)
+    if DUP:
+        print(f'{len(DUP)} prontuário(s) duplicado(s) fundido(s): '
+              + '; '.join(f'{d} -> {c}' for d, c in sorted(DUP.items())))
+    pendentes = [p for p in ordem if p not in CLASSIFICACAO]
     pacientes, internacoes = [], []
 
     for pront in ordem:
@@ -205,24 +281,44 @@ def main():
         # Todas as internações, com tempo de permanência
         # O módulo Inter devolve 500 em prontuários muito longos; nesses casos
         # o registro vem com {erro}, e o paciente entra sem dados de internação.
+        fontes = [(pront, d)]
+        for dup in FUNDIDOS.get(pront, []):
+            fontes.append((dup, json.load(open(f'{args.out}/raw_{dup}.json', encoding='utf-8'))))
         brutas = d.get('internacoes')
-        falha_inter = not isinstance(brutas, list)
+        falha_inter = any(not isinstance(f.get('internacoes'), list) for _, f in fontes)
         linhas = []
-        bes = BES.get(pront, [])
-        for i in (brutas if isinstance(brutas, list) else []):
+        for pront_fonte, dfonte in fontes:
+          bes = BES.get(pront_fonte, [])
+          brutas_f = dfonte.get('internacoes')
+          for i in (brutas_f if isinstance(brutas_f, list) else []):
             be = be_da_internacao(bes, i.get('entrada'))
             ent, sai = dt(i['entrada']), dt(i['saida'])
             permanencia = round((sai - ent).total_seconds() / 86400, 1) if ent and sai else None
+            # O módulo Inter tem registros corrompidos na origem: saída ANTERIOR à
+            # entrada (ex.: 17179, -2,5 dias) e internações de duração impossível
+            # (25183, 553 dias; 22870, 1.105 dias). Entravam nas médias de tempo de
+            # internação sem nenhum aviso. Aqui a permanência é anulada e o motivo
+            # fica registrado, para que a linha ainda conte como internação mas
+            # nunca entre em estatística de duração.
+            permanencia_invalida = None
+            if permanencia is not None and permanencia < 0:
+                permanencia_invalida = 'saída anterior à entrada'
+            elif permanencia is not None and permanencia > 365:
+                permanencia_invalida = f'duração implausível ({permanencia:.0f} dias)'
+            if permanencia_invalida:
+                permanencia = None
             linhas.append(dict(
                 prontuario=pront,
+                prontuario_origem=pront_fonte,
                 setor_codigo=setores.get((i['setor'] or '').upper()),
                 setor_alta=i['setor'],
-                setor_entrada=(PORTAS.get((pront, i['entrada']), {}) or {}).get('setor_primeira_evolucao'),
-                porta_de_entrada=(PORTAS.get((pront, i['entrada']), {}) or {}).get('porta_de_entrada'),
-                n_setores_na_internacao=(PORTAS.get((pront, i['entrada']), {}) or {}).get('n_setores_na_internacao'),
-                trajetoria_na_internacao=(PORTAS.get((pront, i['entrada']), {}) or {}).get('trajetoria_na_internacao'),
+                setor_entrada=(PORTAS.get((pront_fonte, i['entrada']), {}) or {}).get('setor_primeira_evolucao'),
+                porta_de_entrada=(PORTAS.get((pront_fonte, i['entrada']), {}) or {}).get('porta_de_entrada'),
+                n_setores_na_internacao=(PORTAS.get((pront_fonte, i['entrada']), {}) or {}).get('n_setores_na_internacao'),
+                trajetoria_na_internacao=(PORTAS.get((pront_fonte, i['entrada']), {}) or {}).get('trajetoria_na_internacao'),
                 setor=i['setor'], entrada=i['entrada'], saida=i['saida'],
                 permanencia_dias=permanencia,
+                permanencia_invalida=permanencia_invalida,
                 be_numero=(be or {}).get('be'),
                 be_chegada=(be or {}).get('entrada'),
                 be_motivo=(be or {}).get('motivo'),
@@ -249,7 +345,10 @@ def main():
 
         # Internação índice: a que contém a primeira avaliação da cardiopediatria.
         no_bienio = [l for l in linhas if l['no_bienio'] == 'Sim']
-        primeira_cardio = cardio.get(pront, [None])[0]
+        # Pacientes trazidos pela varredura de termos entram no marco SEM nenhuma
+        # avaliação de cardiologista (46 dos 46) — é exatamente a lacuna que a
+        # varredura fecha. Lista vazia não pode virar IndexError.
+        primeira_cardio = (cardio.get(pront) or [None])[0]
         indice = None
         if primeira_cardio:
             for l in linhas:
@@ -261,7 +360,12 @@ def main():
 
         ent_idx = dt(indice['entrada']) if indice else None
         dias_idade = (ent_idx - nasc).days if ent_idx else None
-        c = CLASSIFICACAO[pront]
+        # Sem classificação = aguardando leitura. Nunca escrever "Não" por omissão.
+        c = CLASSIFICACAO.get(pront) or {
+            'cardiopatia_congenita': 'Pendente de leitura',
+            'classe': '', 'dx_cardio': '', 'momento_dx': '', 'comorbidades': '',
+            'origem_classificacao': 'pendente',
+        }
 
         pacientes.append(dict(
             prontuario=pront,
@@ -298,6 +402,9 @@ def main():
             diagnostico_cardiologico=c['dx_cardio'],
             momento_do_diagnostico=c['momento_dx'],
             comorbidades=c['comorbidades'],
+            status_classificacao=('lido à mão' if c.get('origem_classificacao') == 'manual'
+                                  else ('triagem automática' if c.get('origem_classificacao') == 'auto (triagem)'
+                                        else 'PENDENTE — aguarda leitura')),
             cid_internacao_indice=f"{indice['cid_entrada']} {indice['cid_descricao']}" if indice else None,
             entrada_indice=indice['entrada'] if indice else None,
             saida_indice=indice['saida'] if indice else None,
@@ -312,12 +419,13 @@ def main():
             # Inter falha não há internação a que prender o desfecho, e sem isto
             # o paciente entraria como se não tivesse morrido.
             obito_em_qualquer_internacao=('Sim' if (any(l.get('desfecho') == 'Óbito' for l in linhas)
-                                                    or d.get('obitoNoProntuario')) else 'Não'),
+                                                    or any(f.get('obitoNoProntuario') for _, f in fontes)) else 'Não'),
             cadastro_indisponivel='Não',
             falha_modulo_internacoes='Sim' if falha_inter else 'Não',
+            prontuarios_duplicados=' '.join(FUNDIDOS.get(pront, [])) or None,
             data_1a_avaliacao_cardio=primeira_cardio.strftime('%d/%m/%Y') if primeira_cardio else None,
             avaliacoes_cardio=len(cardio.get(pront, [])),
-            total_evolucoes=d.get('totalEvolucoes'),
+            total_evolucoes=sum(f.get('totalEvolucoes') or 0 for _, f in fontes),
         ))
 
     os.makedirs(args.out, exist_ok=True)
